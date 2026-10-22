@@ -1174,7 +1174,7 @@
   // paragraphs only where the Read carrier needs a breath.
   var DECK = {
     c1base: {
-      eyebrow: 'Case 1 \u00b7 Deferred disposal', title: 'The blade at the bench',
+      title: 'The blade at the bench',
       narration: [
         'You’ve just changed out a used box-cutter blade at your bench. The designated sharps container is down at the end of the line, and the used blade is still at your bench. Like a needle or other sharp object, the blade is considered a sharp because it can puncture or cut the skin.',
         'Whether or not it’s visibly contaminated, an exposed blade left on a surface is a hazard to the next person who reaches for that spot — which is why the safe-handling procedure applies to every sharp, every time.',
@@ -1193,7 +1193,7 @@
     },
     c1rem: {
       recheck: { of: 'k1check', key: 'k1recheck', base: 'c1base', up: 'c1up' },
-      eyebrow: 'Case 1 \u00b7 Deferred disposal', title: 'The blade at the bench',
+      title: 'The blade at the bench',
       narration: [
         'You’re cleaning up your workstation after changing a cutting blade. The used blade is still in your hand, and you’re deciding how to handle it before moving on.',
         'Snapping it or setting it aside might seem like ways to make it safer, but they don’t properly contain the sharp. Depending on your facility’s procedures, you may need to wrap the exposed edge before disposal.',
@@ -1201,7 +1201,7 @@
       ]
     },
     c1up: {
-      eyebrow: 'Case 1 \u00b7 Deferred disposal', title: 'When the container is a walk away',
+      title: 'When the container is a walk away',
       narration: [
         'You’ve just changed out a used box-cutter blade at your bench. The designated sharps container is several workstations away. Your line is about to restart, and a coworker is waving you back to your station.',
         'Nothing about setting the blade down at your own workstation feels careless: you can see exactly where it is, and you’re planning to carry it down on your next scheduled break. But the safe-handling procedure doesn’t change when work gets busy.',
@@ -1219,7 +1219,7 @@
         okFb: 'A few extra steps don’t change the procedure. Plan the disposal route before you handle the sharp, then put the used sharp directly into a designated sharps container.' }
     },
     c2base: {
-      eyebrow: 'Case 2 \u00b7 Recognizing the hazard', title: 'At the fill line',
+      title: 'At the fill line',
       narration: [
         'You’re carrying a used sharp to a designated sharps container on the production floor. As you approach, you notice the container is full. On the way there, you also pass a piece of contaminated glass sitting in a general-waste bin. Both are sharps hazards, even though they look very different.',
         'A sharps container at its fill line should no longer be used because there is less room to place another sharp safely without coming into contact with the sharps already inside. A sharp left where it doesn’t belong, whether on a work surface, concealed in other material, or mixed into general waste, can also put the next person who encounters it at risk.',
@@ -1238,7 +1238,7 @@
     },
     c2rem: {
       recheck: { of: 'k2check', key: 'k2recheck', base: 'c2base', up: 'c2up' },
-      eyebrow: 'Case 2 \u00b7 Recognizing the hazard', title: 'At the fill line',
+      title: 'At the fill line',
       narration: [
         'You arrive at a designated sharps container and notice that several used sharps are already crowded near the top. One is resting near the opening, leaving little room to add another safely. Pressing the sharps down or trying to fit another one in could bring your hand into contact with a used sharp.',
         'When a container reaches its fill line, it should be treated as full and should not be used. Use another designated sharps container instead.',
@@ -1246,7 +1246,7 @@
       ]
     },
     c2up: {
-      eyebrow: 'Case 2 \u00b7 Recognizing the hazard', title: 'When the hazard is less obvious',
+      title: 'When the hazard is less obvious',
       narration: [
         'You’re carrying a used sharp toward a designated sharps container on the production floor. As you approach, you notice that the container is nearing its marked fill line. There appears to be room for another sharp, but the contents are already crowded near the top.',
         'On the way, you also notice something partially concealed in a general-waste bin. It looks like it could be a piece of contaminated glass, but you can’t tell without disturbing the contents.',
@@ -1264,7 +1264,7 @@
         okFb: 'Sharps hazards aren’t always obvious. A container nearing its fill line leaves less room for safe disposal, while something that could be a sharp concealed in general waste may put someone at risk if the contents are disturbed or handled.' }
     },
     controls: {
-      eyebrow: 'Why it works \u00b7 Engineering controls', title: 'Why the container beats the gloves',
+      title: 'Why the container beats the gloves',
       narration: [
         'A facility is looking for ways to better protect employees who may come into contact with used sharps. One option is to provide heavier protective gloves. Another is to make designated sharps containers more accessible throughout the facility. Both can provide protection, but they don’t control the hazard in the same way.',
         'Heavy-duty gloves can help protect against cuts, punctures, and exposure, but even thick gloves can be penetrated by a needle. A designated sharps container is an engineering control. It contains the sharp after disposal, reducing the chance that another person will come into contact with it.',
@@ -1277,7 +1277,7 @@
         options: [ { t: 'Never' }, { t: 'Once or twice' }, { t: 'Three to five times' }, { t: 'More than five times' } ] }
     },
     case3: {
-      eyebrow: 'Case 3 \u00b7 The risk you leave behind', title: 'A risk Jacob never chose',
+      title: 'A risk Jacob never chose',
       narration: [
         'Chris works on the line and manages his diabetes with insulin. One afternoon, he can’t find a sharps container nearby. He’s in the middle of a task, so just this once, he tosses the used needle into the general trash.',
         'Later, Jacob collects the bag for sanitation. The needle sticks him through the bag. Jacob never used the needle. He never even saw it. But a needlestick can expose someone to bloodborne pathogens such as HIV, hepatitis B, and hepatitis C.',
@@ -1286,7 +1286,7 @@
       check: { kind: 'likert', key: 'f1post', stem: '“' + F1_STATEMENT + '”' }
     },
     case3rf: {
-      eyebrow: 'Case 3 \u00b7 The risk you leave behind', title: 'Beyond the needlestick',
+      title: 'Beyond the needlestick',
       narration: [
         'Chris works on the line and manages his diabetes with insulin. One afternoon, he can’t find a sharps container nearby. He’s in the middle of a task, so just this once, he tosses the used needle into the general trash.',
         'Later, Jacob collects the bag for sanitation. The needle sticks him through the bag. Jacob never used the needle. He never even saw it. For Jacob, it didn’t end with the stick. It meant reporting the injury, a medical evaluation, blood tests, and weeks of waiting to learn whether he’d been exposed to HIV, hepatitis B, or hepatitis C — weeks his family spent waiting with him, the same question sitting at their dinner table every night.',
@@ -1296,7 +1296,7 @@
       check: { kind: 'likert', key: 'f1post', stem: '“' + F1_STATEMENT + '”' }
     },
     debrief: {
-      eyebrow: 'Debrief \u00b7 What people actually do', title: 'The shortcut is the exception',
+      title: 'The shortcut is the exception',
       narration: [
         'There’s a common assumption that when a sharps container isn’t nearby, everyone takes the shortcut and drops the sharp in the nearest trash. Making the trip to a designated container can feel unrealistic when work is moving quickly.',
         'But that shortcut isn’t necessarily the norm. In a U.S. study, 92.7% of workers surveyed reported always disposing of sharp objects in a sharps container.',
@@ -1306,7 +1306,7 @@
       check: { kind: 'likert', key: 'f3post', stem: '“' + F3_STATEMENT + '”' }
     },
     debriefrf: {
-      eyebrow: 'Debrief \u00b7 What people actually do', title: 'Memorable isn\u2019t the same as normal',
+      title: 'Memorable isn\u2019t the same as normal',
       narration: [
         'When a sharps container isn’t nearby, it can feel like taking the shortcut is simply what people do, and that expecting everyone to make the trip is unrealistic. But what stands out isn’t always what’s most common.',
         'In a U.S. study, 92.7% of workers surveyed reported always disposing of sharp objects in a sharps container. The shortcut feels common because it’s the behavior that gets noticed and remembered. The one time someone cuts a corner becomes the story people retell. The routine trips to the sharps container don’t.',
@@ -2035,7 +2035,6 @@
       return '<main class="ll-object dk-object"><div class="dk-theater">' +
         '<header class="dk-head">' +
           '<div class="dk-head-t">' +
-            '<p class="ll-eyebrow">' + esc(d.eyebrow) + '</p>' +
             '<h1 class="dk-title">' + esc(d.title) + '</h1>' +
           '</div>' +
           '<div class="dk-switch" id="dkSwitch" role="group" aria-label="How do you want to take this?">' +
@@ -2482,11 +2481,26 @@
           } else if (q.kind === 'insight') {
             csMark(picked, 'neutral');
             saveResult(q.key, { picked: v, answer: q.options[v].t, carrier: showing });
+            markRecorded();
           } else {
             picked.classList.add('is-picked');
             saveResult(q.key, { score: v, carrier: showing });
+            markRecorded();
           }
           ctx.enableNext();
+          // Ungraded items have no verdict to show, so after Submit the card
+          // just went quiet and it wasn't clear the screen was done (2026-10-23
+          // review). A plain status line takes the spent button's place — same
+          // height, so nothing on the card shifts.
+          function markRecorded() {
+            var btn = document.getElementById('dkSubmit');
+            var line = document.createElement('p');
+            line.className = 'dk-recorded';
+            line.setAttribute('role', 'status');
+            line.style.minHeight = btn.offsetHeight + 'px';
+            line.innerHTML = '<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Answer recorded';
+            btn.replaceWith(line);
+          }
         });
       }
 
@@ -2520,11 +2534,11 @@
   // the Listen mode post-check asks the question of whichever version played.
   function deckStep(id, extra) {
     var deck = (extra && extra.deck) || id;
-    var s = { id: id, icon: 'fa-circle-play', mins: 2, stage: 'Learn',
+    // The blue bar carries the module name; the screen's own title sits above
+    // the video, so showing it in both places just repeated it.
+    var s = { id: id, icon: 'fa-circle-play', mins: 2, stage: 'Learn', lesson: 'Contain the Sharp',
               mode: 'floating', gate: true, coach: { say: '' },
               content: deckContent(deck), init: deckInit(deck) };
-    // A getter, so the lesson name follows the sector like the screen does.
-    Object.defineProperty(s, 'lesson', { enumerable: true, get: function () { return deckFor(deck).title; } });
     for (var k in extra) if (k !== 'deck') s[k] = extra[k];
     if (!DECK[deck].recheck) {
       var served = s.when || function () { return true; };

@@ -77,6 +77,7 @@
 
 ## home-empty
 - (2026-10-21, later) **Decision: no Home tab at all when a department has no Quick Links.** Feedback on the empty state was to drop it. Instead the Home tab is removed from the tab bar and sign-in lands directly on **Record Completions**. Condition: the department's Quick Links card has zero tiles across all groups.
+- (2026-10-21) **Record gets Home's top treatment.** With no Home tab, the Record Completions screen carries the full `--brand` bar with the department name across the top, exactly like Home does, scrolling away with the content. Departments that do have Quick Links see Record unchanged (no brand bar).
 - (2026-10-21) **Record becomes the landing screen, so it keeps the tab bar** (Record · Scan · Alerts · More) — it is the only way to reach the other tabs — and its X is hidden, because there is nowhere to leave to. Cancel still discards the draft and stays on Record. Everything else about the task is unchanged.
 - (2026-10-21) **Every route to Home goes to Record instead:** the notification pre-prompt's buttons, and "Go to Home" on the confirmation screens (that button is simply hidden there; "Record more" / "Record another" remain).
 - (2026-10-21) ~~"No Quick Links yet" empty state inside the Quick Links card with Record a completion / Scan a QR code buttons.~~ Superseded by the decision above; removed from the mock.
@@ -87,11 +88,36 @@
 - (2026-10-21) **The code in the mock is a stand-in** (`ver1/qr-fitness.svg`, not scannable). "Simulate a scan" still resolves to the Physical Fitness self-assign; in production the camera resolves whatever code it sees.
 
 ## more
+- (2026-10-21) **File Center row** above the web-platform shortcut: opens the File Center at the department root (see `files`). The More tab stays highlighted while browsing from here.
 - (2026-10-21) **Account row shows name + department only.** The role/title ("Company Officer") was dropped from the account row and from Profile: title data is not available at launch.
 - (2026-10-21) **Privacy Policy link** at the foot of More — small, underlined, muted. Opens a Privacy Policy screen (back arrow to More) with the policy as readable text in a card. The prototype text is boilerplate; Legal supplies the real policy.
 
 ## profile
 - (2026-10-21) **Name and department only** — no title line. The shared-device card's copy now describes the Welcome back check instead of an automatic sign-out.
+
+## files
+- (2026-10-21) **What it is:** a read-only mobile view of the web platform's File Center. Two ways in: a File Center Quick Link (launch type `folder` lands in that folder, `file` opens that file directly) and the File Center row under More (lands at the root). No admin functions — no upload, edit, move or delete anywhere in the app.
+- (2026-10-21) **Screen:** app bar shows the current folder name (root reads "File Center") with a back arrow. Under it a sticky head: breadcrumb (`Springfield Fire Department File Center › Imported Resources › …`, ancestors tappable, scrolls sideways when long), a search field that filters the current folder as you type, and a sort button. Then a card of rows.
+- (2026-10-21) **Rows:** type icon chip, name (blue, like the web), and a gray subtitle underneath — the web's "Imported From …" line when the file has one, otherwise `type · size` (folders: item count; links: domain). Trailing glyph says what a tap does: chevron (folder), down-arrow (download), external-link (browser).
+- (2026-10-21) **Order:** folders first, then files and links, as the web platform lists them. Sort menu: Name A–Z (default), Name Z–A, Type, Newest first, Oldest first. The chosen sort persists while browsing.
+- (2026-10-21) **Back arrow exits, always.** The app-bar back returns to the screen the File Center was opened from (Home for a Quick Link, More otherwise) no matter how deep the user has gone. Moving around the tree is done in the tree: folder rows go down, "Up one level" and the breadcrumb go up. "Up one level" shows whenever the current folder has a parent — including above the folder a Quick Link started in — so the user can climb to the root and go anywhere.
+- (2026-10-21, later) **Decision: no history-style back.** The first cut popped back through every folder visited; John found that confusing next to the in-tree navigation, so back now has one meaning: leave.
+- (2026-10-21) **Open by type:** PDF, image and text open in the in-app viewer (`file-view`); PowerPoint, Word, Excel, ZIP and anything else the app cannot render get the download sheet (`file-download`); links hand off to the native browser, same as an external-URL Quick Link.
+- (2026-10-21) **Demo data** mirrors the admin screenshots (root: Imported Resources + User Overview Video; inside: the three PDFs and the Infoportal link) plus a Policies & SOGs folder with a nested 2026 Updates folder, so every behavior has something to tap. All department names are Springfield Fire Department, including the "Imported From" subtitles.
+
+## files-folder
+- (2026-10-21) **Folder-targeted Quick Link** (the "Imported Resources" tile, launch `folder`) lands directly in that folder with the Home tab still active. Back returns to Home from anywhere in the tree; "Up one level" goes to the File Center root.
+- (2026-10-21) **File-targeted Quick Link** (the "Wildland Policy" tile, launch `file`) opens the file itself over Home — the viewer for a PDF, the download sheet for an Office file, the browser for a link. Closing it returns to Home; the user never has to pass through the folder list.
+
+## file-view
+- (2026-10-21) **Full-screen viewer** for PDF, image and text: tab bar hidden, dark bar with X (close), the file name (two lines max), and a share button. Share offers the device share sheet, Save to device, and Open in another app.
+- (2026-10-21) **Zoom:** pinch on device; the prototype toggles 2× on double-tap. Images and text show the file size in the bottom pill (2× while zoomed); tapping the pill also toggles zoom.
+- (2026-10-21) **PDF page counter:** a "3 of 12" pill that follows the scroll. The prototype renders up to 8 placeholder pages; the real viewer renders the document.
+- (2026-10-21) **Closing** returns to wherever the file was opened from: the folder list, or Home when it came from a Quick Link.
+
+## file-download
+- (2026-10-21) **Sheet first, then download.** Office files, archives and any other type the app cannot render never open silently: a bottom sheet shows the type icon, name, `type · size`, a one-line explanation ("opens outside the app, saved to your device, open in PowerPoint or share"), and Download (with the size) / Cancel. Files of 25 MB or more add a "Large file — best on Wi‑Fi" nudge.
+- (2026-10-21) **Progress** replaces the buttons inside the sheet; when it completes the sheet closes and a "Saved to your device · OPEN" toast appears for a few seconds. Open hands the file to the matching app (or the share sheet if none can open it).
 
 ## record
 - **No app bar in the flow:** the screen draws its own title row (X that keeps the draft, "Record Completions", Vector AI badge), which scrolls away with the content. Saves the 56px bar on the screen that needs vertical room most, and matches the web note that the top nav hides in this flow.
@@ -136,11 +162,13 @@
 
 ## self-assign
 - (2026-10-02) **What it is:** a completion the user records for themselves only. Opened by a Self Assign Quick Link (the "Physical Fitness" tile replaces "SCBA Refresher") or a scanned QR code; the Scan tab's simulated scan resolves to Physical Fitness, standing in for the printed code outside the workout room.
-- (2026-10-02) **Same screen, reduced:** title "Record Completion" with the X, a header card naming the activity ("Self-assign · recorded for you"), then the single form. No stepper, no Participants step, no Add Activities, no accordion, no apply-to-all switches, no VoiceComplete button or kebab. Instructor is labelled optional. On a shared device the "Recording as … · Not you?" line sits above the card.
+- (2026-10-02) **Same screen, reduced:** title "Self Assign" (was "Record Completion" until 2026-10-21) with the X, a header card naming the activity ("Self-assign · recorded for you"), then the single form. No stepper, no Participants step, no Add Activities, no accordion, no apply-to-all switches, no VoiceComplete button or kebab. Instructor is labelled optional. On a shared device the "Recording as … · Not you?" line sits above the card.
 - (2026-10-02) **Plain dictation, not VoiceComplete:** the mic on Notes (and Areas, where configured) streams speech to text straight into that field; nothing is interpreted. Tap to start, tap again or let it finish to stop; it appends to whatever is already typed. The same mic now works this way in the group flow too (it was a placeholder toast).
 - (2026-10-02) **No draft:** X and Cancel both discard, with an "Unsaved changes" confirm if anything was entered. The group Record Completions draft is parked while a self-assign is open and comes back untouched afterwards; the Record tab dot reflects the group draft only. A self-assign is a 30-second task and a lingering fitness draft would be confusing when the next Quick Link opens the group flow.
 - (2026-10-02) **Validation:** only that the activity is configured. Fields are optional; date and time default to now.
 - (2026-10-02) **Physical Fitness mock definition:** objectives (cardiovascular, strength, flexibility & mobility, job-specific), duration, notes. No techniques or areas. It is also in the activity picker, so a crew PT session can be group-recorded.
+
+- (2026-10-21) **Title is "Self Assign":** the form's title row and the confirmation's app bar both read "Self Assign" instead of "Record Completion", so the flow a Self Assign Quick Link opens is named for what it is. The group flow keeps "Record Completions".
 
 ## self-assign-done
 - (2026-10-02) **Confirmation for one person:** activity, date and duration, "Recorded for Jordan Lee" (plus "on this shared device" in shared mode). Actions: Record another (reopens the same activity), Go to Home. No "Same participants" shortcut.

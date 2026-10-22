@@ -47,6 +47,17 @@
   --color-purple-600:#7c3aed;   /* Vector AI accent (badge, VoiceComplete) */
   --color-purple-500:#9b5cf6;
   --color-purple-50: #efe7fd;
+  /* File Center type tints (icon chip fg / bg). Folder amber, PDF red, image
+     teal, text slate, Office apps in their own brand hues, links blue. */
+  --fc-folder:  #b7791f; --fc-folder-bg:  #fdf1dc;
+  --fc-pdf:     #c8102e; --fc-pdf-bg:     #fdeef0;
+  --fc-image:   #0f7b9c; --fc-image-bg:   #e3f4f8;
+  --fc-text:    #5a6879; --fc-text-bg:    #eaeef4;
+  --fc-pptx:    #c4461c; --fc-pptx-bg:    #fdeae3;
+  --fc-xlsx:    #1d6f42; --fc-xlsx-bg:    #e3f3e9;
+  --fc-docx:    #2b5797; --fc-docx-bg:    #e6edf8;
+  --fc-zip:     #6b4f1d; --fc-zip-bg:     #f3ece0;
+  --fc-link:    #0b5fbf; --fc-link-bg:    #eaf2fc;
 
   /* ── semantic tokens (Tamagui theme keys) ───────────────────────────────── */
   --background:      var(--color-gray-50);
@@ -156,6 +167,8 @@ body {
 }
 .status-bar--light { background: var(--color-white); color: var(--color); }
 .status-bar--brand { background: var(--brand); color: var(--brandContrast); }
+/* The file viewer's dark chrome extends up through the status bar */
+.status-bar--dark  { background: var(--color-navy-800); color: #fff; }
 .status-bar .sb-icons { display: flex; gap: var(--space-2); font-size: var(--fs-2); }
 /* Floats OVER the active screen rather than sitting in flow, so a dark screen
    (login, scanner) runs edge to edge instead of ending in a pale strip. */
@@ -784,7 +797,10 @@ body {
    bar (see goTo) and has nowhere to "leave" to, so its X and the "Go to Home"
    buttons go too. */
 .app--no-home .t-Tabs__tab[data-tab="home"] { display: none; }
-.app--no-home [data-task-leave] { visibility: hidden; }
+.app--no-home [data-task-leave]:not([data-task-leave="self"]) { visibility: hidden; }
+/* …and Record takes Home's brand bar. #rc-body is padded, so the bar pulls
+   out to the edges and the title row sits under it. */
+.rc-brand { margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-4)) var(--space-4); }
 .app--no-home .rc-done [data-goto="home"] { display: none; }
 
 /* Draft dot on the Record tab, unread count on the Alerts tab */
@@ -1288,4 +1304,181 @@ select.t-Input.is-placeholder { color: var(--colorFaint); }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
+}
+
+/* =============================================================================
+   FILE CENTER  (files.js)
+   -----------------------------------------------------------------------------
+   Browse screen: a sticky head (breadcrumb · search · sort) over a card of
+   rows. Viewer: a full-screen task with a dark bar and a scrollable stage.
+   ========================================================================== */
+
+/* --- Browse: sticky head ----------------------------------------------------- */
+.fc-head {
+  /* top:0, not --header-h: the sticky offset is measured from the scroller's
+     CONTENT edge, and .screen's padding-top already clears the app bar. */
+  position: sticky; top: 0; z-index: 2;
+  background: var(--background); padding: var(--space-3) var(--space-4) var(--space-2);
+  display: flex; flex-direction: column; gap: var(--space-3);
+}
+/* Breadcrumb: one line, scrolls sideways when the path is long; the current
+   folder is bold and kept in view. */
+.fc-crumbs {
+  display: flex; align-items: center; gap: var(--space-2); white-space: nowrap;
+  overflow-x: auto; scrollbar-width: none; font-size: var(--fs-2); color: var(--colorFaint);
+}
+.fc-crumbs::-webkit-scrollbar { height: 0; }
+.fc-crumbs__link {
+  background: none; border: 0; padding: 2px 0; cursor: pointer;
+  font-family: var(--font); font-size: var(--fs-2); color: var(--link); font-weight: 600;
+}
+.fc-crumbs__link:hover { text-decoration: underline; }
+.fc-crumbs__sep { font-size: var(--fs-0); color: var(--color-gray-300); flex: none; }
+.fc-crumbs__here { font-weight: 700; color: var(--color); }
+
+.fc-tools { display: flex; gap: var(--space-2); align-items: center; }
+.fc-search { position: relative; flex: 1; min-width: 0; }
+.fc-search__icon { position: absolute; left: var(--space-4); top: 50%; transform: translateY(-50%); color: var(--colorFaint); font-size: var(--fs-3); pointer-events: none; }
+.fc-search__input { padding-left: calc(var(--space-4) + 22px); padding-right: 40px; min-height: 44px; }
+.fc-search__input::-webkit-search-cancel-button { display: none; }
+.fc-search__clear {
+  position: absolute; right: var(--space-2); top: 50%; transform: translateY(-50%);
+  background: none; border: 0; cursor: pointer; padding: var(--space-2);
+  color: var(--color-gray-300); font-size: var(--fs-4);
+}
+.fc-search__clear:hover { color: var(--colorSubtle); }
+/* Sort: a compact select-shaped button that opens the sort action sheet */
+.fc-sort {
+  flex: none; display: inline-flex; align-items: center; gap: var(--space-2); min-height: 44px;
+  padding: 0 var(--space-3); background: var(--card); border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-3); cursor: pointer; font-family: var(--font); font-size: var(--fs-3);
+  font-weight: 600; color: var(--color); white-space: nowrap;
+}
+.fc-sort:hover { background: var(--color-gray-50); }
+.fc-sort > i:first-child { color: var(--link); }
+.fc-sort__caret { font-size: var(--fs-0); color: var(--colorFaint); }
+#screen-files .screen__body { padding-top: var(--space-2); }
+
+/* --- Browse: rows ------------------------------------------------------------ */
+.fc-row {
+  display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 60px;
+  padding: var(--space-3) var(--space-4); background: var(--card); border: 0;
+  border-top: 1px solid var(--borderColor); cursor: pointer;
+  font-family: var(--font); color: var(--color); text-align: left;
+}
+.fc-row:first-child { border-top: 0; }
+.fc-row:hover { background: var(--color-gray-50); }
+.fc-row:active { background: var(--color-gray-100); }
+.fc-row__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fc-row__name { font-size: var(--fs-4); font-weight: 600; line-height: 1.3; color: var(--link); overflow-wrap: anywhere; }
+.fc-row__sub  { font-size: var(--fs-2); color: var(--colorFaint); line-height: 1.3; }
+.fc-row__after { flex: none; color: var(--color-gray-300); font-size: var(--fs-3); }
+/* "Up one level" sits above the listing, slightly recessed, like the web's row */
+.fc-row--up { background: var(--color-gray-50); min-height: 52px; }
+.fc-row--up .fc-row__name { color: var(--color); font-weight: 700; }
+.fc-empty { text-align: center; color: var(--colorFaint); padding: var(--space-6) 0; }
+
+/* Type chip: a tinted square with the Font Awesome file icon */
+.fc-ico {
+  width: 36px; height: 36px; flex: none; border-radius: var(--radius-3);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 17px;
+  background: var(--color-gray-100); color: var(--colorSubtle);
+}
+.fc-ico--lg { width: 48px; height: 48px; font-size: 24px; border-radius: var(--radius-4); }
+.fc-ico--up     { background: transparent; color: var(--link); }
+.fc-ico--folder { background: var(--fc-folder-bg); color: var(--fc-folder); }
+.fc-ico--pdf    { background: var(--fc-pdf-bg);    color: var(--fc-pdf); }
+.fc-ico--image  { background: var(--fc-image-bg);  color: var(--fc-image); }
+.fc-ico--text   { background: var(--fc-text-bg);   color: var(--fc-text); }
+.fc-ico--pptx   { background: var(--fc-pptx-bg);   color: var(--fc-pptx); }
+.fc-ico--xlsx   { background: var(--fc-xlsx-bg);   color: var(--fc-xlsx); }
+.fc-ico--docx   { background: var(--fc-docx-bg);   color: var(--fc-docx); }
+.fc-ico--zip    { background: var(--fc-zip-bg);    color: var(--fc-zip); }
+.fc-ico--link   { background: var(--fc-link-bg);   color: var(--fc-link); }
+
+/* Sort menu: the chosen option is highlighted with a trailing check */
+.rc-menu__item.is-on, .rc-menu__item.is-on i { color: var(--link); }
+.rc-menu__check { margin-left: auto; }
+
+/* --- Viewer ----------------------------------------------------------------- */
+.fc-viewer { position: relative; background: var(--color-navy-900); }
+.fc-viewer__bar {
+  flex: none; display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3); min-height: var(--header-h);
+  background: var(--color-navy-800); color: #fff; box-shadow: var(--shadow-header); z-index: 1;
+}
+.fc-viewer__title {
+  flex: 1; min-width: 0; font-size: var(--fs-3); font-weight: 700; line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.fc-viewer__stage {
+  flex: 1; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  padding: var(--space-3) var(--space-3) var(--space-8);
+}
+.fc-viewer__stage::-webkit-scrollbar { width: 0; height: 0; }
+.fc-viewer__content { display: flex; flex-direction: column; gap: var(--space-3); transform-origin: 0 0; transition: transform .2s ease; }
+/* Zoom: double-tap in the prototype (pinch on device). The content scales and
+   the stage scrolls in both directions. */
+.fc-viewer__stage.is-zoomed .fc-viewer__content { transform: scale(2); width: 50%; }
+.fc-viewer__pill {
+  position: absolute; left: 50%; bottom: calc(var(--space-6) + 18px); transform: translateX(-50%);
+  padding: var(--space-2) var(--space-4); border-radius: var(--radius-round); border: 0; cursor: pointer;
+  background: rgba(19,32,51,.82); color: #fff; font-family: var(--font); font-size: var(--fs-2); font-weight: 700;
+  box-shadow: var(--shadow-2); white-space: nowrap;
+}
+.fc-viewer__pill:empty { display: none; }
+
+/* A rendered PDF page: white sheet, heading, gray "text" bars, a figure box */
+.fc-page {
+  background: var(--color-white); border-radius: var(--radius-1); padding: 28px 22px 34px;
+  box-shadow: var(--shadow-2); position: relative; min-height: 460px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.fc-page__h1 { font-size: var(--fs-4); font-weight: 800; color: var(--color-navy-800); line-height: 1.3; }
+.fc-page__meta { font-size: var(--fs-0); color: var(--colorFaint); margin-top: -8px; }
+.fc-page__h2 { height: 10px; width: 46%; border-radius: 3px; background: var(--color-gray-300); }
+.fc-page__p { display: flex; flex-direction: column; gap: 6px; }
+.fc-page__p span { display: block; height: 6px; border-radius: 3px; background: var(--color-gray-200); }
+.fc-page__fig {
+  height: 96px; border-radius: var(--radius-2); background: var(--color-gray-100);
+  display: flex; align-items: center; justify-content: center; color: var(--color-gray-300); font-size: 28px;
+}
+.fc-page__num { position: absolute; bottom: 12px; right: 0; left: 0; text-align: center; font-size: var(--fs-0); color: var(--color-gray-300); }
+
+/* Image: fits the width; the placeholder is an inline SVG */
+.fc-image__wrap { background: var(--color-white); border-radius: var(--radius-1); box-shadow: var(--shadow-2); overflow: hidden; }
+.fc-image { display: block; width: 100%; height: auto; }
+
+/* Text file: monospace on a white sheet */
+.fc-text {
+  margin: 0; background: var(--color-white); border-radius: var(--radius-1); box-shadow: var(--shadow-2);
+  padding: var(--space-4); font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--color); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+
+/* --- Download sheet ---------------------------------------------------------- */
+#fc-sheet { z-index: 26; }
+#fc-menu  { z-index: 27; }
+.fc-dl { display: flex; flex-direction: column; gap: var(--space-4); }
+.fc-dl__file { display: flex; align-items: center; gap: var(--space-3); }
+.fc-dl__text { min-width: 0; }
+.fc-dl__name { margin: 0; font-size: var(--fs-4); font-weight: 700; color: var(--color); line-height: 1.3; overflow-wrap: anywhere; }
+.fc-dl__meta { margin: 2px 0 0; font-size: var(--fs-2); color: var(--colorFaint); }
+.fc-dl__warn {
+  margin: 0; display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3); border-radius: var(--radius-3);
+  background: #fdf1dc; color: #995211; font-size: var(--fs-3); font-weight: 600;
+}
+.fc-dl__actions { display: flex; flex-direction: column; gap: var(--space-2); }
+.fc-dl__progress { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2) 0; }
+.fc-dl__bar { height: 8px; border-radius: var(--radius-round); background: var(--color-gray-100); overflow: hidden; }
+.fc-dl__bar span { display: block; height: 100%; width: 0; background: var(--link); border-radius: var(--radius-round); transition: width .14s linear; }
+.fc-dl__pct { margin: 0; font-size: var(--fs-3); color: var(--colorSubtle); text-align: center; }
+
+/* Toast with an action button ("Saved to your device · Open") */
+.fc-toast { display: flex; align-items: center; justify-content: center; gap: var(--space-3); pointer-events: none; }
+.fc-toast.is-open { pointer-events: auto; }
+.fc-toast__action {
+  background: none; border: 0; padding: var(--space-1) var(--space-2); cursor: pointer;
+  font-family: var(--font); font-size: var(--fs-3); font-weight: 800; color: #a5c8ff; text-transform: uppercase; letter-spacing: .3px;
 }

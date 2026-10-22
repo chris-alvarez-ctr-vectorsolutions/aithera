@@ -410,6 +410,45 @@
         </div>
       </section>
 
+      <!-- ---- FILE CENTER (rendered by files.js) ----
+           Read-only browse of the department's File Center. Reached from a
+           File Center Quick Link (lands on its folder or file) or the File
+           Center row under More (lands on the root). App bar: back exits the
+           File Center to the screen the user came from; moving around the
+           tree is done in the tree (rows, Up one level, breadcrumb). -->
+      <section class="screen" id="screen-files">
+        <!-- Sticky head: breadcrumb (ancestors tappable), search, sort -->
+        <div class="fc-head">
+          <nav class="fc-crumbs" id="fc-crumbs" aria-label="Folder path"></nav>
+          <div class="fc-tools">
+            <div class="fc-search">
+              <i class="fa-solid fa-magnifying-glass fc-search__icon" aria-hidden="true"></i>
+              <input class="t-Input fc-search__input" id="fc-search" type="search" placeholder="Search this folder" autocomplete="off">
+              <button class="fc-search__clear" id="fc-search-clear" type="button" aria-label="Clear search" hidden><i class="fa-solid fa-circle-xmark"></i></button>
+            </div>
+            <button class="fc-sort" id="fc-sort" type="button" aria-label="Sort"></button>
+          </div>
+        </div>
+        <div class="screen__body">
+          <!-- "Up one level" row (when below the root), then folders, then files and links -->
+          <div class="t-Card" id="fc-list"></div>
+          <p class="t-SizableText fc-empty" id="fc-empty" hidden></p>
+        </div>
+      </section>
+
+      <!-- In-app viewer for PDF / image / text. A full-screen task (tab bar
+           hidden) with its own dark bar: X, file name, share. Double-tap (pinch
+           on device) zooms; PDFs show a page counter pill. -->
+      <section class="screen screen--task fc-viewer" id="screen-file-view">
+        <div class="fc-viewer__bar">
+          <button class="rc-iconbtn rc-iconbtn--light" data-fc="close" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+          <span class="fc-viewer__title" id="fc-viewer-title"></span>
+          <button class="rc-iconbtn rc-iconbtn--light" data-fc="share" type="button" aria-label="Share"><i class="fa-solid fa-arrow-up-from-bracket"></i></button>
+        </div>
+        <div class="fc-viewer__stage js-scroll" id="fc-viewer-stage"></div>
+        <button class="fc-viewer__pill" id="fc-viewer-pill" data-fc="zoom" type="button" title="Toggle zoom"></button>
+      </section>
+
       <!-- ---- NOTIFICATIONS (feature #2) ----
            A read-only feed of example alerts. Notification PREFERENCES are not
            editable in the app in this release — they stay configured in the web
@@ -483,6 +522,14 @@
     <!-- Tiny toast (draft saved, dictation placeholder) -->
     <div class="rc-toast" id="rc-toast" role="status"></div>
 
+    <!-- ---- File Center overlays (rendered by files.js) ---- -->
+    <!-- Download sheet for file types that open outside the app -->
+    <div class="t-Sheet__overlay" id="fc-sheet" role="dialog" aria-label="Download file"></div>
+    <!-- Sort menu / viewer share menu -->
+    <div class="t-Sheet__overlay" id="fc-menu"></div>
+    <!-- Toast with an optional action ("Saved to your device · Open") -->
+    <div class="rc-toast fc-toast" id="fc-toast" role="status"></div>
+
     <div class="home-indicator"></div>
   </div>
 </div>
@@ -490,6 +537,7 @@
 
 <script src="app.js"></script>
 <script src="record.js"></script>
+<script src="files.js"></script>
 
 <!-- ── Design Toolbox: Flow Map ──────────────────────────────────────────── -->
 <script>
@@ -521,6 +569,9 @@
     // and self-assign states set up their own draft data so the thumbnails show
     // real, filled-in screens, and any other state first drops a self-assign
     // that may be open. Plain navigation otherwise.
+    // File Center states are owned by files.js; it also closes its overlays
+    // (download sheet, menus) before any other state renders.
+    if (window.FC) { window.FC.closeAll(); if (window.FC.applyState(id)) { if (!opts.instant) window.scrollTo(0, 0); return; } }
     if (window.RC) window.RC.applyState(id);
     else if (window.goTo) window.goTo(id, { instant: true });
     if (requested === 'idle' && window.APP) window.APP.showIdleWarning();
@@ -612,7 +663,7 @@
           desc: 'QR/barcode viewfinder. The simulated scan resolves to the Physical Fitness self-assign — the printed code outside the workout room. A real code could point at any activity.' },
         { id: 'more', flow: 'main', x: 1000, y: 290,
           step: 'Tab', name: 'More', state: 'more',
-          desc: 'Account row (→ Profile) and the web platform shortcut.' },
+          desc: 'Account row (→ Profile), File Center, and the web platform shortcut.' },
         { id: 'notifications', flow: 'main', x: 1000, y: 405,
           step: 'Tab', name: 'Alerts', state: 'notifications',
           desc: 'Its own tab, with the unread count as a badge, so alerts are reachable from every screen. Read-only feed across the four in-scope types; preferences stay in the web platform. Tapping one deep-links out to the browser.' },
@@ -622,6 +673,18 @@
         { id: 'privacy', flow: 'main', x: 1200, y: 415,
           step: 'Detail', name: 'Privacy Policy', state: 'privacy',
           desc: 'Boilerplate privacy policy, reached from a small link at the foot of More. Plain readable text in a card; the real policy text comes from Legal.' },
+        { id: 'files', flow: 'main', x: 1400, y: 300,
+          step: 'Browse', name: 'File Center', state: 'files',
+          desc: 'Read-only browse of the department File Center, opened from More at the root. Breadcrumb, search within the folder, and a sort menu (name, type, date) up top; folders first, then files and links, each with the gray "Imported From …" subtitle from the web platform. No admin functions — nothing uploads, edits, moves or deletes.' },
+        { id: 'files-folder', flow: 'main', x: 1600, y: 300,
+          step: 'Quick Link', name: 'Imported Resources', state: 'files-folder',
+          desc: 'A folder-targeted Quick Link lands directly in that folder. "Up one level" and the breadcrumb climb past the starting folder, so the user can reach anything in the File Center from here. The back arrow always exits — to Home here, to More when opened from More — never walks back through folders visited.' },
+        { id: 'file-view', flow: 'main', x: 1800, y: 300,
+          step: 'Viewer', name: 'In-App Viewer', state: 'file-view',
+          desc: 'PDFs, images and text open in the app: full-screen, dark bar with X / file name / share, pinch or double-tap to zoom, and a "3 of 12" page counter on PDFs that follows the scroll. Share offers the device share sheet, Save to device, and Open in another app.' },
+        { id: 'file-download', flow: 'main', x: 1800, y: 430,
+          step: 'Sheet', name: 'Download', state: 'file-download',
+          desc: 'PowerPoint, Word, Excel, ZIP and anything else the app cannot render: a short sheet first (name, type, size, a Wi-Fi nudge above 25 MB) with Download and Cancel. Download shows progress in the sheet, then a "Saved to your device · Open" toast.' },
         { id: 'login-shared', flow: 'shared', x: 60, y: 620,
           step: 'Sign in', name: 'Log In (shared)', state: 'login-shared',
           desc: 'Same form, stricter: no Face ID opt-in, username never prefilled, and a note stating the inactivity check. The device pill reads "Shared station device".' },
@@ -663,7 +726,12 @@
         ['home', 'more'],
         ['home', 'notifications'],
         ['more', 'profile'],
-        ['more', 'privacy']
+        ['more', 'privacy'],
+        ['more', 'files'],
+        ['home', 'files-folder'],
+        ['files', 'files-folder'],
+        ['files-folder', 'file-view'],
+        ['files-folder', 'file-download']
       ]
     }
   };

@@ -35,11 +35,11 @@ const ALLOWED_ORIGINS = [
   'http://localhost:4601',
   'http://127.0.0.1:4601',
   'https://vectorlearning.github.io',
-  // Dev team's LMS environments, which embed the player in an iframe.
-  'https://training.develop.us-east-2.vsp-nonprod.com',
-  'https://training.test3.us-east-2.vsp-nonprod.com',
-  'https://training.staging.us-east-2.vsp-nonprod.com',
-  'https://training.vectorsolutions.com',
+  // Dev team's CDN origins (dev/test1–3, staging, prod). The LMS embeds the
+  // player in an iframe served from the CDN, so this is the page's origin.
+  'https://cdn.develop.vsp-nonprod.com',
+  'https://cdn.staging.vsp-nonprod.com',
+  'https://cdn.vsp-prod.com',
 ];
 
 function corsHeaders(origin) {
@@ -109,10 +109,17 @@ export default {
     }
 
     // Pass the Anthropic response straight through (status + JSON body),
-    // adding CORS headers so the browser is allowed to read it.
+    // adding CORS headers so the browser is allowed to read it. The org ID
+    // header identifies which Anthropic account owns the key — handy when
+    // nobody remembers whose console to log into.
     return new Response(text, {
       status: upstream.status,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
+      headers: {
+        'Content-Type': 'application/json',
+        'anthropic-organization-id': upstream.headers.get('anthropic-organization-id') || '',
+        'Access-Control-Expose-Headers': 'anthropic-organization-id',
+        ...corsHeaders(origin),
+      },
     });
   },
 };
