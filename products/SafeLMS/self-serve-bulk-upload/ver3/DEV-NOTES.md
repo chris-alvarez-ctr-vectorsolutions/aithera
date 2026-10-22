@@ -25,6 +25,10 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   (Blocked now) are swapped for a group not on the site and "very few positions on your site",
   next to the existing new location, plus 2 reactivated users whose ⓘ opens the pop-up.
   `staff_update_october.csv` is still the blocked file.
+- **[DONE]** Test copy only (2026-10-21): Username pre-fills on Map columns for every file. After a
+  tester cancels the blocked October import, **`staff_update_october_cleaned.csv`** appears under it
+  in the file picker (153 rows: dates fixed, shared email split, skipped rows deleted). Its review
+  is info only, so the tester can run it through. It stays listed after a reload (sessionStorage).
 
 ## (2026-10-20) Duplicates are Blocked; › rows show what's on your site; no Row column
 

@@ -282,9 +282,15 @@
   }
 
   /* No app bar on this screen — the title row carries the X (leave, keep the
-     draft; app.js handles data-task-leave) and the Vector AI badge. */
+     draft; app.js handles data-task-leave) and the Vector AI badge.
+     With no Home tab (no Quick Links configured) this screen IS the landing
+     screen, so it gets Home's treatment: the brand bar with the department
+     name across the top, scrolling away with the content like it does on Home. */
   function renderTitle() {
-    return '<div class="rc-title">' +
+    var brand = (window.APP && !window.APP.hasHome())
+      ? '<div class="home-brand rc-brand"><span class="home-brand__dept">' + esc(window.APP.user.department) + '</span></div>'
+      : '';
+    return brand + '<div class="rc-title">' +
            '<button class="rc-iconbtn" data-task-leave type="button" aria-label="Close and keep draft"><i class="fa-solid fa-xmark"></i></button>' +
            '<h1 class="rc-title__text">Record Completions</h1>' +
            '<span class="ai-badge ai-badge--tint"><i class="fa-solid fa-sparkles"></i> Vector AI</span></div>';
@@ -312,7 +318,7 @@
     if (!draft.activities.length) {
       return '<div class="rc-hero"><h2 class="rc-hero__title">Activities</h2>' +
              '<button class="rc-pill" data-rc="add-activities" type="button"><i class="fa-solid fa-plus"></i> Add Activities</button>' +
-             '<p class="rc-hero__hint">Pick the trainings you ran. Quick Links on Home add one for you.</p></div>';
+             '<p class="rc-hero__hint">Pick the trainings you ran.' + (window.APP && !window.APP.hasHome() ? '' : ' Quick Links on Home add one for you.') + '</p></div>';
     }
     return '<div class="rc-hero rc-hero--list">' +
            '<div class="rc-hero__bar"><h2 class="rc-hero__title">Activities</h2>' +
@@ -484,9 +490,8 @@
   function renderSelf() {
     var a = draft.activities[0], def = defOf(a.id);
     return '<div class="rc-title">' +
-           '<button class="rc-iconbtn" data-task-leave type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>' +
-           '<h1 class="rc-title__text">Record Completion</h1></div>' +
-           renderRecorder() +
+           '<button class="rc-iconbtn" data-task-leave="self" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>' +
+           '<h1 class="rc-title__text">Self Assign</h1></div>' +
            '<div class="rc-self">' +
            '<span class="rc-self__kicker"><i class="fa-solid fa-user-check"></i> Self-assign · recorded for you</span>' +
            '<h2 class="rc-self__name">' + esc(def.name) + '</h2>' +
@@ -499,7 +504,7 @@
 
   function renderDoneSelf() {
     var s = lastSelf, shared = window.APP && window.APP.isShared();
-    doneEl.closest('.screen').dataset.title = 'Record Completion';   // singular in the app bar
+    doneEl.closest('.screen').dataset.title = 'Self Assign';   // the self-assign flow keeps its own title on the confirmation
     doneEl.innerHTML =
       '<div class="rc-done__icon"><i class="fa-solid fa-check"></i></div>' +
       '<h1 class="t-H1">Completion recorded</h1>' +
@@ -558,27 +563,17 @@
   }
 
   /* --- Step 2: Participants --------------------------------------------- */
-  /* Shared devices only: repeat the identity right where a completion is about
-     to be filed. The strip above the app already says who is signed in; this
-     line is the second check at the moment a mistake would actually cost
-     something. "Not you?" signs out and discards the draft. */
-  function renderRecorder() {
-    if (!(window.APP && window.APP.isShared())) return '';
-    var u = window.APP.user;
-    return '<div class="rc-who">' +
-           '<span class="t-Avatar" aria-hidden="true">' + esc(u.initials) + '</span>' +
-           '<span class="rc-who__text">Recording as <strong>' + esc(u.name) + '</strong></span>' +
-           '<button class="rc-who__switch" data-rc="switch-user" type="button">Not you?</button></div>';
-  }
-
+  /* (2026-10-21) The "Recording as <name> · Not you?" line that used to sit
+     here on shared devices was dropped: the identity strip pinned above every
+     screen already says who is signed in, so it read as redundant. */
   function renderParticipants() {
     if (!draft.people.length) {
-      return renderRecorder() + '<div class="rc-hero"><h2 class="rc-hero__title">Participants</h2>' +
+      return '<div class="rc-hero"><h2 class="rc-hero__title">Participants</h2>' +
              '<button class="rc-pill" data-rc="add-people" type="button"><i class="fa-solid fa-plus"></i> Add Participants</button>' +
              '<p class="rc-hero__hint">Everyone you add gets a completion for every activity unless you say otherwise. Add yourself if you took part.</p></div>';
     }
     var nA = draft.activities.length;
-    return renderRecorder() + '<div class="rc-hero rc-hero--list">' +
+    return '<div class="rc-hero rc-hero--list">' +
       '<div class="rc-hero__bar"><h2 class="rc-hero__title">Participants</h2>' +
       '<button class="rc-pill rc-pill--sm" data-rc="add-people" type="button"><i class="fa-solid fa-plus"></i> Add</button>' +
       '<button class="rc-iconbtn rc-iconbtn--light" data-rc="people-menu" type="button" aria-label="More options"><i class="fa-solid fa-ellipsis-vertical"></i></button></div>' +
@@ -1062,7 +1057,6 @@
       case 'back': go('activities'); break;
       case 'cancel': cancel(); break;
       case 'submit': submit(); break;
-      case 'switch-user': window.APP.signOut(); break;   // shared device: "Not you?"
       case 'add-activities': openPicker('activities'); break;
       case 'add-people': openPicker('people'); break;
       case 'toggle':
@@ -1254,7 +1248,7 @@
     }
   }
 
-  window.RC = { openWith: openWith, openSelf: openSelf, applyState: applyState, leave: leave, cancel: cancel, reset: reset };
+  window.RC = { openWith: openWith, openSelf: openSelf, applyState: applyState, leave: leave, cancel: cancel, reset: reset, rerender: render };
 
   /* ===========================================================================
      INIT

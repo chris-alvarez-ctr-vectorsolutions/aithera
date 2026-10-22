@@ -1097,6 +1097,9 @@
     { id: 'confirm', name: 'staff_export_fall.csv',      rows: 164 },
     { id: 'clean',   name: 'new_hires_2027.csv',         rows: 45 },
     { id: 'saml',    name: 'staff_update_october.csv',   rows: 156 },   // the blocker in the test script
+    // Test (2026-10-21): the fixed October file — appears only after the tester cancels the blocked
+    // October import, so they can upload a clean file and finish. unlock = the state flag that shows it.
+    { id: 'octclean', name: 'staff_update_october_cleaned.csv', rows: 153, unlock: 'octCancelled' },
     { id: 'dupes',   name: 'district_roster_2026.csv',   rows: 152 },
     { id: 'blast',   name: 'all_staff_master.csv',       rows: 168 }
   ];
@@ -1104,6 +1107,7 @@
   var COLS = {
     clean:   [['First Name','Maya'],['Last Name','Torres'],['Email','mtorres@ridgewood.k12.us'],['Username','mtorres@ridgewood.k12.us'],['Building','Lincoln Elementary'],['Job Title','Teacher — Grade 3']],
     confirm: [['First Name','Sue'],['Last Name','Hartley'],['Email','shartley@ridgewood.k12.us'],['Username','shartley@ridgewood.k12.us'],['Building','Ridgewood High'],['Job Title','Counselor']],
+    octclean: [['FIRST','Sarah'],['LAST','Linden'],['EMAIL_ADDR','slinden@ridgewood.k12.us'],['USERNAME','slinden'],['BUILDING','District Office'],['JOB_TITLE','Registrar'],['TITLE','Registrar II'],['BEGIN_DATE','2024-09-03']],
     saml:    [['FIRST','Sarah'],['LAST','Linden'],['EMAIL_ADDR','slinden@ridgewood.k12.us'],['USERNAME','slinden'],['BUILDING','District Office'],['JOB_TITLE','Registrar'],['TITLE','Registrar II'],['BEGIN_DATE','2024-13-45']],
     dupes:   [['First Name','John'],['Last Name','Smith'],['Email','jsmith@ridgewood.k12.us'],['Username','john.smith'],['Building','Ridgewood High'],['Job Title','Athletics Coach']],
     blast:   [['FIRST_NAME','Alan'],['LAST_NAME','Pruitt'],['EMAIL','apruitt@ridgewood.k12.us'],['USER_ID','apruitt'],['SITE','Kennedy Middle'],['ROLE','Custodian'],['TITLE','Head Custodian'],['BEGIN_DATE','2024-13-45'],['END_DATE','06/31/2025']]
@@ -1216,7 +1220,7 @@
     // Extra targets (Title / Begin date / End date / attributes) start unmapped.
     var cols = COLS[fileId], m = {};
     AUTO_ORDER.forEach(function (f, i) { if (cols[i]) m[f] = cols[i][0]; });
-    if (fileId === 'clean') m['Username'] = NOT_IMPORTED;   // test: new_hires_2027 leaves Username for the tester to map
+    // Test (2026-10-21): Username pre-fills for every file, new_hires_2027 included, so testers aren't tripped up on it.
     return m;
   }
 
@@ -1257,6 +1261,7 @@
     switch (fileId) {
       case 'clean':   b = { add: 42, mod: 3,   deactOn: 128, jobsAdd: 6,  jobsRem: 4,   ppl: 4,   pos: 2, loc: 2 }; break;
       case 'confirm': b = { add: 12, mod: 118, deactOn: 6,   jobsAdd: 22, jobsRem: 31,  ppl: 24,  pos: 5, loc: 3 }; break;
+      case 'octclean': b = { add: 9,  mod: 144, deactOn: 14,  jobsAdd: 18, jobsRem: 40,  ppl: 33,  pos: 6, loc: 4 }; break;
       case 'saml':    b = { add: 9,  mod: 147, deactOn: 14,  jobsAdd: 18, jobsRem: 40,  ppl: 33,  pos: 6, loc: 4 }; break;
       case 'dupes':   b = { add: 26, mod: 124, deactOn: 12,  jobsAdd: 30, jobsRem: 27,  ppl: 21,  pos: 5, loc: 3 }; break;
       case 'blast':   b = { add: 2,  mod: 166, deactOn: 14,   jobsAdd: 4,  jobsRem: 150, ppl: 120, pos: 9, loc: 6 }; break;
@@ -1671,6 +1676,7 @@
     // date + skipped rows (warnings). No warning appears in both.
     clean:   [['new_person', 42], ['all_rows', 45], ['reactivated_person', 2], ['missing_bldg'], ['missing_pos'], ['large_pos_change']],
     confirm: [['removed_rows'], ['missing_bldg'], ['new_person', 12], ['reactivated_person', 2], ['unchanged_rows', 32], ['all_rows', 164]],
+    octclean: [['new_person', 9], ['unchanged_rows'], ['all_rows', 153]],   // the cleaned October file: info only
     saml:    [['broken_begin_date'], ['early_begin_date'], ['duplicate_email_in_upload'], ['removed_rows'], ['new_person', 9], ['all_rows', 156]],
     dupes:   [['duplicate_person'], ['potential_duplicate_user'], ['duplicate_email_in_upload'], ['non_identical_username'], ['new_person', 26], ['all_rows', 152]],
     blast:   null,  // copy review: EVERY catalog message, sorted most severe first
@@ -2079,7 +2085,7 @@
     // Preloaded sample "files" — greyed and boxed so it's clear they're mock
     // stand-ins, not real files on the tester's computer. Sorted cleanest → worst
     // (their order in FILES); the scenario/tag rides along in the meta line.
-    var files = FILES.filter(function (f) { return !f.hidden; }).map(function (f) {
+    var files = FILES.filter(function (f) { return !f.hidden && (!f.unlock || state[f.unlock]); }).map(function (f) {
       var kb = Math.max(2, Math.round(f.rows * 0.28));  // plausible fake size
       return '<div class="fp-file" data-act="pickFile" data-arg="' + f.id + '">'
         + '<div class="fp-ico"><i class="fa-solid fa-file-csv"></i></div>'
@@ -3006,6 +3012,7 @@
   // Test copy: the upload log survives a reload within the same browser tab (sessionStorage),
   // so a tester who refreshes still sees the import they just ran. (-2: new log shape, 2026-10-09)
   try { var savedLog = sessionStorage.getItem('ut-safelms-log-2'); if (savedLog) state.log = JSON.parse(savedLog); } catch (e) {}
+  try { if (sessionStorage.getItem('ut-safelms-octclean')) state.octCancelled = true; } catch (e) {}
   function saveLog() { try { sessionStorage.setItem('ut-safelms-log-2', JSON.stringify(state.log)); } catch (e) {} }
 
   function render() {
@@ -3132,6 +3139,7 @@
         state.log = logAttempt('cancelled', hard.length
           ? ['Cancelled on Review changes — it was blocked (' + (hard.length === 1 ? '1 issue' : hard.length + ' issues') + ')'].concat(hard.map(function (x) { return 'Blocked: ' + x.title; }), ['Nothing was changed'])
           : ['Cancelled on Review changes — nothing was changed']);
+        if (state.fileId === 'saml') { state.octCancelled = true; try { sessionStorage.setItem('ut-safelms-octclean', '1'); } catch (e2) {} }   // test: the cleaned file shows up now
         setState({ view: 'employees', importFull: false, addEmp: false, fileId: null, step: 'upload', acks: {}, disc: {}, axOpen: {}, siteModal: null,
           purgeUsers: false, purgeJobs: false, repSent: false, validating: false, cancelled: false }); scrollTop(); break;   // test: back to Employees
       case 'askRep': e.preventDefault(); setState({ repSent: true }); break;

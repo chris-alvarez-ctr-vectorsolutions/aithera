@@ -41,7 +41,7 @@
   // includes used to carry no version, so an edge/browser-cached older
   // feedback-widget.js could execute next to the current one and dock a second
   // bubble the dedup never saw. (self-heal below is the belt to this suspenders.)
-  var TOOLBOX_VERSION = '1.3.1';
+  var TOOLBOX_VERSION = '1.4.0';
 
   var qs = location.search;
   if (/[?&]fmthumb=1/.test(qs)) return;        // thumbnail iframe → render bare
@@ -84,8 +84,11 @@
       // + translateX(-50%), so the collapsed transform just adds a downward shift.
       // The compound selector (+!important) outranks a mock's own
       // `.version-switcher{transform:translateX(-50%)}` rule.
+      // Collapsing shrinks the pill INTO the corner its "Tools" handle tucks into:
+      // --tbx-dx/--tbx-dy (set in aimDock) are the offset from the dock's center
+      // to the handle's center. Without them it falls back to sliding straight down.
       '.tbx-collapsible{transition:transform .24s ease,opacity .24s ease;}' +
-      '.tbx-collapsible.tbx-collapsed{transform:translateX(-50%) translateY(calc(100% + 28px)) !important;opacity:0;pointer-events:none;}' +
+      '.tbx-collapsible.tbx-collapsed{transform:translateX(-50%) translate(var(--tbx-dx,0px),var(--tbx-dy,calc(100% + 28px))) scale(.35) !important;opacity:0;pointer-events:none;}' +
       // Collapse chevron docked at the right end of the pill.
       '.tbx-collapse-btn{flex:none;width:26px;height:26px;padding:0;border-radius:50%;cursor:pointer;' +
       'display:inline-flex;align-items:center;justify-content:center;color:#cfd2e6;' +
@@ -116,6 +119,12 @@
       '.tbx-handle.tbx-show{display:inline-flex;}' +
       '.tbx-handle:hover{opacity:1;transform:translateX(-50%) translateY(-1px);}' +
       '.tbx-handle svg{width:13px;height:13px;display:block;}' +
+      // Tucked into a corner (see pinHandle): anchored by its own edges, so no
+      // centering translate. Fades in as the pill finishes shrinking into it.
+      '.tbx-handle.tbx-handle--corner{transform:none;}' +
+      '.tbx-handle.tbx-handle--corner:hover{transform:translateY(-1px);}' +
+      '.tbx-handle.tbx-show{animation:tbx-handle-in .18s ease .12s backwards;}' +
+      '@keyframes tbx-handle-in{from{opacity:0;}}' +
       // Leading icon is the 6-dot grip (viewBox 10×16) — size it to that aspect
       // ratio so the dots stay round and it reads as a "drag me" affordance.
       '.tbx-handle svg:first-child{width:9px;height:14px;}' +
@@ -155,7 +164,7 @@
       // drop the default bottom/right anchoring. Collapsing a moved dock slides it
       // straight down (no translateX(-50%) recenters it back to the middle).
       '.tbx-dock.tbx-dock--moved,.version-switcher.tbx-dock--moved{bottom:auto;right:auto;}' +
-      '.tbx-collapsible.tbx-collapsed.tbx-dock--moved{transform:translateY(calc(100% + 28px)) !important;}' +
+      '.tbx-collapsible.tbx-collapsed.tbx-dock--moved{transform:translate(var(--tbx-dx,0px),var(--tbx-dy,calc(100% + 28px))) scale(.35) !important;}' +
       '.tbx-dock--dragging{transition:none !important;}' +
       // ── Version overflow → dropdown ────────────────────────────────────────
       // When the docked VERSION buttons would run the pill off the screen, they
@@ -230,18 +239,55 @@
       close.addEventListener('click', function (e) { e.stopPropagation(); dismiss(); });
       dock.__tbxClose = close;
 
-      function collapse() {
-        // Park the "Tools" peek handle where the dock currently sits (its center
-        // x, its top y) so a moved dock reappears right where the team left it —
-        // not back at the default bottom-center.
-        var r = dock.getBoundingClientRect();
-        handle.style.left = (r.left + r.width / 2) + 'px';
-        handle.style.top = r.top + 'px';
-        handle.style.bottom = 'auto';
-        dock.classList.add('tbx-collapsed');
-        handle.classList.add('tbx-show');
+      // Minimized, the "Tools" handle tucks into the NEAREST viewport corner so
+      // it's out of the design's way. A dock left at its default bottom-center
+      // goes to the lower-left; one dragged elsewhere goes to whichever corner
+      // its center is closest to. The dock itself keeps its own spot, so it
+      // expands back to where the team left it.
+      var CORNER_GAP = 16;
+      function nearestCorner(r) {
+        var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        return {
+          right: cx > window.innerWidth / 2 + 1,   // dead-center (the default) → left
+          bottom: cy >= window.innerHeight / 2,
+        };
       }
-      function expand() { dock.classList.remove('tbx-collapsed'); handle.classList.remove('tbx-show'); }
+      // Anchor by the corner's own edges (not left/top px) so the handle stays
+      // in its corner when the window is resized.
+      function pinHandle(c) {
+        handle.classList.add('tbx-handle--corner');
+        handle.style.transform = '';
+        handle.style.left = c.right ? 'auto' : CORNER_GAP + 'px';
+        handle.style.right = c.right ? CORNER_GAP + 'px' : 'auto';
+        handle.style.top = c.bottom ? 'auto' : CORNER_GAP + 'px';
+        handle.style.bottom = c.bottom ? CORNER_GAP + 'px' : 'auto';
+      }
+      // Point the collapse animation at the handle: measure the dock's OPEN rect
+      // (transition off, so nothing visibly flickers) and store the center-to-
+      // center offset for the .tbx-collapsed transform to travel along.
+      function aimDock() {
+        var wasCollapsed = dock.classList.contains('tbx-collapsed');
+        dock.classList.add('tbx-dock--dragging');
+        dock.classList.remove('tbx-collapsed');
+        var r = dock.getBoundingClientRect(), hr = handle.getBoundingClientRect();
+        dock.style.setProperty('--tbx-dx', Math.round(hr.left + hr.width / 2 - (r.left + r.width / 2)) + 'px');
+        dock.style.setProperty('--tbx-dy', Math.round(hr.top + hr.height / 2 - (r.top + r.height / 2)) + 'px');
+        if (wasCollapsed) dock.classList.add('tbx-collapsed');
+        void dock.offsetWidth;   // commit the start state before transitions return
+        dock.classList.remove('tbx-dock--dragging');
+        return r;
+      }
+      function collapse() {
+        pinHandle(nearestCorner(dock.getBoundingClientRect()));
+        handle.classList.add('tbx-show');
+        aimDock();
+        dock.classList.add('tbx-collapsed');
+      }
+      function expand() {
+        aimDock();   // re-aim in case the window was resized while minimized
+        dock.classList.remove('tbx-collapsed');
+        handle.classList.remove('tbx-show');
+      }
       // Dismiss is page-view scoped on purpose: one class on <html> hides every
       // review surface, and a reload puts the tooling back. Nothing is stored,
       // so a teammate can never "lose" the comment widget on a shared link.
@@ -274,6 +320,7 @@
           hMoved = true;
           handle.style.left = (ev.clientX - offX) + 'px';
           handle.style.top = (ev.clientY - offY) + 'px';
+          handle.style.right = 'auto';   // drop the corner anchoring while dragging
           handle.style.bottom = 'auto';
           handle.style.transform = 'none';
         }
@@ -282,10 +329,16 @@
           document.removeEventListener('pointermove', move, true);
           document.removeEventListener('pointerup', up, true);
           if (!hMoved) return;
-          // Moved: park the dock (still collapsed) centered under the handle so it
-          // reappears here on expand, and persist that position site-wide.
-          var r = handle.getBoundingClientRect();
-          var pos = { left: r.left + r.width / 2 - (dock.offsetWidth || 0) / 2, top: r.top };
+          // Moved: snap the handle into the nearest corner (minimized tools always
+          // live in a corner), park the dock (still collapsed) in that same corner
+          // so it opens there on expand, and persist that position site-wide.
+          var c = nearestCorner(handle.getBoundingClientRect());
+          pinHandle(c);
+          var w = dock.offsetWidth || 0, h = dock.offsetHeight || 0;
+          var pos = {
+            left: c.right ? window.innerWidth - w - CORNER_GAP : CORNER_GAP,
+            top: c.bottom ? window.innerHeight - h - CORNER_GAP : CORNER_GAP,
+          };
           if (dock.__tbxPlace) dock.__tbxPlace(pos);
           if (dock.__tbxSave) { var rr = dock.getBoundingClientRect(); dock.__tbxSave({ left: rr.left, top: rr.top }); }
         }
