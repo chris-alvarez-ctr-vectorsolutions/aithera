@@ -405,6 +405,11 @@
     var active = $('#screen-' + id);
     if (active) active.scrollTop = 0;
     setWhoMini(false);   // a new screen starts at the top, so the strip is open
+
+    // Scan as a LANDING screen (no Home, no Record) must not switch the camera
+    // on by itself: it opens in the ready state and waits for Open Camera.
+    // Every arrival resets it; users who chose the Scan tab get the live feed.
+    if (id === 'scan') $('#screen-scan').classList.toggle('scanner--ready', landing() === 'scan');
   }
   window.goTo = goTo;   // consumed by the Design Toolbox flow map
 
@@ -783,6 +788,10 @@
   // could point at any activity, course, or Record Completions entry.)
   $('#btn-scan').addEventListener('click', function () {
     if (window.RC) window.RC.openSelf('Physical Fitness', { scanned: true });
+  });
+  // Ready state → live viewfinder (the one deliberate action that turns the camera on)
+  $('#btn-open-camera').addEventListener('click', function () {
+    $('#screen-scan').classList.remove('scanner--ready');
   });
 
   $('#sheet-close').addEventListener('click', closeSheet);

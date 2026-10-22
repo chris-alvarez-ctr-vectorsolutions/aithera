@@ -92,6 +92,7 @@
 - (2026-10-22) **Prototype only:** switch to **Martin Newsome** from the User button in the UX tools dock (or `?user=martin`).
 
 ## scan
+- (2026-10-22) **Camera only on a deliberate action for users who land on Scan.** When Scan is the landing screen (no Home tab and no Record tab — see `home-no-record`) the app must not switch the camera on just because it opened. Scan shows a ready state instead: QR icon, "Ready to scan", one line of copy ("Open the camera and point it at the QR or barcode posted with an activity."), and a large **Open Camera** button; the live viewfinder appears only after that tap. Every arrival on the tab shows the ready state again. Users who have Home or Record chose the Scan tab themselves, so the viewfinder opens immediately for them, as before.
 - (2026-10-21) **Staged camera feed instead of a scanning animation.** The viewfinder shows a printed sheet taped to a painted cinder-block gym wall: the department name, the Physical Fitness QR code, "Physical Fitness — Scan to record your workout". The red corner brackets are the app's framing guide over the feed. The old sweeping red line is gone.
 - (2026-10-21) **The code in the mock is a stand-in** (`ver1/qr-fitness.svg`, not scannable). "Simulate a scan" still resolves to the Physical Fitness self-assign; in production the camera resolves whatever code it sees.
 
@@ -116,6 +117,7 @@
 ## files-folder
 - (2026-10-21) **Folder-targeted Quick Link** (the "Imported Resources" tile, launch `folder`) lands directly in that folder with the Home tab still active. Back returns to Home from anywhere in the tree; "Up one level" goes to the File Center root.
 - (2026-10-21) **File-targeted Quick Link** (the "Wildland Policy" tile, launch `file`) opens the file itself over Home — the viewer for a PDF, the download sheet for an Office file, the browser for a link. Closing it returns to Home; the user never has to pass through the folder list.
+- (2026-10-22) **File Center button in the viewer bar** for files opened from a Quick Link: next to the X, a "File Center" pill goes to the root folder (back arrow from there still exits to Home). Hidden when the file was opened from the folder list, where X already returns to the folder.
 
 ## file-view
 - (2026-10-21) **Full-screen viewer** for PDF, image and text: tab bar hidden, dark bar with X (close), the file name (two lines max), and a share button. Share offers the device share sheet, Save to device, and Open in another app.
