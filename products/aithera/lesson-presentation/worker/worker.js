@@ -109,10 +109,17 @@ export default {
     }
 
     // Pass the Anthropic response straight through (status + JSON body),
-    // adding CORS headers so the browser is allowed to read it.
+    // adding CORS headers so the browser is allowed to read it. The org ID
+    // header identifies which Anthropic account owns the key — handy when
+    // nobody remembers whose console to log into.
     return new Response(text, {
       status: upstream.status,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
+      headers: {
+        'Content-Type': 'application/json',
+        'anthropic-organization-id': upstream.headers.get('anthropic-organization-id') || '',
+        'Access-Control-Expose-Headers': 'anthropic-organization-id',
+        ...corsHeaders(origin),
+      },
     });
   },
 };
