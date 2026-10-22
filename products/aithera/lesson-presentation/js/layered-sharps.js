@@ -2481,11 +2481,26 @@
           } else if (q.kind === 'insight') {
             csMark(picked, 'neutral');
             saveResult(q.key, { picked: v, answer: q.options[v].t, carrier: showing });
+            markRecorded();
           } else {
             picked.classList.add('is-picked');
             saveResult(q.key, { score: v, carrier: showing });
+            markRecorded();
           }
           ctx.enableNext();
+          // Ungraded items have no verdict to show, so after Submit the card
+          // just went quiet and it wasn't clear the screen was done (2026-10-23
+          // review). A plain status line takes the spent button's place — same
+          // height, so nothing on the card shifts.
+          function markRecorded() {
+            var btn = document.getElementById('dkSubmit');
+            var line = document.createElement('p');
+            line.className = 'dk-recorded';
+            line.setAttribute('role', 'status');
+            line.style.minHeight = btn.offsetHeight + 'px';
+            line.innerHTML = '<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Answer recorded';
+            btn.replaceWith(line);
+          }
         });
       }
 
