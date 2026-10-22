@@ -432,8 +432,13 @@ button.st.not:hover { background: #e7eaee; border-color: #c9ced5; }
 /* "Sign": rows waiting on you sign right from the Status column, as a secondary button */
 .sign-btn { font-family: inherit; }
 .sign-btn i { color: var(--blue); }
-.row-act { width: 84px; text-align: center; }
+.row-act { width: 150px; text-align: left; white-space: nowrap; }
 .row-act .lnk { font-size: 14px; }
+/* View is on every row; rows waiting on you add a Sign button after it */
+.row-btns { display: inline-flex; align-items: center; gap: 14px; }
+/* Signature sent: you've signed and the form moved on to its next signer */
+.st.sent { background: #e3f6f8; color: #0b7285; border-color: #b3e3ea; }
+.sum-card .hint { font-size: 11.5px; color: var(--muted); }
 /* Drawer footer hides itself when there's no action for this workflow */
 .dr-foot:not(:has(*)) { display: none; }
 
@@ -482,11 +487,11 @@ button.st.not:hover { background: #e7eaee; border-color: #c9ced5; }
 .q .opts { display: flex; gap: 22px; }
 .q .opts label { display: inline-flex; gap: 8px; align-items: center; font-size: 13.5px; cursor: pointer; }
 .applies { font-size: 12.5px; color: #555; margin-top: 4px; }
-.sig-prev {
-  height: 64px; border: 1px dashed var(--border-strong); border-radius: 4px; margin-top: 10px; display: flex; align-items: center; padding: 0 16px;
-  font-family: 'Brush Script MT', 'Segoe Script', cursive; font-size: 30px; color: #1a2b4a; background: #fbfcfd;
-}
-.sig-prev.empty { font-family: inherit; font-size: 12.5px; color: var(--muted); }
+/* Ink signature pad: same signature as today (typed signatures are out of scope) */
+.sig-h { display: flex; justify-content: space-between; align-items: baseline; max-width: 480px; }
+.sig-wrap { position: relative; max-width: 480px; }
+.sig-pad { display: block; width: 100%; height: 120px; border: 1px dashed var(--border-strong); border-radius: 4px; background: #fbfcfd; touch-action: none; cursor: crosshair; }
+.sig-wrap .ph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--muted); font-size: 12.5px; pointer-events: none; }
 .attest { display: flex; gap: 10px; align-items: flex-start; margin-top: 16px; font-size: 13px; color: #333; line-height: 1.5; cursor: pointer; }
 .attest input { margin-top: 3px; flex-shrink: 0; }
 .stu-list { list-style: none; margin: 0; padding: 0; max-height: 520px; overflow-y: auto; }
@@ -738,10 +743,14 @@ button.st.not:hover { background: #e7eaee; border-color: #c9ced5; }
           <div class="card">
             <div class="card-h"><h3>Signature</h3><span class="meta" id="rvDate"></span></div>
             <div class="card-b">
-              <label class="label" for="sigName">Type your full name</label>
-              <input class="inp" id="sigName" style="max-width:360px" oninput="syncSig()" placeholder="Full name">
-              <div class="sig-prev empty" id="sigPrev">Your signature will appear here</div>
-              <label class="attest">
+              <!-- Ink signature, as today. Typed signatures are out of scope (review 2026-10-22). -->
+              <div class="sig-h"><span class="label">Sign in the box</span><button class="link-btn" type="button" onclick="clearSig()">Clear</button></div>
+              <div class="sig-wrap">
+                <canvas class="sig-pad" id="sigPad" aria-label="Signature pad: draw your signature"></canvas>
+                <span class="ph" id="sigPh"><i class="fa-regular fa-pen-nib"></i> Draw your signature</span>
+              </div>
+              <!-- Only when signing more than one form -->
+              <label class="attest" id="attestRow">
                 <input type="checkbox" id="attest" onchange="syncSig()">
                 <span id="attestTxt"></span>
               </label>
@@ -855,7 +864,7 @@ const ROLES = {
 };
 const WF_FORMS = [
   { id: 'f1', name: 'Internship Approval Form', chain: ['student', 'parent', 'bp', 'approver'] },
-  { id: 'f2', name: 'WBL Training Plan - Learning Objectives & Evaluation', chain: ['student', 'bp', 'approver'] },
+  { id: 'f2', name: 'WBL Training Plan - Learning Objectives & Evaluation', chain: ['student', 'approver', 'bp'] },
   { id: 'f3', name: 'Career Exploration Training Plan', chain: ['student', 'parent', 'approver'] },
   { id: 'f4', name: 'Louisa Co. HQ WBL Training Plan', chain: ['student', 'parent', 'bp'] },
 ];
@@ -871,6 +880,9 @@ const first = n => n.split(', ')[1];
 const last = n => n.split(', ')[0];
 const mail = (n, dom) => (first(n) + '.' + last(n)).toLowerCase().replace(/[^a-z.]/g, '') + '@' + dom;
 
+// Completed workflows stay in the table for 6 months after their last signature
+const KEEP_DONE_DAYS = 182;
+const DONE_AGO = [1, 6, 13, 24, 38, 55, 79, 104, 137, 171];   // days since completion
 // status mix: 0-5 not started, 6-37 in progress (every 4th stalled), 38-47 completed
 function buildInstances() {
   return STUDENTS.map((s, i) => {
@@ -889,14 +901,15 @@ function buildInstances() {
     const n = form.chain.length;
     const signedCount = status === 'not' ? 0 : status === 'done' ? n : 1 + (i % (n - 1));
     const waitDays = stalled ? 8 + (i % 13) : 1 + (i % 6);
-    const started = status === 'not' ? null : waitDays + signedCount * 2 + (i % 3);
+    const doneAgo = status === 'done' ? DONE_AGO[(i - 38) % DONE_AGO.length] : null;
+    const started = status === 'not' ? null : status === 'done' ? doneAgo + 2 * n - 1 : waitDays + signedCount * 2 + (i % 3);
     const signers = form.chain.map((role, k) => ({
       role, order: k + 1, name: people[role][0], email: people[role][1],
       state: k < signedCount ? 'signed' : (status === 'prog' && k === signedCount) ? 'waiting' : 'queued',
       at: k < signedCount ? started - 2 * (k + 1) + 1 : (status === 'prog' && k === signedCount) ? waitDays : null,
     }));
     return { id: 'w' + i, student: s, grade: 10 + (i % 3), school: school.name, district: school.district, form: form.id, exp: exp.name, seg: exp.seg,
-      status, stalled, started, waitDays: status === 'prog' ? waitDays : null, signers, reminded: null };
+      status, stalled, started, waitDays: status === 'prog' ? waitDays : null, completedAt: doneAgo, signers, reminded: null };
   });
 }
 const wfForm = id => WF_FORMS.find(f => f.id === id);
@@ -906,14 +919,21 @@ const signedN = w => w.signers.filter(x => x.state === 'signed').length;
 // The signed-in user (Mari Castree) is the School Approver at Central CTE Center,
 // so in-progress workflows there have reached her and wait on her signature.
 const ME = 'Castree, Mari';
-const mine = w => w.status === 'prog' && waitingOn(w)?.name === ME;
+const mine = w => w.status === 'prog' && w.signers.some(x => x.state === 'waiting' && x.name === ME);
+// A few she has already signed, and they moved on to the next signer (Signature sent).
 function seedMine(list) {
-  list.filter(w => w.status === 'prog' && w.school === 'Central CTE Center' && w.signers.some(x => x.role === 'approver')).forEach(w => {
-    const n = w.signers.length;
+  list.filter(w => w.status === 'prog' && w.school === 'Central CTE Center' && w.signers.some(x => x.role === 'approver')).forEach((w, j) => {
+    const a = w.signers.findIndex(x => x.role === 'approver');
+    const cur = a < w.signers.length - 1 && j % 3 === 1 ? a + 1 : a;   // who it's waiting on now
     w.signers.forEach((x, k) => {
-      if (k < n - 1) { x.state = 'signed'; x.at = w.waitDays + (n - 1 - k) * 2; }
-      else { x.state = 'waiting'; x.at = w.waitDays; }
+      if (k < cur) { x.state = 'signed'; x.at = w.waitDays + (cur - k) * 2; }
+      else if (k === cur) { x.state = 'waiting'; x.at = w.waitDays; }
+      else { x.state = 'queued'; x.at = null; }
     });
+    // One shares her signing order with the next signer, so both are up at once
+    if (j === 2 && cur === a && a < w.signers.length - 1) {
+      const y = w.signers[a + 1]; y.order = w.signers[a].order; y.state = 'waiting'; y.at = w.waitDays;
+    }
   });
   return list;
 }
@@ -924,18 +944,21 @@ function seedMine(list) {
    District (intermediary roles only), School — plus Status.
    It is ONE table across all versions; a version only adds its own extras.
    Every row can be selected (Select all = every row on the page). Signing is
-   shared too (common/signflow.js): rows waiting on you show a "Sign" status
-   badge, and Sign & approve (n) in the selection bar signs several forms.
+   shared too (common/signflow.js): rows waiting on you show a Sign
+   button next to View, and Sign & approve (n) in the selection bar signs several forms.
    Hooks a version can define BEFORE this runs:
      T_DEFAULT_FILTER  starting status card
      T_KEEP_UNSTARTED  #7 only: keep unstarted workflows (Start workflow status)
      tExtraBulk(rows)  extra selection-bar actions (e.g. #7 Start workflows)
      openWorkflow(id)  View link / name click */
 let INST = seedMine(buildInstances());
-// Statuses: Waiting for signatures · Signature sent · Sending out <date> (+ Start workflow in #7).
+// Statuses: Waiting for signatures · Signature sent (you signed, moved on) · Completed <date>
+// · Sending out <date> (+ Start workflow in #7).
 // Unstarted workflows only matter to #7 (which starts them); elsewhere they're scheduled sends.
 if (typeof T_KEEP_UNSTARTED === 'undefined') INST.filter(w => w.status === 'not')
   .forEach((w, i) => { w.status = 'sched'; w.sendOn = new Date(2026, 10, 2 + 7 * (i % 3)); w.sendTime = '7:00 AM'; });
+// Completed workflows drop off the table 6 months after their last signature
+INST = INST.filter(w => w.status !== 'done' || w.completedAt <= KEEP_DONE_DAYS);
 let tFilter = (typeof T_DEFAULT_FILTER !== 'undefined') ? T_DEFAULT_FILTER : 'all';
 let SHOW_DISTRICT = false;      // true only for intermediary roles
 const tSel = new Set();
@@ -947,16 +970,21 @@ const T_CARDS = [
   ...(typeof T_KEEP_UNSTARTED !== 'undefined' ? [['not', 'Start workflow', '#8a939e']] : []),
   ['prog', 'Waiting for signatures', 'var(--blue)'],
   ['sched', 'Sending out', '#8e63ce'],
-  ['done', 'Signature sent', 'var(--green)'],
+  ['sent', 'Signature sent', 'var(--teal)'],
+  ['done', 'Completed', 'var(--green)'],
 ];
+// Signature sent is per viewer: you've signed and the form moved on to its next signer
+const sentByMe = w => w.status === 'prog' && w.signers.some(x => x.name === ME && x.state === 'signed');
+const stOf = w => sentByMe(w) ? 'sent' : w.status;
 function tMatch(w, f) {
   if (f === 'all') return true;
   if (f === 'mine') return mine(w);
-  return w.status === f;
+  return stOf(w) === f;
 }
 function statusChip(w) {
   if (w.status === 'sched') return `<span class="st sched"><i class="fa-regular fa-calendar-clock"></i> Sending out ${fmtDate(w.sendOn)}</span>`;
-  if (w.status === 'done') return '<span class="st done"><i class="fa-solid fa-check"></i> Signature sent</span>';
+  if (w.status === 'done') return `<span class="st done"><i class="fa-solid fa-check"></i> Completed ${fmtDate(daysAgo(w.completedAt))}</span>`;
+  if (sentByMe(w)) return '<span class="st sent"><i class="fa-solid fa-paper-plane"></i> Signature sent</span>';
   if (w.status === 'prog') return '<span class="st prog">Waiting for signatures</span>';
   if (w.status === 'not') return '<span class="st not"><i class="fa-regular fa-play"></i> Start workflow</span>';   // #7 only
   return '';
@@ -968,12 +996,29 @@ function statusCell(w) {
   return statusChip(w) || '<span class="sub">—</span>';
 }
 
-// Last column: rows waiting on you get a Sign button (signs this one form);
-// everything else opens the workflow details. The student name always opens details.
+// Last column: every row has View (opens the workflow details); rows waiting on
+// you also get a Sign button (signs this one form).
 function rowAction(w) {
-  return mine(w)
-    ? `<button class="btn ghost sm sign-btn" onclick="goSign(['${w.id}'])" title="Sign this form"><i class="fa-regular fa-signature"></i> Sign</button>`
-    : `<a class="lnk" onclick="openWorkflow('${w.id}')">View</a>`;
+  return `<span class="row-btns"><a class="lnk" onclick="openWorkflow('${w.id}')">View</a>${mine(w)
+    ? `<button class="btn ghost sm sign-btn" onclick="goSign(['${w.id}'])" title="Sign this form"><i class="fa-regular fa-signature"></i> Sign</button>` : ''}</span>`;
+}
+
+// Drawer footer: Resend email. Today's resend (per-student screen), brought into
+// the details panel. Goes to everyone the form is waiting on except you, so it also
+// works while it's your turn alongside another signer (shared signing order).
+const othersUp = w => w.status === 'prog' ? w.signers.filter(x => x.state === 'waiting' && x.name !== ME) : [];
+function reminderBtn(w) {
+  const to = othersUp(w);
+  if (!to.length) return '';
+  return `<span class="left">To ${to.map(x => `${esc(first(x.name))} ${esc(last(x.name))} · ${esc(ROLES[x.role].label)}`).join(', ')}</span>` + (w.reminded === 0
+    ? '<button class="btn ghost" disabled><i class="fa-solid fa-check"></i> Email resent</button>'
+    : `<button class="btn ghost" onclick="sendReminder('${w.id}')"><i class="fa-regular fa-envelope"></i> Resend email</button>`);
+}
+function sendReminder(id) {
+  const w = INST.find(x => x.id === id);
+  w.reminded = 0;
+  toast(`Email resent to ${othersUp(w).map(x => first(x.name) + ' ' + last(x.name)).join(' and ')}`);
+  openWorkflow(id);
 }
 
 function fv(id) { const el = $('#' + id); return el ? el.value : ''; }
@@ -982,13 +1027,14 @@ function tRows() {
   return INST.filter(w => tMatch(w, tFilter) && (!f || w.form === f) && (!g || String(w.grade) === g) && (!sg || w.seg === sg) && (!e || w.exp === e) &&
     (!q || w.student.toLowerCase().includes(q) || w.signers.some(x => x.name.toLowerCase().includes(q))))
     // Not started first (#7), then longest wait, then scheduled / signed
-    .sort((a, b) => (a.status === 'not' ? -1 : 0) - (b.status === 'not' ? -1 : 0) || (b.waitDays || 0) - (a.waitDays || 0));
+    .sort((a, b) => (a.status === 'not' ? -1 : 0) - (b.status === 'not' ? -1 : 0) || (b.waitDays || 0) - (a.waitDays || 0) ||
+      (a.completedAt ?? -1) - (b.completedAt ?? -1));
 }
 function renderSummary() {
   $('#tSum').innerHTML = T_CARDS.map(([id, label, color]) => {
     const n = INST.filter(w => tMatch(w, id)).length;
     return `<button class="sum-card ${tFilter === id ? 'is-on' : ''} ${id === 'mine' ? 'mine' : ''}" onclick="setTFilter('${id}')">
-      <span class="n">${n}</span><span class="l"><span class="dot" style="background:${color}"></span>${label}</span></button>`;
+      <span class="n">${n}</span><span class="l"><span class="dot" style="background:${color}"></span>${label}</span>${id === 'done' ? '<span class="hint">Last 6 months</span>' : ''}</button>`;
   }).join('');
 }
 function setTFilter(f) { tFilter = f; tSel.clear(); renderTracking(); }
@@ -1112,7 +1158,7 @@ function timelineItem(w, x) {
   if (x.state === 'signed') stt = `<div class="stt ok"><i class="fa-solid fa-check"></i> Signed<small>${fmtLong(daysAgo(x.at))}</small></div>`;
   else if (x.state === 'waiting') stt = x.at === 0
     ? `<div class="stt wt">Waiting<small>Sent today${x.note ? ' · ' + esc(x.note) : ''}</small></div>`
-    : `<div class="stt wt">Waiting<small>Sent ${fmtDate(daysAgo(x.at))}</small></div>`;
+    : `<div class="stt wt">Waiting<small>Sent ${fmtDate(daysAgo(x.at))}${w.reminded === 0 && x.name !== ME ? ' · Resent today' : ''}</small></div>`;
   else {
     const w8 = waitingOn(w), next = w8 && w.signers.filter(y => y.state === 'queued' && y.order > w8.order).map(y => y.order).sort((a, b) => a - b)[0];
     stt = `<div class="stt">${w.status === 'prog' && x.order === next ? 'Up next' : ''}</div>`;
@@ -1125,7 +1171,7 @@ function timelineItem(w, x) {
 
 /* ── Signing, shared by every version (#3–4, #5–6, #7) ─────────
    It's one Workflow Tracking table, so signing works the same everywhere:
-   the "Sign" status badge on a row waiting on you signs that one form;
+   the Sign button on a row waiting on you signs that one form;
    Sign & approve (n) in the selection bar signs several of the same form.
    Change signing here and every version picks it up. */
 /* ── Sign & approve: answer once, sign once ──────────────────── */
@@ -1135,9 +1181,10 @@ let batch = [];
 function goSign(ids) {
   batch = ids || INST.filter(w => tSel.has(w.id) && mine(w)).map(w => w.id);
   if (!batch.length) return;
-  $('#sigName').value = ''; $('#attest').checked = false; $('#rvQuestions').innerHTML = '';
+  sigInked = false; $('#attest').checked = false; $('#rvQuestions').innerHTML = '';
   renderReview();
   showView('view-review');
+  clearSig();
   setCrumbs([['Manage Existing', 'goManageExisting()'], ['Forms', 'backToTracking()'], ['Sign & approve']]);
   window.scrollTo(0, 0);
 }
@@ -1151,43 +1198,76 @@ function renderReview() {
   $('#rvQuestions').innerHTML = `
     <div class="q"><div class="qt">Do you approve this placement? <span class="req">*</span></div>
       <div class="opts"><label><input type="radio" name="q1" value="yes" onchange="syncSig()" ${q1 === 'yes' ? 'checked' : ''}> Approve</label>
-      <label><input type="radio" name="q1" value="no" onchange="syncSig()" ${q1 === 'no' ? 'checked' : ''}> Do not approve</label></div></div>
+      <label><input type="radio" name="q1" value="no" onchange="syncSig()" ${q1 === 'no' ? 'checked' : ''}> Reject</label></div></div>
     <div class="q"><div class="qt">${esc(Q2[form.id])} <span class="req">*</span></div>
       <div class="opts"><label><input type="radio" name="q2" value="yes" onchange="syncSig()" ${q2 === 'yes' ? 'checked' : ''}> Yes</label>
       <label><input type="radio" name="q2" value="no" onchange="syncSig()" ${q2 === 'no' ? 'checked' : ''}> No</label></div></div>
-    <div class="q"><div class="qt">Comments</div>
-      <textarea class="inp" id="q3" rows="3" placeholder="Optional">${esc(cm)}</textarea>
+    <div class="q"><div class="qt">Comments <span class="req" id="q3req" hidden>*</span></div>
+      <textarea class="inp" id="q3" rows="3" placeholder="Optional" oninput="syncSig()">${esc(cm)}</textarea>
       ${n > 1 ? `<div class="applies">Your comment is added to all ${n} forms.</div>` : ''}</div>`;
   $('#stuHead').textContent = `Students (${n})`;
   $('#stuList').innerHTML = ws.map(w => `
     <li><div><div class="nm">${esc(w.student)}</div><div class="ex">${esc(w.exp)} · Grade ${w.grade}</div>
       <div class="rv-who">Signed by ${w.signers.filter(x => x.state === 'signed').map(x => esc(ROLES[x.role].label)).join(', ')}</div></div>
     ${n > 1 ? `<button class="rm" onclick="removeFromBatch('${w.id}')" title="Remove from this signing" aria-label="Remove ${esc(w.student)}"><i class="fa-solid fa-xmark"></i></button>` : ''}</li>`).join('');
-  $('#attestTxt').textContent = n === 1
-    ? 'I have reviewed this form and agree that typing my name is my electronic signature.'
-    : `I have reviewed the ${form.name} for the ${n} students listed and agree that typing my name is my electronic signature on each of them.`;
+  // One signature on several forms needs a confirmation; a single form signs as today
+  $('#attestRow').hidden = n === 1;
+  $('#attestTxt').textContent = `I have reviewed the ${form.name} for the ${n} students listed, and my signature applies to each of them.`;
   syncSig();
 }
 function removeFromBatch(id) { batch = batch.filter(x => x !== id); tSel.delete(id); renderReview(); }
 function syncSig() {
-  const name = $('#sigName').value.trim(), p = $('#sigPrev');
-  p.textContent = name || 'Your signature will appear here';
-  p.classList.toggle('empty', !name);
+  $('#sigPh').hidden = sigInked;
+  // Reject needs a comment, as it does today
+  const rej = $('[name="q1"]:checked')?.value === 'no', reason = !rej || !!$('#q3')?.value.trim();
+  if ($('#q3')) { $('#q3req').hidden = !rej; $('#q3').placeholder = rej ? 'Tell the other signers why you rejected it' : 'Optional'; }
   const answered = $('[name="q1"]:checked') && $('[name="q2"]:checked');
-  const ok = answered && name && $('#attest').checked, b = $('#btnSign');
+  const bulk = batch.length > 1, ok = answered && reason && sigInked && (!bulk || $('#attest').checked), b = $('#btnSign');
   b.disabled = !ok;
-  $('span', b).textContent = batch.length === 1 ? 'Sign & approve' : `Sign & approve ${batch.length} forms`;
-  $('#rvHint').textContent = ok ? '' : !answered ? 'Answer the required questions to sign.' : !name ? 'Type your name to sign.' : 'Check the box to confirm.';
+  const verb = rej ? 'Sign & reject' : 'Sign & approve';
+  $('span', b).textContent = bulk ? `${verb} ${batch.length} forms` : verb;
+  $('#rvHint').textContent = ok ? '' : !answered ? 'Answer the required questions to sign.' : !reason ? 'Add a comment to reject.'
+    : !sigInked ? 'Sign in the box to continue.' : 'Check the box to confirm.';
+}
+
+/* Ink signature pad: draw with a mouse, pen or finger. Same signature as today. */
+let sigInked = false;
+function clearSig() {
+  const c = $('#sigPad'), r = c.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  c.width = Math.round(r.width * dpr); c.height = Math.round(r.height * dpr);
+  const g = c.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0); g.lineWidth = 2.2; g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = '#1a2b4a';
+  sigInked = false; syncSig();
+}
+(function wireSigPad() {
+  const c = $('#sigPad'); let lastPt = null;
+  const pt = e => { const r = c.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  c.addEventListener('pointerdown', e => { lastPt = pt(e); c.setPointerCapture(e.pointerId); });
+  c.addEventListener('pointermove', e => {
+    if (!lastPt) return;
+    const p = pt(e), g = c.getContext('2d');
+    g.beginPath(); g.moveTo(...lastPt); g.lineTo(...p); g.stroke(); lastPt = p;
+    if (!sigInked) { sigInked = true; syncSig(); }
+  });
+  ['pointerup', 'pointercancel'].forEach(t => c.addEventListener(t, () => { lastPt = null; }));
+})();
+// Flow map: a sample signature so the signed states have ink
+function demoSig() {
+  const g = $('#sigPad').getContext('2d');
+  g.beginPath(); g.moveTo(24, 78); g.bezierCurveTo(40, 20, 60, 20, 58, 70); g.bezierCurveTo(56, 100, 90, 30, 110, 60);
+  g.bezierCurveTo(125, 85, 140, 40, 165, 62); g.bezierCurveTo(185, 80, 200, 50, 240, 58); g.stroke();
+  sigInked = true; syncSig();
 }
 function doSign() {
   const n = batch.length, form = wfForm(INST.find(w => w.id === batch[0]).form);
   let completed = 0;
   batch.forEach(id => {
-    const w = INST.find(x => x.id === id), me = waitingOn(w);
-    me.state = 'signed'; me.at = 0;
-    const next = w.signers.find(x => x.state === 'queued');
-    if (next) { next.state = 'waiting'; next.at = 0; w.waitDays = 0; w.stalled = false; }
-    else { w.status = 'done'; w.waitDays = null; w.stalled = false; completed++; }
+    const w = INST.find(x => x.id === id), me = w.signers.find(x => x.state === 'waiting' && x.name === ME);
+    me.state = 'signed'; me.at = 0; w.reminded = null;
+    const queued = w.signers.filter(x => x.state === 'queued'), nextOrd = Math.min(...queued.map(x => x.order));
+    if (w.signers.some(x => x.state === 'waiting')) { /* still waiting on a co-signer with the same order */ }
+    else if (queued.length) { queued.filter(x => x.order === nextOrd).forEach(x => { x.state = 'waiting'; x.at = 0; }); w.waitDays = 0; w.stalled = false; }
+    else { w.status = 'done'; w.waitDays = null; w.stalled = false; w.completedAt = 0; completed++; }
     tSel.delete(id);
   });
   batch = [];
@@ -1232,7 +1312,8 @@ function viewBody(w) {
     <ol class="tl">${[...w.signers].sort((a, b) => a.order - b.order).map(x => timelineItem(w, x)).join('')}</ol>`;
 }
 function viewFoot(w) {
-  return `    ${w.status === 'prog' ? `<button class="btn ${mine(w) ? 'ghost' : ''}" onclick="startEdit('${w.id}')"><i class="fa-regular fa-pen"></i> Edit signers</button>` : ''}
+  return `${reminderBtn(w)}
+    ${w.status === 'prog' ? `<button class="btn ${mine(w) ? 'ghost' : ''}" onclick="startEdit('${w.id}')"><i class="fa-regular fa-pen"></i> Edit signers</button>` : ''}
     ${mine(w) ? `<button class="btn" onclick="closeDrawer();goSign(['${w.id}'])"><i class="fa-regular fa-signature"></i> Sign &amp; approve</button>` : ''}`;
 }
 
@@ -1441,7 +1522,7 @@ window.TOOLBOX_CONFIG = {
       { id: 'confirm', flow: 'main', x: 1240, y: 260, step: '4', name: 'Confirm', state: 'confirm',
         desc: 'Email old → new with the record warning (copy TBD) and the new signing order.' },
       { id: 'sign-one', flow: 'main', x: 340, y: 80, step: 'Shared', name: 'Sign from the table', state: 'sign-one',
-        desc: 'Same table as #3–4: the Sign button (in place of View) signs a form waiting on you.' },
+        desc: 'Same table as #3–4: every row has View; the Sign button next to it signs a form waiting on you.' },
       { id: 'saved', flow: 'main', x: 1240, y: 80, step: '5', name: 'Saved and sent', state: 'saved',
         desc: 'Whoever is now next gets the form, at the corrected address.' },
     ],
