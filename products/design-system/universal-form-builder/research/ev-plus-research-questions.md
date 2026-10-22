@@ -62,7 +62,7 @@ Send A1–A12 to the Evaluations technical reviewer together with the open code-
 | # | Question | The data (from A) | The user conversation it sets up |
 |---|---|---|---|
 | C1 | Who authors and how often | A9 | Is the one-admin pattern by choice or because the tool is hard? Ask occasional editors what they avoid |
-| C2 | Reuse habits | A8, A10 | Show participants their own duplicates and ask why each exists. Tests whether linked blocks would have prevented them |
+| C2 | Reuse habits | A8, A10 | Show participants their own duplicates and ask why each exists. Tests whether linked blocks would have prevented them. Probe the **occurrence copies** (e.g. "PDP Form (Teacher) (Fourth Occurrence)"): the same form copied once per interval. Is it a plan limitation, a reporting need, or wording that changes per interval? If it's the plan, the fix is EV's; if reporting, it's question identity (08 P4) |
 | C3 | Subtype understanding | A3, A12 | Walk through one of their forms and ask who they intended to answer each question |
 | C4 | Scale behaviour | A5, A6 | Do they expect editing a preset to change forms already using it? Data shows what they did; the interview shows what they assumed |
 | C5 | Settings that lock after publish | A2, A12 | Have they hit it, and what warning would have changed their action? Test the alternative EV+ is considering: published forms locked, and editable only with an audit trail. Decides whether the Form Builder locks individual settings at all ([08](../08-prototype-build-brief.md) P2) |

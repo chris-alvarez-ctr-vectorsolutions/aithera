@@ -135,7 +135,7 @@ Thirty minutes, two profiles, the same shell. Each step names the flow-map scene
 
 | # | Scene | Do | Say |
 |---|---|---|---|
-| 1 | `library-ev` | Open the Forms library. Point at the status column. | One library per product: forms, form sections, scales, filterable by Use for. Statuses are Evaluations' own, including Superseded and Publish-Restricted. Code-confirmed. |
+| 1 | `library-ev` | Open the Forms list. Open the Observations folder, then a row's menu. | The list is EV's, not the builder's: its folders, its columns (Vers., Form Rec, Plan Use) and its words (Unpublished, Publish-restricted). Edit, Copy and Preview on a row are where the builder takes over. Statuses code-confirmed. |
 | 2 | `setup-ev` | Click New form. Try Copy, then From form sections. Leave Use for on Evaluation and Type on Normal, choose "The evaluee" as who can start it. Cancel. | The product owns this step; the fields come from its profile (P2). Use for and Type are EV's own setup values, not core concepts. Type locks after publish and the dialog says so before you pick. "Normal follows the initiator" is why who-can-start-it sits here. |
 | 3 | `builder-ev` | Open Classroom Observation. Expand Domain 3. | Canvas + inspector, whole form visible. Danielson domains are linked form sections: edit once in the library, every form follows. The pinned timer and the injected JAC question show where delivery puts them. |
 | 4 | `question-ev` | Select Teacher reflection. Open Who answers. Try to pick Read Only on a signature (disabled). | Who answers is a relationship to the record, not a role. The allowed matrix per mechanism is the engine's. |

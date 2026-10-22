@@ -64,6 +64,9 @@ A table per product is fine: *type → subtypes → settings → where stored �
 | EV24 | **Auto** subtype: what does the system fill, and when? |
 | EV25 | **Publish-Restricted** access lists: where are they managed, and are they per form? |
 | EV26 | Can Evaluation forms be started by the evaluee (initiator) for any Use For, or only some? |
+| EV27 | **Manage Alias** on the Forms list: what is an alias, where is it shown, and who sees it? |
+| EV28 | **Import from data** and **Import from file**: what formats, from where (another district, a CSV), and what happens to scales, tags and sections on import? Does Export XML round-trip? |
+| EV29 | **Reorder forms**: what does the order drive (pickers, plan setup, the list only)? |
 
 ---
 

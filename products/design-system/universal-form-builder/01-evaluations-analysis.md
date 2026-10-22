@@ -116,6 +116,24 @@ A subtype **never changes how a question looks.** It decides **who may answer**,
 
 See 03 §2.
 
+### The Forms list (screenshot, 2026-10-22)
+EV+ keeps this list; the Form Builder starts from it (03 §6). The list will be redesigned by EV+ in the design system.
+
+| Part | What it shows |
+|---|---|
+| Header | Search with a filter button, **Edit Columns**, **Actions**, **Add Form** |
+| Status chips | **Unpublished**, Published, **Publish-restricted**, each with a count. EV+ says "Unpublished" where the docs say Draft |
+| Folders | Folder rows in the list ("Observations") and an "All Forms" breadcrumb; **Move To** on each row |
+| Columns | Name, **Vers.**, **Form Rec** (filled-in records), **Plan Use** (plans using it), Status (a link). Use for is not a default column |
+| Row menu | Edit, **Copy**, **Preview**, Move To, **Manage Alias**, Export PDF, Export CSV, Export XML |
+| Actions menu | **Import from file**, **Import from data**, **Reorder forms** |
+
+What it adds to the model:
+- **Copies per occurrence.** "PDP Form (Teacher)" exists four times (Second, Third, Fourth Occurrence): the same form filled out at set intervals, copied once per interval. The duplication looks like it comes from the plan model, not authoring. It also splits reporting: each copy is a separate form, so a question can't be followed across intervals (P4). Research C2.
+- **Forms move between districts as files** (Export XML, Import from file). Libraries can stay separate per district with import as a copy, but a form built from linked blocks or scales needs a rule for what travels with it (P6).
+- **Preview from the list** without opening the editor should be the same preview as the builder's (P1).
+- **Manage Alias**, **Import from data** and **Reorder forms** are unknown: code dive EV27–EV29.
+
 ## 2. Question types: evaluation forms
 
 `renderQuestion` has exactly 19 branches (6497-6880, confirmed in DEV-NOTES.md:56-80).
