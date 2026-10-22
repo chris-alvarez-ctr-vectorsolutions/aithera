@@ -13,7 +13,7 @@ Decisions from the PRD review call with Marivette Castree, Bob Peacock, Amrapali
 - **Completed retention is still open:** the mock keeps completed workflows for 6 months as a placeholder. Marivette is checking the customer expectation with Kara (school year? since the district started?).
 - **No stalled indicator in this release:** today the product has no definition of "stalled". The shelved build used 14 days for every district, and a per-district setting would add scope. Admins see who the form is waiting on, and when it was sent, in the details panel. Unsigned pending workflows still go inactive after 14 days, as today.
 - **Rejected signers:** keep today's red "rejected" marker from the per-student view in this table too. It isn't drawn in the mock yet; Bob is sending a screenshot of today's marker, the approve/reject email and the comment screen.
-- **Row actions:** every row has View, including when the user is up next to sign, alone or sharing a signing order with someone else. Rows waiting on the user also get a Sign button.
+- **Row actions:** every row opens its details, including when the user is up next to sign, alone or sharing a signing order with someone else. Rows waiting on the user also get a Sign button. V1 is trying a whole-row click with a chevron at the far right instead of a View link (V2 still uses View); pick one before handoff. The checkbox, Sign, the Start workflow badge and the student name keep their own actions.
 
 ## drawer
 - **Resend email:** this is today's resend from the per-student screen, brought into the details panel. It is not a new reminder system. It goes to everyone the form is waiting on except the signed-in user.

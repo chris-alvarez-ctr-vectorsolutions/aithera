@@ -432,10 +432,14 @@ button.st.not:hover { background: #e7eaee; border-color: #c9ced5; }
 /* "Sign": rows waiting on you sign right from the Status column, as a secondary button */
 .sign-btn { font-family: inherit; }
 .sign-btn i { color: var(--blue); }
-.row-act { width: 150px; text-align: left; white-space: nowrap; }
-.row-act .lnk { font-size: 14px; }
-/* View is on every row; rows waiting on you add a Sign button after it */
-.row-btns { display: inline-flex; align-items: center; gap: 14px; }
+.row-act { width: 120px; text-align: right; white-space: nowrap; }
+/* V1 trial: no View link. The whole row opens the details; a chevron at the far
+   right says so. Rows waiting on you keep a Sign button before the chevron. */
+.row-btns { display: inline-flex; align-items: center; justify-content: flex-end; gap: 14px; }
+.t-grid tbody tr[data-id] { cursor: pointer; }
+.t-grid tbody tr[data-id]:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.row-chev { color: #8a9099; font-size: 13px; width: 14px; text-align: center; }
+.t-grid tbody tr[data-id]:hover .row-chev { color: var(--link); }
 /* Signature sent: you've signed and the form moved on to its next signer */
 .st.sent { background: #e3f6f8; color: #0b7285; border-color: #b3e3ea; }
 .sum-card .hint { font-size: 11.5px; color: var(--muted); }
@@ -1018,7 +1022,7 @@ body.customizing .dcard::before {
             <thead>
               <tr id="tHead"></tr>
             </thead>
-            <tbody id="tBody"></tbody>
+            <tbody id="tBody" onclick="rowOpen(event)" onkeydown="rowOpen(event)"></tbody>
           </table>
           </div>
         </div>
@@ -1159,7 +1163,8 @@ function toast(msg) {
    (intermediary roles only), School, plus Status. Filters: Workflow, Grade,
    Segment, Experience, and search.
    Signing (FR-3), shared with every version via common/signflow.js:
-   · every row has View; a row waiting on you also has a Sign button: sign that one form
+   · clicking a row opens its details (chevron at the far right); a row waiting on
+     you also has a Sign button: sign that one form
    · any row can be selected (Select all = the whole page); Sign & approve (n)
      signs the selected forms waiting on you, one form at a time (PRD)
    then answer the shared questions once and sign once. */
@@ -1314,12 +1319,12 @@ const T_DEFAULT_FILTER = 'all';
    It is ONE table across all versions; a version only adds its own extras.
    Every row can be selected (Select all = every row on the page). Signing is
    shared too (common/signflow.js): rows waiting on you show a Sign
-   button next to View, and Sign & approve (n) in the selection bar signs several forms.
+   button before the row's chevron, and Sign & approve (n) in the selection bar signs several forms.
    Hooks a version can define BEFORE this runs:
      T_DEFAULT_FILTER  starting status card
      T_KEEP_UNSTARTED  #7 only: keep unstarted workflows (Start workflow status)
      tExtraBulk(rows)  extra selection-bar actions (e.g. #7 Start workflows)
-     openWorkflow(id)  View link / name click */
+     openWorkflow(id)  row click / name click */
 let INST = seedMine(buildInstances());
 // Statuses: Waiting for signatures · Signature sent (you signed, moved on) · Completed <date>
 // · Sending out <date> (+ Start workflow in #7).
@@ -1365,11 +1370,19 @@ function statusCell(w) {
   return statusChip(w) || '<span class="sub">—</span>';
 }
 
-// Last column: every row has View (opens the workflow details); rows waiting on
-// you also get a Sign button (signs this one form).
+// Last column: a chevron (the whole row opens the workflow details); rows waiting
+// on you also get a Sign button (signs this one form).
 function rowAction(w) {
-  return `<span class="row-btns"><a class="lnk" onclick="openWorkflow('${w.id}')">View</a>${mine(w)
-    ? `<button class="btn ghost sm sign-btn" onclick="goSign(['${w.id}'])" title="Sign this form"><i class="fa-regular fa-signature"></i> Sign</button>` : ''}</span>`;
+  return `<span class="row-btns">${mine(w)
+    ? `<button class="btn ghost sm sign-btn" onclick="goSign(['${w.id}'])" title="Sign this form"><i class="fa-regular fa-signature"></i> Sign</button>` : ''}<i class="fa-solid fa-chevron-right row-chev" aria-hidden="true"></i></span>`;
+}
+// Clicking (or pressing Enter on) anywhere in a row opens its details, except on the
+// row's own controls: checkbox, Sign, the Start workflow badge, the student name.
+function rowOpen(e) {
+  const tr = e.target.closest('tr[data-id]');
+  if (!tr || e.target.closest('input, button, a, label, select')) return;
+  if (e.type === 'keydown' && e.key !== 'Enter') return;
+  openWorkflow(tr.dataset.id);
 }
 
 // Drawer footer: Resend email. Today's resend (per-student screen), brought into
@@ -1416,7 +1429,7 @@ function renderTracking() {
   $('#tShowing').textContent = `Showing ${rows.length} of ${INST.length}`;
   $('#tBody').innerHTML = rows.length ? rows.map(w => {
     const on = tSel.has(w.id);
-    return `<tr class="${on ? 'is-sel' : ''}" data-id="${w.id}">
+    return `<tr class="${on ? 'is-sel' : ''}" data-id="${w.id}" tabindex="0" aria-label="${esc(w.student)}: open details">
       <td class="cb"><input type="checkbox" ${on ? 'checked' : ''} onchange="tToggle('${w.id}', this.checked)" aria-label="Select ${esc(w.student)}"></td>
       <td><a class="lnk" onclick="openWorkflow('${w.id}')">${esc(w.student)}</a><div class="sub">Grade ${w.grade}</div></td>
       <td>${esc(w.exp)}<div class="sub">${esc(w.seg)}</div></td>
@@ -2305,11 +2318,11 @@ window.TOOLBOX_CONFIG = {
       { id: 'done', flow: 'sign', x: 940, y: 300, step: '4', name: 'Signed', state: 'done',
         desc: 'Workflows complete or move to their next signer (Signature sent); tile count drops.' },
       { id: 'sign-one', flow: 'sign', x: 340, y: 460, step: 'Option', name: 'Sign one from the table', state: 'sign-one',
-        desc: 'Rows waiting on you show Waiting for signatures, with a Sign button next to View. No selecting needed.' },
+        desc: 'Rows waiting on you show Waiting for signatures, with a Sign button. Clicking anywhere else on a row opens its details. No selecting needed.' },
       { id: 'drawer', flow: 'sign', x: 640, y: 460, step: 'Option', name: 'Workflow details', state: 'drawer',
         desc: 'Signer timeline; Sign & approve a single form.' },
       { id: 'cosign', flow: 'sign', x: 940, y: 460, step: 'Option', name: 'Up with another signer', state: 'cosign',
-        desc: 'Shared signing order: you and the business partner are up at once. View still works; Resend email goes to the other signer.' },
+        desc: 'Shared signing order: you and the business partner are up at once. The row still opens its details; Resend email goes to the other signer.' },
 
       { id: 'manage-existing', flow: 'nav', entry: true, x: 40, y: 700, step: '1', name: 'Manage Existing', state: 'manage-existing',
         desc: 'Manage nav opens today\'s menu page. Forms → Manage Forms › Workflow Tracking.' },
