@@ -16,7 +16,7 @@
   try {
     var file = location.pathname.split('/').pop() || 'index.html';
     var last = sessionStorage.getItem(KEY);
-    var fromInside = document.referrer.indexOf('/ver1/') >= 0;
+    var fromInside = document.referrer.indexOf(location.pathname.replace(/[^/]*$/, '')) >= 0;   // came from a page in this version's folder
     if ((file === 'index.html' || file === '') && last && !fromInside && last.split(/[?#]/)[0] !== 'index.html' && last.split(/[?#]/)[0] !== '') {
       location.replace(last);
     }

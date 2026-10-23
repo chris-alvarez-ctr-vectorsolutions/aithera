@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
     <!-- Self-hosted Font Awesome Pro (repo root is four levels up from verN/) -->
     <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
-    <link rel="stylesheet" href="admin.css?v=61" />
+    <link rel="stylesheet" href="admin.css?v=63" />
 </head>
 <body>
     <div id="head"></div>
@@ -46,13 +46,14 @@
         title: 'Assign a course — Flow Map', applyState: 'applyFlowState', canvas: { w: 1240, h: 300 },
         flows: [{ id: 'main', name: 'Assignment', pill: 'A', color: '#c9b8f0', lane: { x: 20, y: 20, w: 1200, h: 260 }, labelXY: { x: 40, y: 40 } }],
         nodes: [
-          { id: 'course', flow: 'main', entry: true, x: 60,  y: 100, step: '1', name: 'Pick a course',     state: 'course', desc: 'Looks like assigning any course. Adaptive and standard courses sit side by side.' },
-          { id: 'people', flow: 'main', x: 320, y: 100, step: '2', name: 'Pick who',           state: 'people', desc: 'Choose groups from the org tree. The role mix and version appear as soon as groups are picked.' },
-          { id: 'adapt',  flow: 'main', x: 580, y: 100, step: '3', name: 'How it adapts',      state: 'adapt',  desc: 'Four plain toggles. Each shows where its value came from; locked ones can’t be changed. Skipped entirely for standard courses.' },
-          { id: 'review', flow: 'main', x: 840, y: 100, step: '4', name: 'Review and assign',  state: 'review', desc: 'One sentence on what will happen, then assign.' },
-          { id: 'done',   flow: 'main', x: 1100, y: 100, step: '✓', name: 'Assigned',          state: 'done',   desc: 'Confirmation, with a way to preview or return to courses.' }
+          { id: 'course', flow: 'main', entry: true, x: 40,  y: 100, step: '1', name: 'Pick a course',     state: 'course', desc: 'Looks like assigning any course. For Bloodborne Pathogens, assign the full course or choose modules (microlearning).' },
+          { id: 'people', flow: 'main', x: 240, y: 100, step: '2', name: 'Pick who',           state: 'people', desc: 'Choose groups from the org tree. The role mix and version appear as soon as groups are picked.' },
+          { id: 'adapt',  flow: 'main', x: 440, y: 100, step: '3', name: 'Adaptations',        state: 'adapt',  desc: 'Four plain toggles plus the formats people can choose. Each toggle shows where its value came from; locked ones can’t be changed. Skipped for standard courses.' },
+          { id: 'custom', flow: 'main', x: 640, y: 100, step: '4', name: 'Custom content',     state: 'custom', desc: 'Optional: add your own content, policies and resources, the same as a Standard or Learning Studio course.' },
+          { id: 'review', flow: 'main', x: 840, y: 100, step: '5', name: 'Review and assign',  state: 'review', desc: 'One sentence on what will happen, then assign.' },
+          { id: 'done',   flow: 'main', x: 1040, y: 100, step: '✓', name: 'Assigned',          state: 'done',   desc: 'Confirmation, with a way to preview or return to courses.' }
         ],
-        edges: [['course', 'people'], ['people', 'adapt'], ['adapt', 'review'], ['review', 'done']]
+        edges: [['course', 'people'], ['people', 'adapt'], ['adapt', 'custom'], ['custom', 'review'], ['review', 'done']]
       } };
 
       (function () {
@@ -65,10 +66,45 @@
           { id: 'hazcom', name: 'Hazard Communication', icon: 'fa-triangle-exclamation', cls: 'ci-amber', adaptive: true, desc: 'Adaptive · about 20 min' },
           { id: 'loto', name: 'Lockout/Tagout', icon: 'fa-bolt', cls: 'ci-violet', adaptive: false, desc: 'Standard · 30 min · everyone takes the same course' }
         ];
+        // Bloodborne Pathogens (RVCT-303B) has six modules, one per behavior (names from the recomposition plan).
+        // Only "Contain the Sharp" is built in the engine prototype today; the rest are here to show the choice.
+        var BBP_MODULES = [
+          { id: 'm1', name: 'Know the Risk',      what: 'What bloodborne pathogens are, how they spread, and whether your role carries extra risk.' },
+          { id: 'm2', name: 'Barrier First',      what: 'Treat any blood as infectious and get a barrier in place before contact.' },
+          { id: 'm3', name: 'Control the Hazard', what: 'Engineering controls first, then safe work practices, then PPE.' },
+          { id: 'm4', name: 'Contain the Sharp',  what: 'Plan the disposal route, use the safety feature, straight into the container.' },
+          { id: 'm5', name: 'Gear Up, Gear Down', what: 'Pick PPE that fits the task, wear it correctly, take it off cleanly.' },
+          { id: 'm6', name: 'Act on Exposure',    what: 'Clean the site, report it, and get a medical evaluation within 24–48 hours.' }
+        ];
+        COURSES[0].modules = BBP_MODULES;
+        var FORMATS = [{ id: 'video', label: 'Video', icon: 'fa-circle-play' }, { id: 'audio', label: 'Audio', icon: 'fa-headphones' }, { id: 'text', label: 'Reading', icon: 'fa-book-open' }];
+        // Representative examples of what an admin might add. "Add" cycles through these.
+        var EXAMPLES = {
+          content: [{ name: 'Where the sharps containers are on our floor', kind: 'Video · 2 min', icon: 'fa-film' },
+                    { name: 'Our clean-up kit and who restocks it', kind: 'Page', icon: 'fa-file-lines' }],
+          policy:  [{ name: 'Exposure Control Plan', kind: 'PDF', icon: 'fa-file-pdf' },
+                    { name: 'Sharps disposal procedure', kind: 'PDF', icon: 'fa-file-pdf' }],
+          res:     [{ name: 'Occupational Health: who to call after an exposure', kind: 'Link', icon: 'fa-link' },
+                    { name: 'Hepatitis B vaccination sign-up', kind: 'Link', icon: 'fa-link' }]
+        };
         var MIX = S.key === 'mfg' ? [.12, .42, .16, .12, .18] : [.38, .36, .10, .16];
-        var st = { step: 'course', course: 'bbp', units: {}, due: '2026-11-06', ov: {}, mixedPick: {} };
-        var STEPS = function () { return cur().adaptive ? ['course', 'people', 'adapt', 'review'] : ['course', 'people', 'review']; };
-        var LABEL = { course: 'Course', people: 'People', adapt: 'How it adapts', review: 'Review' };
+        var st = { step: 'course', course: 'bbp', units: {}, due: '2026-11-06', ov: {}, mixedPick: {},
+                   scope: 'full', mods: { m4: true },                       // full course, or the modules picked
+                   formats: { video: true, audio: true, text: true },       // formats people may choose
+                   custom: { content: [], policy: [], res: [] } };          // what the admin adds
+        // "Custom content" applies to every course, adaptive or not.
+        var STEPS = function () { return cur().adaptive ? ['course', 'people', 'adapt', 'custom', 'review'] : ['course', 'people', 'custom', 'review']; };
+        var LABEL = { course: 'Course', people: 'People', adapt: 'Adaptations', custom: 'Custom content', review: 'Review' };
+        function pickedMods() { return (cur().modules || []).filter(function (m) { return st.mods[m.id]; }); }
+        function modsText() {
+          var c = cur(); if (!c.modules) return '';
+          return st.scope === 'full' ? 'All ' + c.modules.length + ' modules' : pickedMods().length + ' of ' + c.modules.length + ' modules';
+        }
+        function formatsText() {
+          var on = FORMATS.filter(function (f) { return st.formats[f.id]; });
+          return on.length === FORMATS.length ? 'Any format' : on.map(function (f) { return f.label; }).join(' and ') + ' only';
+        }
+        function customCount() { return st.custom.content.length + st.custom.policy.length + st.custom.res.length; }
         function cur() { return COURSES.filter(function (c) { return c.id === st.course; })[0]; }
 
         /* ---- who is selected --------------------------------------------- */
@@ -121,14 +157,43 @@
         }
 
         function viewCourse() {
-          return '<div class="rp-card-head"><h2>Which course?</h2></div><p class="rp-card-sub">Same as assigning any course. Adaptive courses add one extra step later.</p><div class="pick-grid">' +
-            COURSES.map(function (c) {
-              return '<button type="button" class="pick' + (c.id === st.course ? ' on' : '') + '" data-c="' + c.id + '"><span class="ci ' + c.cls + '"><i class="fa-solid ' + c.icon + '"></i></span><span><h3>' + c.name + '</h3><p>' + c.desc + '</p></span>' +
-                (c.adaptive ? '<span class="course-tag ai">Adaptive</span>' : '<span class="course-tag std">Standard</span>') + '</button>';
-            }).join('') + '</div>' + foot(true, 'Next: who');
+          // A searchable dropdown, so it scales to the full course library. The rail shows the pick.
+          return '<div class="rp-card-head"><h2>Which course?</h2></div><p class="rp-card-sub">Same as assigning any course. Adaptive courses add one extra step later.</p>' +
+            '<vaadin-combo-box theme="outlined" id="courseBox" label="Course" placeholder="Search courses" class="course-box"></vaadin-combo-box>' + modulePicker() + foot(!(cur().modules && st.scope === 'pick' && !pickedMods().length), 'Next: who');
+        }
+        /* Microlearning: assign the full course, or just the modules you need. */
+        function modulePicker() {
+          var c = cur(); if (!c.modules) return '';
+          var pick = st.scope === 'pick', n = pickedMods().length;
+          return '<div class="mod-pick"><div class="mod-pick-head"><h3>What to assign</h3>' +
+            '<span class="mini-seg" role="radiogroup" aria-label="What to assign">' +
+              '<button type="button" role="radio" data-scope="full" aria-checked="' + !pick + '"' + (!pick ? ' class="on"' : '') + '>Full course · ' + c.modules.length + ' modules</button>' +
+              '<button type="button" role="radio" data-scope="pick" aria-checked="' + pick + '"' + (pick ? ' class="on"' : '') + '>Choose modules</button></span></div>' +
+            '<p class="rp-card-sub">' + (pick ? 'Each module covers one behavior, so one or two make a short, focused refresher.' : 'Everyone gets all ' + c.modules.length + ' modules, in order.') +
+              (pick ? ' <span class="tree-actions"><button type="button" id="modAll">' + (n === c.modules.length ? 'Deselect all' : 'Select all') + '</button></span>' : '') + '</p>' +
+            (pick ? '<div class="mod-list" role="group" aria-label="Modules">' + c.modules.map(function (m, i) {
+              var on = !!st.mods[m.id];
+              return '<button type="button" role="checkbox" aria-checked="' + on + '" class="mod-row' + (on ? ' on' : '') + '" data-m="' + m.id + '">' +
+                '<span class="mod-box"><i class="fa-solid fa-check"></i></span>' +
+                '<span><small>Module ' + (i + 1) + '</small><b>' + A.esc(m.name) + '</b><span>' + A.esc(m.what) + '</span></span></button>';
+            }).join('') + '</div>' + (n ? '' : '<p class="mod-none"><i class="fa-solid fa-circle-info"></i>Choose at least one module.</p>') : '') +
+            '</div>';
         }
         function wireCourse() {
-          document.querySelectorAll('.pick').forEach(function (p) { p.addEventListener('click', function () { st.course = p.dataset.c; draw(); }); });
+          var box = document.getElementById('courseBox');
+          box.items = COURSES.map(function (c) { return { label: c.name + ' · ' + (c.adaptive ? 'Adaptive' : 'Standard'), value: c.id }; });
+          box.value = st.course;
+          box.addEventListener('change', function () {
+            if (!box.value) { box.value = st.course; return; }       // a course is always picked
+            if (box.value !== st.course) { st.course = box.value; draw(); }
+          });
+          document.querySelectorAll('[data-scope]').forEach(function (b) { b.addEventListener('click', function () { st.scope = b.dataset.scope; draw(); }); });
+          var all = document.getElementById('modAll');
+          if (all) all.addEventListener('click', function () {
+            var on = pickedMods().length !== cur().modules.length;
+            cur().modules.forEach(function (m) { st.mods[m.id] = on; }); draw();
+          });
+          document.querySelectorAll('[data-m]').forEach(function (b) { b.addEventListener('click', function () { st.mods[b.dataset.m] = !st.mods[b.dataset.m]; draw(); }); });
         }
 
         function treeHTML(n, d) {
@@ -151,7 +216,7 @@
             '<p class="rp-card-sub">Pick groups, not individuals. People who join these groups later get it automatically.</p>' +
             '<div class="check-tree" id="ctree">' + treeHTML(S.tree, 0) + '</div>' +
             '<div class="due-field"><vaadin-date-picker theme="outlined" label="Due date" id="due"></vaadin-date-picker></div>' +
-            foot(n > 0, cur().adaptive ? 'Next: how it adapts' : 'Next: review');
+            foot(n > 0, cur().adaptive ? 'Next: adaptations' : 'Next: custom content');
         }
         function wirePeople() {
           document.querySelectorAll('#ctree vaadin-checkbox').forEach(function (cb) {
@@ -178,14 +243,28 @@
                 : '<span class="prov"><i class="fa-solid fa-arrow-turn-down"></i> From ' + A.esc(r.from.name) + ' settings · <a href="settings.html?node=' + r.from.id + '">Change in Settings</a></span>';
             }
             return '<div class="set-row"><span class="set-ico"><i class="fa-solid ' + b.icon + '"></i></span><div class="set-main"><h3>' + A.esc(b.label) + '</h3><p>' + A.esc(b.help) + '</p>' + prov + '</div><div class="set-ctl">' + ctl + '</div></div>';
-          }).join('');
+          }).join('') + formatsRow();
           return '<div class="rp-card-head"><div><h2>How should this course adapt?</h2><p class="rp-card-sub" style="margin:2px 0 0">These come from your settings. Change them here only if this assignment is different.</p></div>' +
             '<a class="card-link" id="pv" href="preview.html?from=assign" target="_blank" rel="noopener">Preview what people will see <i class="fa-solid fa-arrow-up-right-from-square"></i></a></div>' + rows +
             '<div class="callout" style="margin-top:16px"><i class="fa-solid fa-wand-magic-sparkles"></i><div><b>What this means</b><br>' + A.esc(sentence()) + '</div></div>' +
             '<div class="always" style="margin-top:12px"><i class="fa-solid fa-shield-check"></i><b>Always included:</b> spotting hazards, the live practice, and the closing check. They’re required by the training standard.</div>' +
-            foot(true, 'Next: review');
+            foot(true, 'Next: custom content');
+        }
+        /* Which formats people may choose. At least one stays on. */
+        function formatsRow() {
+          var on = FORMATS.filter(function (f) { return st.formats[f.id]; }).length;
+          return '<div class="set-row"><span class="set-ico"><i class="fa-solid fa-photo-film"></i></span><div class="set-main"><h3>Formats people can choose</h3>' +
+            '<p>People pick how they take each lesson. Untick a format you don’t want offered.</p>' +
+            '<span class="fmt-checks" role="group" aria-label="Formats people can choose">' + FORMATS.map(function (f) {
+              var v = !!st.formats[f.id], last = v && on === 1;
+              return '<button type="button" role="checkbox" aria-checked="' + v + '" class="fmt-chk' + (v ? ' on' : '') + '" data-f="' + f.id + '"' + (last ? ' disabled title="At least one format has to stay on"' : '') + '>' +
+                '<i class="fa-solid ' + (v ? 'fa-square-check' : 'fa-square') + '"></i><i class="fa-solid ' + f.icon + '"></i>' + f.label + '</button>';
+            }).join('') + '</span>' +
+            (on === 1 ? '<span class="prov"><i class="fa-solid fa-circle-info"></i> At least one format has to stay on.</span>' : '') +
+            '</div><div class="set-ctl"></div></div>';
         }
         function wireAdapt() {
+          document.querySelectorAll('[data-f]').forEach(function (b) { b.addEventListener('click', function () { st.formats[b.dataset.f] = !st.formats[b.dataset.f]; draw(); }); });
           document.querySelectorAll('.set-ctl vwc-switch').forEach(function (sw) {
             sw.addEventListener('checked-change', function () {
               var k = sw.dataset.key, r = resolved(k);
@@ -201,9 +280,58 @@
           B.save('bbp.assign', { unit: first ? first.id : S.tree.id, ov: st.ov });
         }
 
+        /* ---- Custom content: everything you can add to a Standard or Learning Studio course, added here too ---- */
+        var CZ = [
+          { key: 'content', icon: 'fa-photo-film', title: 'Your own content',
+            help: 'Add a video, page or file of your own. Choose whether it comes at the start or the end.', add: 'Add content' },
+          { key: 'policy', icon: 'fa-file-shield', title: 'Your policies',
+            help: 'Attach your company’s policy. People can be asked to confirm they’ve read it.', add: 'Attach a policy' },
+          { key: 'res', icon: 'fa-link', title: 'Resources',
+            help: 'Links that stay in the course’s Resources panel, so people can find them any time.', add: 'Add a link' }
+        ];
+        function czItem(sec, it, i) {
+          var ctl = sec.key === 'content'
+              ? '<span class="mini-seg" role="radiogroup" aria-label="Where it goes"><button type="button" data-where="start" data-i="' + i + '"' + (it.where === 'start' ? ' class="on"' : '') + '>At the start</button><button type="button" data-where="end" data-i="' + i + '"' + (it.where === 'end' ? ' class="on"' : '') + '>At the end</button></span>'
+            : sec.key === 'policy'
+              ? '<vaadin-checkbox data-ack="' + i + '" label="Ask people to confirm"' + (it.ack ? ' checked' : '') + '></vaadin-checkbox>' : '';
+          return '<div class="cz-item"><i class="fa-solid ' + it.icon + '"></i><span><b>' + A.esc(it.name) + '</b><small>' + A.esc(it.kind) + '</small></span>' +
+            '<span class="cz-ctl">' + ctl + '<button type="button" class="cz-x" data-rm="' + sec.key + '" data-i="' + i + '" aria-label="Remove ' + A.esc(it.name) + '"><i class="fa-solid fa-xmark"></i></button></span></div>';
+        }
+        function viewCustom() {
+          return '<div class="rp-card-head"><div><h2>Custom content <span class="opt">(optional)</span></h2>' +
+            '<p class="rp-card-sub" style="margin:2px 0 0">Anything you add to a Standard or Learning Studio course today, you can add here. Everyone sees what you add; the course never skips it.</p></div></div>' +
+            CZ.map(function (sec) {
+              var list = st.custom[sec.key];
+              return '<div class="cz-sec"><div class="cz-head"><span class="set-ico"><i class="fa-solid ' + sec.icon + '"></i></span><div><h3>' + sec.title + '</h3><p>' + sec.help + '</p></div>' +
+                '<vaadin-button theme="secondary" data-add="' + sec.key + '"><i class="fa-solid fa-plus" style="margin-right:7px"></i>' + sec.add + '</vaadin-button></div>' +
+                (list.length ? '<div class="cz-list">' + list.map(function (it, i) { return czItem(sec, it, i); }).join('') + '</div>' : '') + '</div>';
+            }).join('') +
+            foot(true, customCount() ? 'Next: review' : 'Skip: review');
+        }
+        function wireCustom() {
+          document.querySelectorAll('[data-add]').forEach(function (b) {
+            b.addEventListener('click', function () {
+              var k = b.dataset.add, ex = EXAMPLES[k], list = st.custom[k], it = ex[list.length % ex.length];
+              list.push({ name: it.name, kind: it.kind, icon: it.icon, where: 'start', ack: true }); draw();
+            });
+          });
+          document.querySelectorAll('[data-rm]').forEach(function (b) { b.addEventListener('click', function () { st.custom[b.dataset.rm].splice(+b.dataset.i, 1); draw(); }); });
+          document.querySelectorAll('[data-where]').forEach(function (b) { b.addEventListener('click', function () { st.custom.content[+b.dataset.i].where = b.dataset.where; draw(); }); });
+          document.querySelectorAll('[data-ack]').forEach(function (c) { c.addEventListener('change', function () { st.custom.policy[+c.dataset.ack].ack = c.checked; }); });
+        }
+        function customSummary() {
+          var c = st.custom, parts = [];
+          if (c.content.length) parts.push(c.content.length + (c.content.length === 1 ? ' content item' : ' content items'));
+          if (c.policy.length) parts.push(c.policy.length + (c.policy.length === 1 ? ' policy' : ' policies'));
+          if (c.res.length) parts.push(c.res.length + (c.res.length === 1 ? ' resource' : ' resources'));
+          return parts.join(' · ');
+        }
+
         function sentence() {
           var s = [], v = valueOf;
-          s.push('Most people will finish in about 25 minutes. The full course takes about 33.');
+          if (cur().modules && st.scope === 'pick') s.push('People get ' + pickedMods().map(function (m) { return m.name; }).join(', ') + ' (' + modsText().toLowerCase() + ').');
+          else s.push('Most people will finish in about 25 minutes. The full course takes about 33.');
+          if (FORMATS.some(function (f) { return !st.formats[f.id]; })) s.push('Lessons are offered as ' + formatsText().replace(' only', '') + ' only.');
           if (v('skip')) s.push('Anyone who shows they already know the handling steps skips that lesson.');
           else if (v('skip') === null) s.push('Where skip-ahead is on (see the table), anyone who shows they already know the handling steps skips that lesson.');
           if (v('harder')) s.push('Anyone clearly ahead gets harder checks.');
@@ -217,9 +345,12 @@
           var ad = cur().adaptive;
           return '<div class="rp-card-head"><h2>Ready to assign?</h2></div>' +
             '<dl class="sum-grid" style="margin:12px 0 4px">' +
-            '<dt>Course</dt><dd><b>' + cur().name + '</b> · ' + (ad ? 'Adaptive' : 'Standard') + '</dd>' +
+            '<dt>Course</dt><dd><b>' + cur().name + '</b> · ' + (ad ? 'Adaptive' : 'Standard') +
+              (cur().modules ? '<br><span style="color:var(--rp-ink-soft)">' + (st.scope === 'full' ? modsText() : A.esc(pickedMods().map(function (m) { return m.name; }).join(', '))) + '</span>' : '') + '</dd>' +
             '<dt>Who</dt><dd><b>' + count() + ' people</b> in ' + groups.length + ' groups<br><span style="color:var(--rp-ink-soft)">' + A.esc(groups.join(', ')) + '</span></dd>' +
             (ad ? '<dt>Version</dt><dd>' + A.esc(S.short) + '</dd>' : '') +
+            (ad ? '<dt>Formats</dt><dd>' + formatsText() + '</dd>' : '') +
+            '<dt>Custom content</dt><dd>' + (customCount() ? CZ.map(function (sec) { return st.custom[sec.key].map(function (it) { return A.esc(it.name); }).join('<br>'); }).filter(Boolean).join('<br>') : '<span style="color:var(--rp-ink-soft)">Nothing added</span>') + '</dd>' +
             '<dt>Due</dt><dd>' + fmtDue() + '</dd></dl>' +
             (ad ? '<div class="callout" style="margin-top:14px"><i class="fa-solid fa-wand-magic-sparkles"></i><div><b>What will happen</b><br>' + A.esc(sentence()) + '</div></div>' +
               effTable() :
@@ -250,33 +381,34 @@
         function railRow(k, v) { return '<div class="rail-row"><span>' + k + '</span><div>' + v + '</div></div>'; }
         function railHTML() {
           var c = cur(), n = count(), ad = c.adaptive;
-          var h = '<h3>Assignment</h3><div class="rail-course"><span class="ci ' + c.cls + '"><i class="fa-solid ' + c.icon + '"></i></span><span><b>' + c.name + '</b><small>' + (ad ? 'Adaptive' : 'Standard') + ' course</small></span></div>';
+          var h = '<h3>Assignment</h3><div class="rail-course"><span class="ci ' + c.cls + '"><i class="fa-solid ' + c.icon + '"></i></span><span><b>' + c.name + '</b><small>' + (ad ? 'Adaptive' : 'Standard') + ' course' + (c.modules ? ' · ' + modsText() : '') + '</small></span></div>';
           if (!n) return h + '<p class="rail-empty">Choose groups to see who gets this and which version.</p>';
           var groups = selectedLeaves().length;
           h += railRow('Who', '<b>' + n + ' people</b><small>' + groups + ' group' + (groups === 1 ? '' : 's') + '</small>');
           if (ad) {
             h += railRow('Version', '<b>' + A.esc(S.short) + '</b>');
-            var parts = mixParts(), max = Math.max.apply(null, parts.map(function (p) { return p[1]; }));
-            h += '<div class="rail-mix">' + parts.map(function (p) {
-              return '<div><span>' + A.esc(p[0]) + '</span><i><em style="width:' + Math.round(p[1] / max * 100) + '%"></em></i><b>' + p[1] + '</b></div>';
-            }).join('') + '</div>';
+            // How many of the selected people hold each role (each role gets its own version). Plain counts, no bars.
+            h += railRow('By role', '<span class="role-list">' + mixParts().map(function (p) {
+              return '<span class="role-row"><span>' + A.esc(p[0]) + '</span><b>' + p[1] + '</b></span>';
+            }).join('') + '</span>');
           }
           h += railRow('Due', '<b>' + fmtDue() + '</b>');
-          if (ad && (st.step === 'adapt' || st.step === 'review')) {
+          if (customCount()) h += railRow('Added', '<b>' + customSummary() + '</b>');
+          if (ad && (st.step === 'adapt' || st.step === 'custom' || st.step === 'review')) {
             h += '<div class="rail-pills">' + B.BEHAVIORS.map(function (b, i) {
               var r = resolved(b.key), lbl = ['Skip ahead', 'Harder checks', 'Extra practice', '30-day check-in'][i];
               var v = r.state === 'mixed' ? 'mixed' : (r.value ? 'on' : 'off');
               return '<span class="pill' + (v === 'off' ? ' off' : '') + '">' + lbl + (v === 'mixed' ? ': varies' : (v === 'on' ? '' : ': off')) + '</span>';
-            }).join('') + '</div>';
+            }).join('') + '<span class="pill' + (formatsText() === 'Any format' ? '' : ' off') + '">' + formatsText() + '</span></div>';
           }
           return h;
         }
         function draw() {
           wizard();
           var stage = document.getElementById('stage');
-          var v = { course: viewCourse, people: viewPeople, adapt: viewAdapt, review: viewReview, done: viewDone }[st.step];
+          var v = { course: viewCourse, people: viewPeople, adapt: viewAdapt, custom: viewCustom, review: viewReview, done: viewDone }[st.step];
           stage.innerHTML = v();
-          ({ course: wireCourse, people: wirePeople, adapt: wireAdapt }[st.step] || function () {})();
+          ({ course: wireCourse, people: wirePeople, adapt: wireAdapt, custom: wireCustom }[st.step] || function () {})();
           wireFoot();
           var rail = document.getElementById('rail'), lay = document.getElementById('layout');
           lay.classList.toggle('no-rail', st.step === 'done');
