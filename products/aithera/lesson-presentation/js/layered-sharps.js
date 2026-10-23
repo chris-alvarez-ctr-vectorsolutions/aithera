@@ -698,10 +698,14 @@
           '<div class="cp-hero">' +
             '<p class="ll-eyebrow">' + COURSE_MODULES.length + ' Modules</p>' +
             '<h1>Bloodborne Pathogens</h1>' +
-            '<p class="cp-desc">This course covers what OSHA’s Bloodborne Pathogens Standard (29 CFR ' +
-              '1910.1030) requires of anyone who could contact blood or other potentially infectious ' +
-              'materials on the job — knowing the risk, putting a barrier first, controlling the hazard, ' +
-              'containing sharps, using protective equipment correctly, and acting on an exposure.</p>' +
+            '<p class="cp-desc">Bloodborne pathogens are microorganisms such as viruses or bacteria that, if ' +
+              'present in blood, can cause disease in humans. These pathogens can be transmitted from an ' +
+              'infected person to a healthy person by contact with infected blood or other bodily fluids. ' +
+              'There are a number of relatively simple actions which can be taken to drastically reduce the ' +
+              'chance of exposure to bloodborne pathogens. Depending on the type of work being done, workplace ' +
+              'practices and methods can be modified to minimize the chance of exposure. Proper personal ' +
+              'protective equipment is an important component in preventing the transfer of bloodborne ' +
+              'pathogens from an infected person to a healthy person.</p>' +
             '<div class="cp-chips">' +
               '<span class="cp-chip due"><i class="fa-solid fa-calendar-day"></i> Required · due Oct 3</span>' +
               '<span class="cp-chip"><i class="fa-solid fa-briefcase"></i> ' + esc(L.label) + '</span>' +
