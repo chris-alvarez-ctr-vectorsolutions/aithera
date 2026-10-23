@@ -87,7 +87,7 @@
                         <span class="step-edit">Edit</span>
                     </button>
                     <div class="step-body">
-                        <p class="rp-card-sub">Leave both on for testing. Turning them off shows the course as everyone takes it.</p>
+                        <p class="rp-card-sub">Turning both adaptations off will show only the full “base” version of the course.</p>
                         <div id="adaptRows"></div>
                         <div class="callout" id="adaptNote"></div>
                         <div class="step-foot"><vaadin-button theme="primary" class="step-next">Continue</vaadin-button></div>
@@ -170,7 +170,7 @@ var SNAPSHOT = [
     vocabulary: { sectors: ['commercial', 'edu'], subsectors: [], subsectors_by_sector: {},
       roles: ['employee', 'supervisor', 'teacher'], roles_by_sector: { commercial: ['employee', 'supervisor'], edu: ['employee', 'supervisor', 'teacher'] },
       roles_by_subsector: {}, languages: ['en', 'es'], modalities: ['video', 'audio', 'text'] }, has_active: true },
-  { composite_id: '36682e45-6bb1-5eee-a739-a7345792b747', title: 'Bloodborne Pathogens (RVCT-303B)',
+  { composite_id: '36682e45-6bb1-5eee-a739-a7345792b747', title: 'Bloodborne Pathogens',
     description: 'The recomposed Bloodborne Pathogens course (RVCT-303B). This load carries Module 4, Contain the Sharp, only.',
     modules: [{ module_id: '4ac420ec-1cf0-5208-baa7-bfe901ea8306', title: 'Contain the Sharp' }],
     vocabulary: { sectors: ['Commercial AEC', 'Education', 'Manufacturing', 'Public Sector'],
@@ -292,7 +292,7 @@ function summary(step) {
     return (st.learnerName.trim() || 'No name') + ' · ' + where + ' · ' + nice(st.language);
   }
   if (step === 'adapt') {
-    var a = [st.testOut ? 'Skips what they know' : null, st.testUp ? 'Harder questions' : null].filter(Boolean);
+    var a = [st.testOut ? 'Skips what they know' : null, st.testUp ? 'More challenging material' : null].filter(Boolean);
     return (a.length ? a.join(', ') : 'Off. Everyone gets the same course.') + ' · ' + formatsText();
   }
   var tools = [st.debugPanel ? 'Debug panel' : null, st.demoMode ? 'Demo mode' : null].filter(Boolean);
@@ -365,16 +365,16 @@ function setRow(key, icon, label, help, devKey, on) {
    opening questions, so that's how a tester sees them work. */
 function drawAdaptNote() {
   $('adaptNote').innerHTML = (st.testOut || st.testUp)
-    ? '<i class="fa-solid fa-lightbulb"></i><div><b>To see it adapt,</b> answer the opening questions correctly. Miss them to see the standard route.</div>'
-    : '<i class="fa-solid fa-circle-info"></i><div><b>Both off:</b> this learner takes every lesson at the standard level, whatever they answer at the start.</div>';
+    ? '<i class="fa-solid fa-lightbulb"></i><div><b>To see it adapt</b>Answer the opening questions correctly. Miss them to see the standard route. Incorrect mastery checks within the course will result in real-time remediation with simpler material.</div>'
+    : '<i class="fa-solid fa-circle-info"></i><div><b>Both off</b>This learner takes every lesson at the standard level, whatever they answer at the start.</div>';
 }
 function drawSwitches() {
-  // Labels and help text match the admin Settings page (bbp-admin data.js BEHAVIORS) word for word.
+  // Started from the admin Settings page (bbp-admin data.js BEHAVIORS); stakeholder copy (2026-10-24) now differs here.
   $('adaptRows').innerHTML =
     setRow('testOut', 'fa-forward', 'Let people skip what they already know',
-      'If someone answers the opening questions correctly, they skip that lesson. It still counts as covered on their record.', 'test_out', st.testOut) +
-    setRow('testUp', 'fa-arrow-trend-up', 'Give stronger learners harder questions',
-      'People who are clearly ahead get tougher scenarios instead of the standard ones.', 'test_up', st.testUp) +
+      'Eligible lesson content will be skipped if learner answers pre-check questions correctly. This material still counts as covered on their completion record.', 'test_out', st.testOut) +
+    setRow('testUp', 'fa-arrow-trend-up', 'Give stronger learners more challenging material',
+      'Lesson material that cannot be skipped will be presented as more challenging to learners who answer pre-check questions correctly.', 'test_up', st.testUp) +
     formatsRow();
   $('toolRows').innerHTML =
     setRow('debugPanel', 'fa-bug', 'Debug panel', 'Opens a small panel showing which version of the content you’re on and why it was picked.', 'debug_panel', st.debugPanel) +
@@ -585,6 +585,8 @@ function loadCourses() {
   if (st.mode === 'handoff') { draw(); return Promise.resolve(); }
   return api(st.preview ? '/composites?preview=true' : '/composites').then(function (list) {
     if (!Array.isArray(list) || !list.length) throw new Error('empty');
+    // Course codes like "(RVCT-303B)" stay out of the title testers see.
+    list.forEach(function (x) { x.title = String(x.title || '').replace(/\s*\([A-Z]{2,}-[\w-]+\)\s*$/, ''); });
     st.courses = list; draw();
   }).catch(function () { st.mode = 'handoff'; st.courses = SNAPSHOT; draw(); });
 }
