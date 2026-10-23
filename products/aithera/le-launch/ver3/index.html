@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
     <!-- The admin pages' stylesheet, so this reads as the same product; then this page's additions -->
     <link rel="stylesheet" href="../../bbp-admin/ver1/admin.css?v=61" />
-    <link rel="stylesheet" href="launch.css?v=9" />
+    <link rel="stylesheet" href="launch.css?v=10" />
 </head>
 <body>
 
@@ -32,7 +32,7 @@
         </div>
         <div class="rp-page">
             <div class="rp-head-row"><h1>Assign a course</h1></div>
-            <div class="rp-head-sub">Set up a learner for testing. These settings apply to this assignment only.</div>
+            <div class="rp-head-sub">Assign a course to one learner, then start it as them to test it. These settings apply to this learner only.</div>
         </div>
     </header>
 
@@ -51,8 +51,8 @@
                         <span class="step-edit">Edit</span>
                     </button>
                     <div class="step-body">
-                        <p class="rp-card-sub">Same as assigning any course. Adaptive courses add one step: how it adapts.</p>
-                        <!-- A dropdown, since the list will grow. The rail already shows the chosen course, so nothing repeats it here. -->
+                        <p class="rp-card-sub">Same as assigning any course, to one learner. Adaptive courses add one step: how it adapts.</p>
+                        <!-- A dropdown, since the list will grow. The rail shows the chosen course from the start and follows any change. -->
                         <vaadin-select theme="outlined" id="courseSel" label="Course" class="course-sel"></vaadin-select>
                         <div class="step-foot"><vaadin-button theme="primary" class="step-next">Continue</vaadin-button></div>
                     </div>
@@ -124,13 +124,13 @@
                 </section>
             </div>
 
-            <!-- ==== Right rail: the order summary. The button unlocks when every step is done. ==== -->
+            <!-- ==== Right rail: what this one learner gets. Start course unlocks when every step is done. ==== -->
             <aside class="rp-card wiz-rail" aria-label="Assignment summary">
-                <h3>You’re assigning</h3>
+                <h3>Assigning to one learner</h3>
                 <div id="rail"></div>
                 <div id="railCallout" aria-live="polite"></div>
                 <div class="rail-actions">
-                    <vaadin-button theme="primary" id="launch"><i class="fa-solid fa-play" style="margin-right:8px"></i>Assign and start</vaadin-button>
+                    <vaadin-button theme="primary" id="launch"><i class="fa-solid fa-play" style="margin-right:8px"></i>Start course</vaadin-button>
                     <vaadin-button theme="tertiary" id="copyLink"><i class="fa-solid fa-link" style="margin-right:7px"></i>Copy setup link</vaadin-button>
                     <span class="copied" id="copied" hidden role="status">Link copied. Each person who opens it gets their own learner ID.</span>
                 </div>
@@ -393,39 +393,30 @@ function drawTools() {
   $('coordinator').value = st.coordinator;
 }
 
-/* The rail is the order summary and the progress tracker in one: a row per step,
-   with its choices filled in underneath once that step is finished. */
-function railStep(step, body) {
-  var done = st.done[step], cls = done ? 'done' : (st.step === step ? 'cur' : '');
-  var icon = done ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle';
-  var head = '<i class="' + icon + '" aria-hidden="true"></i>' + STEP_NAME[step] +
-    '<span class="sr-only">' + (done ? ', done' : st.step === step ? ', in progress' : ', not started') + '</span>';
-  // A finished step's name jumps back to it, so the rail doubles as "edit".
-  return '<div class="rail-step ' + cls + '">' +
-    (done ? '<button type="button" class="rail-step-head" data-goto="' + step + '">' + head + '</button>' : '<div class="rail-step-head">' + head + '</div>') +
-    (done ? '<div class="rail-step-body">' + body + '</div>' : '') + '</div>';
+/* The rail shows what this learner gets: the course (live, from the start), then
+   the learner and how the course adapts once those steps are finished.
+   Testing options stay out of it; they're setup, not part of the assignment. */
+function railRow(k, step, v) {
+  return st.done[step] ? '<div class="rail-row"><span>' + k + '</span><div>' + v + '</div></div>' : '';
 }
 function drawRail() {
   var c = cur();
-  var who = [st.role, st.subsector, st.sector].filter(Boolean).map(nice).join(' · ') || 'No sector or role set';
+  var who = [st.sector, st.subsector, st.role].filter(Boolean).map(nice).join(' · ') || 'No sector or role set';
   $('rail').innerHTML =
-    railStep('course', '<div class="rail-course">' + courseIcon(c) +
-      '<span><b>' + esc(c.title) + '</b><small>Adaptive · ' + c.modules.length + (c.modules.length === 1 ? ' module' : ' modules') + '</small></span></div>') +
-    railStep('who', esc(st.learnerName.trim() || 'No name') + '<small>' + esc(who) + '</small>' +
-      '<small>' + esc(nice(st.language)) + ', ' + esc(nice(st.modality)) + ' preferred</small>') +
-    railStep('adapt', esc(summary('adapt'))) +
-    railStep('tools', (st.preview ? 'WIP preview' : 'Live') + '<small class="mono">' + esc(st.identity || '—') + '</small>' +
-      '<small>' + esc([st.debugPanel ? 'Debug panel' : null, st.demoMode ? 'Demo mode' : null].filter(Boolean).join(', ') || 'No testing tools') + '</small>');
+    '<div class="rail-course">' + courseIcon(c) +
+      '<span><b>' + esc(c.title) + '</b><small>Adaptive · ' + c.modules.length + (c.modules.length === 1 ? ' module' : ' modules') + '</small></span></div>' +
+    railRow('Learner', 'who', esc(st.learnerName.trim() || 'No name') + '<small>' + esc(who) + '</small>') +
+    railRow('Adapts', 'adapt', esc(summary('adapt')));
 
   $('railCallout').innerHTML = st.error ? callout('warn rail-callout', 'fa-triangle-exclamation', '<b>' + esc(st.error.message) + '</b>' +
     (st.error.los && st.error.los.length ? '<ul>' + st.error.los.map(function (l) { return '<li>' + esc(l.title) + '</li>'; }).join('') + '</ul>' : '')) : '';
 
-  // The button waits for every step, like a checkout's Place order.
+  // Start waits for every step, like a checkout's Place order.
   var ready = allDone();
   $('launch').disabled = st.busy || !ready;
-  $('launch').innerHTML = st.busy ? 'Starting…' : '<i class="fa-solid fa-play" style="margin-right:8px"></i>Assign and start';
+  $('launch').innerHTML = st.busy ? 'Starting…' : '<i class="fa-solid fa-play" style="margin-right:8px"></i>Start course';
   $('copyLink').disabled = !ready;
-  $('railNote').innerHTML = !ready ? 'Finish each step to assign.'
+  $('railNote').innerHTML = !ready ? 'Finish each step to start.'
     : st.mode === 'direct' ? '<i class="fa-solid fa-circle-check"></i>Starts the course for this learner right here. Copy setup link to set up more testers the same way.'
     : '<i class="fa-solid fa-arrow-up-right-from-square"></i>Opens the engine’s launch page in a new tab with these choices filled in. Learner name, coordinator and demo mode aren’t carried over yet.';
 }
@@ -459,11 +450,6 @@ document.querySelectorAll('.step').forEach(function (el) {
     if (st.done[s] || !el.classList.contains('locked')) openStep(s);
   });
   el.querySelector('.step-next').addEventListener('click', function () { finishStep(s); });
-});
-// A finished step's name in the rail reopens that step.
-$('rail').addEventListener('click', function (e) {
-  var b = e.target.closest('[data-goto]');
-  if (b) openStep(b.dataset.goto, true);
 });
 
 /* ============================================================================
@@ -586,7 +572,7 @@ customElements.whenDefined('vaadin-select').then(function () {
 </script>
 
 <!-- ── Design Toolbox: Flow Map ─────────────────────────────────────────────
-     The four steps, then what happens when you assign. -->
+     The four steps, then what happens when you start. -->
 <script>
   function applyFlowState(id, opts) {
     opts = opts || {};
@@ -620,19 +606,19 @@ customElements.whenDefined('vaadin-select').then(function () {
       flows: [
         { id: 'steps', name: 'Steps', pill: 'A', color: '#c9b8f0',
           lane: { x: 20, y: 20, w: 1200, h: 200 }, labelXY: { x: 40, y: 40 } },
-        { id: 'after', name: 'Assign', pill: 'B', color: '#b8d8f0',
+        { id: 'after', name: 'Start', pill: 'B', color: '#b8d8f0',
           lane: { x: 20, y: 240, w: 1200, h: 200 }, labelXY: { x: 40, y: 260 } }
       ],
       nodes: [
         { id: 'course', flow: 'steps', entry: true, x: 60,  y: 80, step: '1', name: 'Course', state: 'course',
-          desc: 'Pick the adaptive course. Assign and start is locked until all four steps are done.' },
+          desc: 'Pick the adaptive course. The rail shows it from the start. Start course is locked until all four steps are done.' },
         { id: 'who',    flow: 'steps', x: 360, y: 80, step: '2', name: 'Learner', state: 'who',
           desc: 'Name, sector, sub-sector, role, language and preferred format.' },
         { id: 'adapt',  flow: 'steps', x: 660, y: 80, step: '3', name: 'How it adapts', state: 'adapt',
           desc: 'The two behaviors the engine lets you switch, plus a one-line note on how to see them work.' },
         { id: 'tools',  flow: 'steps', x: 960, y: 80, step: '4', name: 'Testing options', state: 'tools',
-          desc: 'Content (WIP preview by default), learner ID, course coordinator, debug panel, demo mode. The defaults are fine. Done unlocks Assign and start.' },
-        { id: 'ready',  flow: 'after', x: 360, y: 300, step: '5', name: 'Ready to assign', state: 'ready',
+          desc: 'Content (WIP preview by default), learner ID, course coordinator, debug panel, demo mode. The defaults are fine, and none of it shows in the rail. Done unlocks Start course.' },
+        { id: 'ready',  flow: 'after', x: 360, y: 300, step: '5', name: 'Ready to start', state: 'ready',
           desc: 'Every step folded to a summary line. A setup link lands here directly, with a fresh learner ID.' },
         { id: 'error',  flow: 'after', x: 760, y: 300, step: '!', name: 'Engine refused', state: 'error',
           desc: 'The engine’s 422 message and the learning objects it names, shown in the rail.' }
