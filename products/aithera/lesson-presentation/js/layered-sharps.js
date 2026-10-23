@@ -698,7 +698,7 @@
           '<div class="cp-hero">' +
             '<p class="ll-eyebrow">' + COURSE_MODULES.length + ' Modules</p>' +
             '<h1>Bloodborne Pathogens</h1>' +
-            '<p class="cp-desc">Bloodborne pathogens are microorganisms such as viruses or bacteria that, if ' +
+            '<p class="cp-desc" id="cpDesc">Bloodborne pathogens are microorganisms such as viruses or bacteria that, if ' +
               'present in blood, can cause disease in humans. These pathogens can be transmitted from an ' +
               'infected person to a healthy person by contact with infected blood or other bodily fluids. ' +
               'There are a number of relatively simple actions which can be taken to drastically reduce the ' +
@@ -706,6 +706,7 @@
               'practices and methods can be modified to minimize the chance of exposure. Proper personal ' +
               'protective equipment is an important component in preventing the transfer of bloodborne ' +
               'pathogens from an infected person to a healthy person.</p>' +
+            '<button class="cp-desc-more" id="cpDescMore" type="button" aria-controls="cpDesc" aria-expanded="false" hidden>More</button>' +
             '<div class="cp-chips">' +
               '<span class="cp-chip due"><i class="fa-solid fa-calendar-day"></i> Required · due Oct 3</span>' +
               '<span class="cp-chip"><i class="fa-solid fa-briefcase"></i> ' + esc(L.label) + '</span>' +
@@ -770,6 +771,24 @@
     '</main>'; }
   function introInit(ctx) {
     var course = readCourse();
+
+    // 2026-10-24: a long course description (the official one is a full
+    // paragraph) is clamped to three lines with More / Less. Measured after
+    // render, so a short description never shows the toggle.
+    var desc = document.getElementById('cpDesc'), more = document.getElementById('cpDescMore');
+    if (desc && more) {
+      desc.classList.add('is-clamped');
+      if (desc.scrollHeight > desc.clientHeight + 1) {
+        more.hidden = false;
+        more.addEventListener('click', function () {
+          var open = desc.classList.toggle('is-clamped') === false;
+          more.setAttribute('aria-expanded', String(open));
+          more.textContent = open ? 'Less' : 'More';
+        });
+      } else {
+        desc.classList.remove('is-clamped');
+      }
+    }
 
     // D11: resumable progress now lives on the Sharps row itself (see the
     // "resume" state below) instead of a banner above the page. Anything
@@ -7289,25 +7308,29 @@
         sessionStorage.setItem('bo-progress', JSON.stringify(prevProgress));
       }
     } catch (e) {}
-    // 2026-10-23: results, not a log of answers. Each topic the module
-    // actually measured lands in Strengths or Needs work, with how it was
-    // measured; topics asked both at the start and later also report the
-    // change. F2 (taught, never asked here) and D3 (a plan, not a result)
-    // are not graded — the plan gets its own card below.
-    // Each entry: { id, ok, line }. ok === null → not measured this run.
+    // 2026-10-24: only things with a right answer are scored — the two
+    // knowledge checks and the two scenario results land in Strengths or
+    // Worth a review. The agreement ratings (F1, F3) are views, not
+    // results: a low one only ever served a longer version of the content,
+    // so they are never graded here. They get their own unscored section
+    // in the details, quoting the statement and showing how the rating
+    // moved. F2 (never asked here) and D3 (a plan) are not graded either.
+    // Labels here are plain topic nouns, not the objective names, which
+    // are written as claims ("It protects your coworkers") and read as a
+    // verdict next to a status icon.
+    var TOPIC = {
+      K1: { name: 'Safe handling steps',        kind: 'Knowledge check' },
+      K2: { name: 'Spotting unsafe conditions', kind: 'Knowledge check' },
+      D1: { name: 'Acting in the moment',       kind: 'Scenario' },
+      D2: { name: 'Disposing of it safely',     kind: 'Scenario' }
+    };
+    // Each entry: { id, ok, line }.
     function knowTopic(id, chk, re) {
       if (!chk) return null;
       var up = chk.variant === 'up';
       if (chk.passed) return { id: id, ok: true, line: 'Answered correctly' + (up ? ', on the harder version.' : '.') };
       if (re && re.passed) return { id: id, ok: true, line: 'Answered correctly on the second try.' };
       return { id: id, ok: false, line: re ? 'Missed on both tries.' : 'Missed this question.' };
-    }
-    var AGREE_WORD = { 1: 'Strongly disagreed', 2: 'Disagreed', 3: 'Neither agreed nor disagreed', 4: 'Agreed', 5: 'Strongly agreed' };
-    function feelTopic(id, pre, post) {
-      var score = post ? post.score : pre;
-      if (score == null) return null;
-      return { id: id, ok: score >= 4,
-        line: AGREE_WORD[score] + ' (' + score + ' of 5).' };
     }
     function decisionTopic() {
       if (c.scene && c.scene.decision) {
@@ -7345,45 +7368,50 @@
     var topics = [
       knowTopic('K1', c.k1check, c.k1recheck),
       knowTopic('K2', c.k2check, c.k2recheck),
-      feelTopic('F1', b.f1, c.f1post),
-      feelTopic('F3', b.f3, c.f3post),
       decisionTopic(),
       disposalTopic()
     ].filter(Boolean);
 
-    // Before → after, only where the same thing was measured twice. The
-    // pre-check knowledge items are right/wrong; the agreement items are 1–5.
+    // Knowledge only: the pre-check answer against the final one.
     function finalPass(chk, re) { return !!(chk && (chk.passed || (re && re.passed))); }
     var changes = [];
     if (!b.skipped) {
-      if (c.k1check && b.k1up != null) changes.push({ id: 'K1', before: b.k1up ? 1 : 0, after: finalPass(c.k1check, c.k1recheck) ? 1 : 0, max: 1, fmt: function (v) { return v ? 'Correct' : 'Incorrect'; } });
-      if (c.k2check && b.k2up != null) changes.push({ id: 'K2', before: b.k2up ? 1 : 0, after: finalPass(c.k2check, c.k2recheck) ? 1 : 0, max: 1, fmt: function (v) { return v ? 'Correct' : 'Incorrect'; } });
-      if (b.f1 != null && c.f1post) changes.push({ id: 'F1', before: b.f1, after: c.f1post.score, max: 5, fmt: function (v) { return v + ' of 5'; } });
-      if (b.f3 != null && c.f3post) changes.push({ id: 'F3', before: b.f3, after: c.f3post.score, max: 5, fmt: function (v) { return v + ' of 5'; } });
+      if (c.k1check && b.k1up != null) changes.push({ id: 'K1', before: !!b.k1up, after: finalPass(c.k1check, c.k1recheck) });
+      if (c.k2check && b.k2up != null) changes.push({ id: 'K2', before: !!b.k2up, after: finalPass(c.k2check, c.k2recheck) });
     }
-    // Improved / Dropped / No change / Already strong, with its arrow icon.
     function changeOf(ch) {
-      var k = ch.after > ch.before ? 'up' : ch.after < ch.before ? 'down' : 'held';
+      var k = ch.after && !ch.before ? 'up' : !ch.after && ch.before ? 'down' : 'held';
       return { icon: MOVE[k].icon, cls: k === 'up' ? 'rs-ok' : k === 'down' ? 'rs-warn' : 'rs-flat',
-        label: k === 'up' ? 'Improved' : k === 'down' ? 'Dropped' : ch.after === ch.max ? 'Already strong' : 'No change' };
+        label: k === 'up' ? 'Improved' : k === 'down' ? 'Dropped' : ch.after ? 'Already strong' : 'No change' };
+    }
+    function yesNo(v) { return v ? 'Correct' : 'Incorrect'; }
+
+    // Views: the statement, rated at the start and again later. Neutral
+    // marks only — no tick, no warning — since there is no right rating.
+    var views = [
+      { stmt: F1_STATEMENT, before: b.f1, after: c.f1post && c.f1post.score },
+      { stmt: F3_STATEMENT, before: b.f3, after: c.f3post && c.f3post.score }
+    ].filter(function (v) { return v.before != null || v.after != null; });
+    function viewLine(v) {
+      if (v.before != null && v.after != null) {
+        return 'At the start: ' + v.before + ' of 5 · Later: ' + v.after + ' of 5';
+      }
+      return 'You rated this ' + (v.after != null ? v.after : v.before) + ' of 5';
     }
 
-    // 2026-10-23 pass 2: the screen should land as "done, and here is how
-    // it went" at a glance — topic names only up top, one line on
-    // improvement, and everything else behind "Show details".
     function nameList(list, icon) {
       return '<ul class="rs-names">' + list.map(function (t) {
-        return '<li><i class="fa-solid ' + icon + '" aria-hidden="true"></i>' + esc(obj(t.id).name) + '</li>';
+        return '<li><i class="fa-solid ' + icon + '" aria-hidden="true"></i>' + esc(TOPIC[t.id].name) + '</li>';
       }).join('') + '</ul>';
     }
     var strong = topics.filter(function (t) { return t.ok; });
     var work = topics.filter(function (t) { return !t.ok; });
-    var improved = changes.filter(function (ch) { return ch.after > ch.before; }).length;
+    var improved = changes.filter(function (ch) { return ch.after && !ch.before; }).length;
 
+    // Nothing scored in this run (a deep link, or everything skipped in
+    // Review mode): no summary card at all rather than an empty one.
     var html = '';
-    if (!topics.length) {
-      html = '<p class="rs-empty">No results yet. Finish the module to see them here.</p>';
-    } else {
+    if (topics.length) {
       // All strong: keep both columns — "Nothing — nice work" is the payoff.
       // All to review: drop the empty Strengths column rather than show a
       // "none" next to the module's own check mark.
@@ -7391,29 +7419,37 @@
         (strong.length ? '<div class="rs-col rs-col--strong"><h3 class="rs-head">Strengths</h3>' +
           nameList(strong, 'fa-circle-check') + '</div>' : '') +
         '<div class="rs-col rs-col--work"><h3 class="rs-head">Worth a review</h3>' +
-          (work.length ? nameList(work, 'fa-circle-exclamation') : '<p class="rs-empty">Nothing \u2014 nice work</p>') + '</div>' +
+          (work.length ? nameList(work, 'fa-circle-exclamation') : '<p class="rs-empty">Nothing — nice work</p>') + '</div>' +
       '</section>';
     }
     if (improved) {
       html += '<p class="rs-improved"><i class="fa-solid fa-arrow-trend-up" aria-hidden="true"></i>' +
-        'Improved on ' + improved + ' of ' + changes.length + ' since the pre-check</p>';
+        'Improved on ' + improved + ' of ' + changes.length + ' knowledge checks since the pre-check</p>';
     }
 
-    // The detail, for whoever wants it.
+    // The detail, for whoever wants it. Each scored row leads with what it
+    // was ("Knowledge check · …") so the label reads as a section name.
     var more = '';
     if (topics.length) {
       more += '<h4 class="rs-sub">How you did</h4><ul class="rs-rows">' + topics.map(function (t) {
         return '<li><i class="fa-solid ' + (t.ok ? 'fa-circle-check rs-ok' : 'fa-circle-exclamation rs-warn') + '" aria-hidden="true"></i>' +
-          '<span class="rs-topic">' + esc(obj(t.id).name) + '</span><span class="rs-val">' + esc(t.line) + '</span></li>';
+          '<span class="rs-topic"><span class="rs-kind">' + esc(TOPIC[t.id].kind) + '</span>' + esc(TOPIC[t.id].name) + '</span>' +
+          '<span class="rs-val">' + esc(t.line) + '</span></li>';
       }).join('') + '</ul>';
     }
     if (changes.length) {
       more += '<h4 class="rs-sub">Since the pre-check</h4><ul class="rs-rows">' + changes.map(function (ch) {
         var m = changeOf(ch);
         return '<li><i class="fa-solid ' + m.icon + ' ' + m.cls + '" aria-hidden="true"></i>' +
-          '<span class="rs-topic">' + esc(obj(ch.id).name) + '</span>' +
-          '<span class="rs-val">' + esc(m.label) + ': ' + esc(ch.fmt(ch.before)) +
-            ' <i class="fa-solid fa-arrow-right rs-arrow" aria-hidden="true"></i> ' + esc(ch.fmt(ch.after)) + '</span></li>';
+          '<span class="rs-topic">' + esc(TOPIC[ch.id].name) + '</span>' +
+          '<span class="rs-val">' + esc(m.label) + ': ' + yesNo(ch.before) +
+            ' <i class="fa-solid fa-arrow-right rs-arrow" aria-hidden="true"></i> ' + yesNo(ch.after) + '</span></li>';
+      }).join('') + '</ul>';
+    }
+    if (views.length) {
+      more += '<h4 class="rs-sub">Your views <span class="rs-note">Not scored</span></h4><ul class="rs-rows rs-views">' + views.map(function (v) {
+        return '<li><i class="fa-regular fa-comment rs-flat" aria-hidden="true"></i>' +
+          '<q class="rs-stmt">' + esc(v.stmt) + '</q><span class="rs-val">' + esc(viewLine(v)) + '</span></li>';
       }).join('') + '</ul>';
     }
     if (c.sustain && c.sustain.route) {
@@ -7422,9 +7458,10 @@
           esc(c.sustain.route) + '.</p>';
     }
     if (more) {
-      html += '<details class="rs-more"><summary>Show details<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>' +
+      html += '<details class="rs-more"' + (topics.length ? '' : ' open') + '><summary>Show details<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>' +
         '<div class="rs-more-body">' + more + '</div></details>';
     }
+    if (!html) html = '<p class="rs-empty">No results yet. Finish the module to see them here.</p>';
     document.getElementById('recList').innerHTML = html;
   }
 
