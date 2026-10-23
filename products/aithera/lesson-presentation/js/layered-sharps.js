@@ -7325,8 +7325,8 @@
         var r = c.scene.rubric;
         var short = SCENE_RUBRIC.filter(function (x) { return !(r[x.id] && r[x.id].score === 2); });
         return { id: 'D2', ok: short.length === 0,
-          line: short.length === 0 ? 'Timing, technique, route and recovery were all on point.'
-              : 'Room to improve: ' + short.map(function (x) { return x.name.toLowerCase(); }).join(', ') + '.' };
+          line: short.length === 0 ? 'Every part of how you disposed of it was on point.'
+              : 'Room to improve: ' + short.map(function (x) { return SCENE_FEEDBACK[x.id].short; }).join(', ') + '.' };
       }
       if (beats && (beats.execution || beats.container)) {
         var gaps = [];
@@ -7493,8 +7493,40 @@
     { id: 'route',     name: 'Route',     def: 'A designated container, fill line respected · never general waste or linen.' },
     { id: 'recovery',  name: 'Recovery',  def: 'When the container is full or missing, finds another proper one — never improvises.' }
   ];
-  var SCENE_DECISION = { name: 'Dispose now, or set it down?',
-    def: 'Setting the sharp down on any surface it wasn’t disposed into is the shortcut — the moment it leaves your hand, the next person is the one at risk.' };
+
+  // What the learner sees on the scenario's result card. `label` is the
+  // expected action in plain words, so every row says what good looks like
+  // whether it is ticked or not; a row that is not fully met adds one line
+  // on what they did instead (keyed by score: 1 partly, 0 missed, none = no
+  // evidence or the moment never came). `short` names it on the results
+  // screen. The deck's own wording still drives the grader (SCENE_RUBRIC).
+  var SCENE_FEEDBACK = {
+    decision:  { short: 'acting first', label: 'Deal with the sharp before you help',
+      1: 'You held on to it, but waited until after helping.',
+      0: 'You set it down to go help.',
+      none: 'Your answer didn\u2019t say what you did with it.' },
+    timing:    { short: 'timing', label: 'Dispose of it right away',
+      1: 'You got to it, but not right away.',
+      0: 'You waited until the task was done.',
+      none: 'Your answer didn\u2019t say when.' },
+    technique: { short: 'handling',
+      get label() {
+        return sceneCopy().item === 'blade'
+          ? 'Keep it in hand \u2014 no bending, breaking, or setting it down'
+          : 'Safety feature on \u2014 no recapping, bending, or setting it down';
+      },
+      1: 'Part of this was missing from your answer.',
+      0: 'You recapped, bent, or set it down on the way.',
+      none: 'Your answer didn\u2019t say how you handled it.' },
+    route:     { short: 'the container', label: 'Put it in a sharps container',
+      1: 'You didn\u2019t say it went into a sharps container.',
+      0: 'It went somewhere other than a sharps container.',
+      none: 'Your answer didn\u2019t say where it went.' },
+    recovery:  { short: 'the full container', label: 'If the container is full, find another one',
+      1: 'You didn\u2019t say where you\u2019d take it instead.',
+      0: 'You made do with the full container.',
+      none: 'This didn\u2019t come up in your run.' }
+  };
 
   function sceneSimulatorOn() {
     try { return sessionStorage.getItem('sh-scene-mode') === 'simulator'; } catch (e) { return false; }
@@ -7556,7 +7588,14 @@
       'Also write "correction": 1-2 plain sentences spoken to the learner ("you") inside the scene, correcting the single most important gap ' +
       'in what they described, as feedback rather than a do-over. Stay inside the scene as given: add no new people, events or outcomes. ' +
       'No praise words, no lists.\n' +
-      'Return ONLY JSON: {"timing":{"score":0|1|2|null,"quote":""},"technique":{...},"route":{...},"recovery":{...},"correction":""}';
+      'Return ONLY JSON: {"timing":{"score":0|1|2|null,"quote":""},"technique":{...},"route":{...},"recovery":{...},"correction":""}' +
+      // 2026-10-24: a used blade has no safety feature and no cap, so
+      // Technique marked a clean "walk it over and drop it in" as partly met
+      // for never mentioning one. Score only the steps this item has.
+      (sceneCopy().item === 'blade'
+        ? '\nThe item is a used blade: it has no safety feature and no cap, so never mark Technique down for not mentioning one. ' +
+          'Technique is met when they keep it in hand and put it straight into the container without bending, breaking or setting it down.'
+        : '');
     var user = 'Their first answer ("What do you do?"): ' + decisionText + '\n\nTheir step-by-step description:\n\n' + text;
     return askModel(sys, user, 500).then(function (r) {
       var out = { correction: typeof r.correction === 'string' ? r.correction.trim() : '' };
@@ -7587,13 +7626,14 @@
     var r = SCENE_RUBRIC[3];
     var sys = sceneContext() + '\n\nComplication: ' + SCENE_BEAT3 + '\n\nRate ONLY ' + r.name + ' — ' + r.def +
       '\n0 = improvises (forces it in, presses contents down, balances it on top, general waste, sets it down); 1 = does not improvise but ' +
-      'names no proper route (waits, hands it off); 2 = keeps the sharp under control and goes for the spare or another designated container. ' +
+      'names no proper route (waits, hands it off); 2 = keeps the sharp under control and goes for the spare or another designated container ' +
+      '(walking it to the next, nearest or another container counts as 2). ' +
       'Quote the shortest exact phrase from their answer that is the evidence. Return ONLY JSON: {"score":0|1|2,"quote":""}';
     return askModel(sys, 'The learner said:\n\n' + text, 120).then(function (x) {
       var n = normCrit(x, text); if (n.score == null) n.score = 1; return n;
     }).catch(function () {
       return { score: has(t0(text), /\bforce|\bpush|\bpress|\bon top\b|\btrash\b|\bset it down\b/) ? 0
-        : has(t0(text), /\bspare\b|\banother\b|\bother (container|room)\b|\bget (a|the) (new|spare)/) ? 2 : 1, quote: '' };
+        : has(t0(text), /\bspare\b|\banother\b|\b(next|nearest|other) (container|room|one)\b|\bget (a|the) (new|spare)/) ? 2 : 1, quote: '' };
     });
   }
   function t0(t) { return String(t || ''); }
@@ -7646,7 +7686,7 @@
           '</aside>' +
         '</div>' +
         '<div class="dk-check sc-result" id="scResult" hidden><div class="dk-card sc-card">' +
-          '<h2 class="cs-q cs-q--lead">The rubric</h2>' +
+          '<h2 class="cs-q cs-q--lead">How\u2019d you do?</h2>' +
           '<div class="sc-rows" id="scRows"></div>' +
         '</div></div>' +
       '</div>' +
@@ -7844,19 +7884,32 @@
     // ---- The rubric, over the scene -------------------------------------
     var MARK = { 2: ['is-met', 'fa-check', 'Met'], 1: ['is-part', 'fa-minus', 'Partly'], 0: ['is-miss', 'fa-xmark', 'Missed'] };
     var DEC = { now: 2, later: 1, shortcut: 0 };
-    function row(name, def, score, quote) {
+    // 2026-10-24: the expected action, ticked or not, plus what they did
+    // when it fell short — in place of the deck's rubric definition and
+    // their quoted words, which read as the grader's checklist.
+    // Their own words under the row they evidence, so the result reads as
+    // considered — but each phrase once: the grader often cites one
+    // sentence for two criteria, and the same quote under a tick and a dash
+    // read as a contradiction.
+    var quoted = {};
+    function row(id, score, quote) {
+      var q = quote && !quoted[quote.toLowerCase()] ? quote : '';
+      if (q) quoted[q.toLowerCase()] = 1;
       var m = score == null ? ['is-none', 'fa-circle', 'Not shown'] : MARK[score];
+      var f = SCENE_FEEDBACK[id];
       return '<div class="sc-row ' + m[0] + '">' +
         '<span class="sc-mark" role="img" aria-label="' + m[2] + '"><i class="fa-solid ' + m[1] + '" aria-hidden="true"></i></span>' +
-        '<div class="sc-row-t"><b>' + esc(name) + '</b><span>' + esc(def) + '</span>' +
-          (quote ? '<q>' + esc(quote) + '</q>' : '') + '</div></div>';
+        '<div class="sc-row-t"><b>' + esc(f.label) + '</b>' +
+          (score === 2 ? '' : '<span>' + esc(f[score == null ? 'none' : score]) + '</span>') +
+          (q ? '<q>' + esc(q) + '</q>' : '') + '</div></div>';
     }
     function showRubric() {
       var r = res.rubric;
+      quoted = {};
+      // The decision has no grader quote; their first answer is the evidence.
       document.getElementById('scRows').innerHTML =
-        row(SCENE_DECISION.name, SCENE_DECISION.def, DEC[res.decision], '') +
-        '<div class="sc-rule" aria-hidden="true"></div>' +
-        SCENE_RUBRIC.map(function (c) { return row(c.name, c.def, r[c.id].score, r[c.id].quote); }).join('');
+        row('decision', DEC[res.decision], (res.answers && res.answers.decision || '').trim()) +
+        SCENE_RUBRIC.map(function (c) { return row(c.id, r[c.id].score, r[c.id].quote); }).join('');
       reinforce(ctx, document.getElementById('scResult'), 1, 1);
       ctx.enableNext();
     }
