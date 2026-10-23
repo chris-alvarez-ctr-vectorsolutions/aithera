@@ -70,10 +70,12 @@
 
 ## home-limited
 - (2026-10-21) **Why it exists:** some organizations only let admins or supervisors record certain activities. A firefighter should still see those Quick Links (so they know the activity exists) but not be able to use them.
-- (2026-10-21) **Presentation:** restricted tiles keep their place in the grid but render grayscale at ~45% opacity with a small lock in the top-right corner; `aria-disabled="true"`. Everything else on Home is unchanged.
+- (2026-10-21) **Presentation:** restricted tiles carry a small lock in the top-right corner and `aria-disabled="true"`. Everything else on Home is unchanged.
+- (2026-10-22) **Locked tiles sink to the bottom of their group.** Within each group the tiles the user can use come first, in the admin's order, then the locked ones, also in the admin's order. Groups themselves keep their order and headers. Users with full access see the admin's order untouched.
+- (2026-10-22) **One locked treatment, not two.** Graying out the admin-chosen fill produced two looks (dark gray tiles with white icons, light gray tiles with dark icons). Locked tiles now ignore the fill and ink entirely: light gray background (`--color-gray-100`), darker gray icon, label and lock (`--color-gray-600`), full opacity.
 - (2026-10-21) **Tap:** opens the bottom sheet titled with the activity name — "Your account doesn't have access to record this activity. Ask your supervisor or training officer to record it for you."
 - (2026-10-21) **Data:** which activities are restricted comes from the user's permissions in the web platform (per-activity access). In the prototype it is the `supervisorOnly` flag on tiles in app.js.
-- (2026-10-21) **Prototype only:** the Quick Links switch in the UX tools dock now cycles All → Limited → Off, and the User switch flips between Jordan Lee (captain) and Sam Rivera (firefighter). `?ql=limited` / `?user=firefighter` in the URL start the page that way.
+- (2026-10-22) **Prototype only:** the User button in the UX tools dock cycles four demo users, each an access profile, and shows the profile in the pill — "Jordan Lee: Captain (full access)", "Sam Rivera: Firefighter II (limited Quick Links)", "Leslie Carter: Firefighter (no Quick Links)", "Martin Newsome: Firefighter (no QL, no RCA)". The separate Quick Links switch is gone; the mode follows the user. `?user=firefighter|leslie|martin` starts the page as that person.
 
 ## home-empty
 - (2026-10-21, later) **Decision: no Home tab at all when a department has no Quick Links.** Feedback on the empty state was to drop it. Instead the Home tab is removed from the tab bar and sign-in lands directly on **Record Completions**. Condition: the department's Quick Links card has zero tiles across all groups.
@@ -81,9 +83,16 @@
 - (2026-10-21) **Record becomes the landing screen, so it keeps the tab bar** (Record · Scan · Alerts · More) — it is the only way to reach the other tabs — and its X is hidden, because there is nowhere to leave to. Cancel still discards the draft and stays on Record. Everything else about the task is unchanged.
 - (2026-10-21) **Every route to Home goes to Record instead:** the notification pre-prompt's buttons, and "Go to Home" on the confirmation screens (that button is simply hidden there; "Record more" / "Record another" remain).
 - (2026-10-21) ~~"No Quick Links yet" empty state inside the Quick Links card with Record a completion / Scan a QR code buttons.~~ Superseded by the decision above; removed from the mock.
-- (2026-10-21) **Prototype only:** set the Quick Links switch in the UX tools dock to **None** (or `?ql=off` in the URL) to see it.
+- (2026-10-22) **Prototype only:** switch to **Leslie Carter** from the User button in the UX tools dock (or `?user=leslie`) to see it. Access is now per user, not a department-wide switch.
+
+## home-no-record
+- (2026-10-22) **Why it exists:** some users have neither Quick Links nor access to Record Completions. They still need the app for scanning, alerts and the File Center.
+- (2026-10-22) **Tab bar is Scan · Alerts · More.** No Home tab (no Quick Links) and no Record tab (no Record Completions). Sign-in lands on **Scan**, and every route to Home or Record (the notification pre-prompt, a closed task) lands on Scan instead. Condition: the user's permissions grant neither Quick Links nor Record Completions.
+- (2026-10-22) **Self-assign still works from a scan** (assumption to confirm): recording a completion for yourself is not the Record Completions tool, so a scanned QR code opens the self-assign form as usual; its X returns to Scan. If self-assign should also be withheld from these users, the scan would instead explain that the code needs an account with recording access.
+- (2026-10-22) **Prototype only:** switch to **Martin Newsome** from the User button in the UX tools dock (or `?user=martin`).
 
 ## scan
+- (2026-10-22) **Camera only on a deliberate action for users who land on Scan.** When Scan is the landing screen (no Home tab and no Record tab — see `home-no-record`) the app must not switch the camera on just because it opened. Scan shows a ready state instead: QR icon, "Ready to scan", one line of copy ("Open the camera and point it at the QR or barcode posted with an activity."), and a large **Open Camera** button; the live viewfinder appears only after that tap. Every arrival on the tab shows the ready state again. Users who have Home or Record chose the Scan tab themselves, so the viewfinder opens immediately for them, as before.
 - (2026-10-21) **Staged camera feed instead of a scanning animation.** The viewfinder shows a printed sheet taped to a painted cinder-block gym wall: the department name, the Physical Fitness QR code, "Physical Fitness — Scan to record your workout". The red corner brackets are the app's framing guide over the feed. The old sweeping red line is gone.
 - (2026-10-21) **The code in the mock is a stand-in** (`ver1/qr-fitness.svg`, not scannable). "Simulate a scan" still resolves to the Physical Fitness self-assign; in production the camera resolves whatever code it sees.
 
@@ -108,6 +117,7 @@
 ## files-folder
 - (2026-10-21) **Folder-targeted Quick Link** (the "Imported Resources" tile, launch `folder`) lands directly in that folder with the Home tab still active. Back returns to Home from anywhere in the tree; "Up one level" goes to the File Center root.
 - (2026-10-21) **File-targeted Quick Link** (the "Wildland Policy" tile, launch `file`) opens the file itself over Home — the viewer for a PDF, the download sheet for an Office file, the browser for a link. Closing it returns to Home; the user never has to pass through the folder list.
+- (2026-10-22) **File Center button in the viewer bar** for files opened from a Quick Link: next to the X, a "File Center" pill goes to the root folder (back arrow from there still exits to Home). Hidden when the file was opened from the folder list, where X already returns to the folder.
 
 ## file-view
 - (2026-10-21) **Full-screen viewer** for PDF, image and text: tab bar hidden, dark bar with X (close), the file name (two lines max), and a share button. Share offers the device share sheet, Save to device, and Open in another app.

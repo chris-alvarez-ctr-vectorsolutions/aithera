@@ -65,11 +65,12 @@ Send A1–A12 to the Evaluations technical reviewer together with the open code-
 | C2 | Reuse habits | A8, A10 | Show participants their own duplicates and ask why each exists. Tests whether linked blocks would have prevented them |
 | C3 | Subtype understanding | A3, A12 | Walk through one of their forms and ask who they intended to answer each question |
 | C4 | Scale behaviour | A5, A6 | Do they expect editing a preset to change forms already using it? Data shows what they did; the interview shows what they assumed |
-| C5 | Settings that lock after publish | A2, A12 | Have they hit it, and what warning would have changed their action |
+| C5 | Settings that lock after publish | A2, A12 | Have they hit it, and what warning would have changed their action? Test the alternative EV+ is considering: published forms locked, and editable only with an audit trail. Decides whether the Form Builder locks individual settings at all ([08](../08-prototype-build-brief.md) P2) |
 | C6 | Unused features | A7 | Unknown, unwanted, or broken? Three different design responses |
 | C7 | Form sprawl | A1 | Which of their forms matter, and would they accept an archive sweep at migration |
 | C8 | Mid-year propagation | A2 | Show a real case from their district and ask what they wanted to happen to in-progress instances. Decides EV+'s propagation policy |
 | C9 | Who-answers variety | A3 (forms using more than one subtype) | Where it is common, preview per respondent is the test. Where it is rare, it may not matter |
+| C10 | Templates | A8, A10; B1 | Do districts start from a shared standard (a state framework, a district master form), and would they want forms made from it to follow its updates? How do they see the relationship between a standard whole form and reusable domains (blocks)? Templates are parked until this is known (08 P2) |
 
 ---
 

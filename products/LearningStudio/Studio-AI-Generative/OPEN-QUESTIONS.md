@@ -90,12 +90,20 @@ the Construction-site variant isn't analysed or flagged. Options: propagate
 flag (variants show "base moved — review" and offer a scoped G10 analyse), or
 ignore (true fork). Leaning: flag, following D19/D43 — compute and report.
 
-### Q15 · Is an output walk-through required for a fixed-sequence Course?
+### ~~Q15 · Is an output walk-through required for a fixed-sequence Course?~~ → **G16**, 2026-10-19
 
-G1 now says: required when traversal is generated (Experience), optional for a
-Course. The mock requires it for both. Decide whether composition itself —
-order, transitions, what the learner meets first — is worth a mandatory
-walk-through even when every activity has been previewed.
+A Course is one path: the walk-through is optional. An Experience's traversal
+is generated: the output rehearsal (Pass 9, stage 2) is required before
+handoff. The mock's output-preview gate stays on for both until stage 3
+rewires the preview to follow edges.
+
+### Q16 · What may a rule condition on, beyond flat outcomes?
+
+Stage 1 of Compose routes on flat per-modality outcomes (pass/fail, the level
+at a beat step, completed). The real product will want score bands, time on
+task, prior-output history. Each is another path to enumerate and verify;
+held as data they can be added without a new surface. Decide which ones the
+rehearsal (stage 2) must show before the mechanism is believed.
 
 ---
 

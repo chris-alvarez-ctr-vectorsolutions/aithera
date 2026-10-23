@@ -1,6 +1,6 @@
 # Form Builder: working model, draft requirements and architecture
 
-**Status:** Draft v1.1 for review · **Updated:** 2026-10-14
+**Status:** Draft v1.2 for review (setup decided, §6) · **Updated:** 2026-10-22
 
 This document pulls together the product analyses ([01 Evaluations](01-evaluations-analysis.md), [02 Check It](02-check-it-analysis.md), [04 EHS](04-ehs-analysis.md)) and the decisions made in discovery so far. **[06 Shared core vs. product](06-shared-vs-product.md)** explains which layer owns what. Two companion pages illustrate it:
 
@@ -35,6 +35,7 @@ Remaining claims to confirm are in the [code-dive brief](05-code-dive-brief.md).
 | D11 | **Timer is a structural property, shown as a pinned widget.** | EV has both a form-level elapsed-time bar and a per-question Timer type; both map here. |
 | D12 | **Repeat and Nested are different mechanisms.** | Repeat = inline questions asked N times. Nested = another form. |
 | D13 | **The value claim:** a better way to do what each product does today, *and* every product gains capabilities proven in the others. | §2. |
+| D14 | **Setup has no Kind or Mode in the core** (2026-10-22). A product's **profile** declares its own setup fields and the rules between them; each form stores its **setup values**. | Check It's Checklist type is filter metadata; EV's Use for and Type are EV setup values. Templates are parked. §6, [08](08-prototype-build-brief.md) P2. |
 
 ---
 
@@ -81,7 +82,7 @@ The Form Builder covers stages **Start → Publish**. Hand off and Maintain conn
 
 | Stage | What happens | Best of today | New for everyone |
 |---|---|---|---|
-| **1. Start** | Pick a kind and mode; start blank, from a template, by copying, or from blocks | CI origin; EV folders, Use For / Type | One library per product: forms, templates, blocks, scales |
+| **1. Start** | Start blank, by copying, or from blocks; fill in the product's setup values | CI origin; EV folders, Use For / Type | One library per product: forms, blocks, scales |
 | **2. Build** | Sections, questions, blocks; reorder | CI canvas, block picker, keyboard reorder | All mechanisms, filtered per product |
 | **3. Connect** | Rules, calculations, links to other forms | CI fail actions; EV expression wizard and level requirements; EHS parent/child | One rules model |
 | **4. Preview & test** | See it as each respondent; try rules | EV Preview button | Live preview per role and device; a test run |
@@ -153,29 +154,34 @@ Products plug their own systems into the Form Builder without sharing them. The 
 | **Metadata only**: never shown to respondents | TS Tags, California JAC, Observation flag |
 | **Inject a question at delivery** | CalFire JAC: several codes → a required pick-a-code question at the top |
 | **Sync to an integration** | TS Tags sent to TargetSolutions on completion |
-| Depend on other settings | Self-evaluation restriction only for Evaluation forms; Computed mode hides seven settings |
+| Depend on other settings | Self-evaluation restriction only for Evaluation forms; Read-Only and Computed (EV's Type) hide seven settings |
 | Lock after publish | Sharing behaviour, Type, elapsed time |
 
 Each extension declares its **name and wording**, **where it attaches**, **what the author sets**, **where its options come from** (fetched live, stored as references), **conditions** (when it's shown), **lock-after-publish**, and a **publish check**.
 
 ---
 
-## 6. Form setup and structure (proposed, not yet decided)
+## 6. Form setup and structure (setup decided 2026-10-22; structure proposed)
 
 ### Setup
 | Layer | What it is | Who defines it | EV evidence |
 |---|---|---|---|
 | Identity | Name, description, folder | Author | Name, Description, Folder |
-| **Kind** | Product form type. Brings subject type, relationships, product settings, locked system fields | Product | Use For (Feature) |
-| **Mode** | **Normal / Read-only / Computed**: whether anyone answers, and how | Shared (core) | Type (locked after publish) |
-| **Initiator** | Who can start an instance (e.g. evaluator or evaluee). It decides who "Normal" questions belong to | Kind default | "Normal follows the initiator" |
-| **Template** | Editable starting content of a kind | Authors | Scale presets; library |
-| Relationships | Nested in, creates follow-on forms, allowed parents | Kind default; author adjusts | — (EHS, CI) |
+| **Starting content** | Blank, a copy of an existing form, or blocks from the library | Author | Copy Form |
+| **Setup values** | The product's own setup fields, declared in its profile with the rules between them, and saved on the form. Check It: Checklist type (filter metadata only). EV: Use for, Type | Product (profile) | Use For (Feature); Type (locked after publish) |
+| **Initiator** | Who can start an instance (e.g. evaluator or evaluee). It decides who "Normal" questions belong to | Profile default | "Normal follows the initiator" |
+| Relationships | Nested in, creates follow-on forms, allowed parents | Profile; author adjusts | — (EHS, CI) |
 | Availability | Who may fill a published form (restricted lists) | Product (assignment-adjacent) | Publish-Restricted access lists |
+
+- **The product owns the setup step**, as it owns the forms list and the New action (D3). The builder renders the fields from the profile and applies the profile's rules itself.
+- **No Kind or Mode in the core.** "Kind" meant a product category in EV, the subject in Check It and a record type in EHS. EV's **Type** is an EV setup value: its Read-Only and Computed options set who answers for the whole form (no one, the system), which the core already expresses through who-answers.
+- **The subject is not a setup value.** Check It's deployment decides what gets checked; EV's subject matters only to who-answers, which the profile's relationships cover.
+- **Templates are parked** (§10 Q9). Neither product has them today: EV starts by copying and Check It cut them from its first release.
+- **Still open:** whether settings should lock after publish (EV+ may move to "locked, editable only with an audit trail"); locked system fields, which only EHS needs.
 
 ### Structure
 ```
-Form (Kind + Mode + setup)
+Form (setup values + initiator)
 └── Section            ← navigation, layout (1–2 columns), Timer scope, rules
     └── Item           ← Question | Display | Block (reusable, sealed) | Repeat | Nested
 ```
@@ -193,9 +199,9 @@ The definition carries everything needed for that calculation. The Form Builder 
 
 ### Hooks into product assignment (D2)
 1. **Publish impact:** the product reports what uses a form or version.
-2. **Discoverability:** the product lists published forms of a kind, respecting availability restrictions.
+2. **Discoverability:** the product lists published forms filtered by its own setup values (e.g. EV's Use for), respecting availability restrictions. The store or library must support filtering on product fields, or each product keeps its own index.
 
-The hand-off is the published form's **ID + version + kind + mode**, plus its subject type and roles.
+The hand-off is the published form's **ID + version + the product's setup values**, plus its roles.
 
 ---
 
@@ -224,23 +230,23 @@ The hand-off is the published form's **ID + version + kind + mode**, plus its su
 | FB-P-01 | A **profile** per product sets the mechanisms, presets, settings and vocabulary its authors see | — | M |
 | FB-P-02 | **Extensions** at form, question, **option**, answer, data-source, rule-outcome and publish-impact level (§5) | all | M |
 | FB-P-03 | Product **vocabulary** throughout (D4) | all | M |
-| FB-P-04 | Kinds bring locked system fields and blocks | EHS, EF | M |
+| FB-P-04 | A setup value can bring locked system fields and blocks (EHS only; waits with the EHS profile) | EHS, EF | M |
 | FB-P-05 | Extension options are fetched live (e.g. the TargetSolutions API) and stored as references, with a publish check | EV | M |
 | FB-P-06 | Extension behaviours: **metadata-only**, **injected question at delivery**, **integration sync** | EV | M |
-| FB-P-07 | **Conditional settings**: settings show only when they apply (by kind, mode, feature flag, other settings) | EV | M |
+| FB-P-07 | **Conditional settings**: settings show only when they apply (by setup values, feature flags, other settings). Rules are declared in the profile and evaluated by the builder | EV | M |
 
 ### 7.3 Structure and reuse
 | ID | Requirement | Src | Pri |
 |---|---|---|---|
 | FB-S-01 | Form → Sections → Items (§6) | CI, EF | M |
 | FB-S-02 | Reusable blocks: library, categories, multi-use with context labels, sealed order | CI, EV | M |
-| FB-S-03 | Link states template → block → unique, with "break link" confirmations | CI, SB | S |
+| FB-S-03 | Link states block → unique, with "break link" confirmations (Check It's template level is parked with templates) | CI, SB | S |
 | FB-S-04 | Locked system fields alongside custom questions | EHS, EF | M |
 | FB-S-05 | Repeat and Nested (§4) | EHS, CI, EF | M |
 | FB-S-06 | Timer at form, section, block or Repeat row scope; also as a per-question timer | EV | S |
 | FB-S-07 | Folders and copy-to-start in the library | EV, CI | S |
 | FB-S-08 | Layout hints (1–2 columns, control position) where reading order = authored order | EF, EHS, EV | M |
-| FB-S-09 | **Form mode** (Normal / Read-only / Computed) and **initiator** in setup | EV | M |
+| FB-S-09 | **Setup values** from the product's profile (EV: Use for, Type) and **initiator** in setup | EV | M |
 
 ### 7.4 Rules
 | ID | Requirement | Src | Pri |
@@ -293,18 +299,18 @@ The hand-off is the published form's **ID + version + kind + mode**, plus its su
 ```js
 FormDefinition {
   schemaVersion, id, version, status: 'draft'|'published'|'superseded'|'archived',
-  product, kind, mode: 'normal'|'readOnly'|'computed',
+  product: { id, setup: { [field]: value } }, // the product's setup values and form-level
+                                              //   settings: stored and versioned, read only by the product
   initiator: [ relationship ],               // who can start an instance
   name, description, folder,
   signing: { lockMode: 'signer'|'all'|'prior' },
   timer?: { scope:'form', max?, editable:true },
-  productSettings: { [extensionId]: value }, // form-level extensions (incl. metadata-only)
-  relationships?: { allowedParents:[kind], spawns:[formId], nestableIn:[kind] },
+  relationships?: { allowedParents?, spawns:[formId], nestableIn? }, // parents filtered by product setup values
   sections: [{ id, title, help, layout, locked, timer?,
                items: [ Question | Display | BlockRef | Repeat | Nested ] }],
   rules: [ Rule ],
   references: { scales:[{id, linked:true|false}], blocks:[{blockId, version}] },
-  meta: { createdBy, publishedBy, publishedAt, sourceTemplateId, supersedes? }
+  meta: { createdBy, publishedBy, publishedAt, origin:'blank'|'copy'|'blocks', sourceId?, supersedes? }
 }
 
 Question {
@@ -334,7 +340,7 @@ Answer and record shapes are product-owned. Products key answers on question ID 
 | Completion computed (EV Created → Shared → Submitted → Completed; CI gated submit) | EV, CI | `required`, Attest questions, `signing.lockMode`, product settings (sharing) |
 | Signing locks (signer / all / prior) | EV | `signing.lockMode` |
 | Who may answer each question | EV | `answeredBy`, `initiator` |
-| Read-only and computed forms | EV | `mode` |
+| Read-only and computed forms | EV | `product.setup.type`; EV's profile maps it to who answers (no one / the system) |
 | Injected questions (CalFire JAC) | EV | Form extension value |
 | Integration sync (TS Tags) | EV | Metadata-only extension |
 | Fail → out of service / ticket / notify | CI | Rule outcomes |
@@ -354,10 +360,11 @@ Answer and record shapes are product-owned. Products key answers on question ID 
 2. Location: its own mechanism, or a capture method shared with Evidence?
 3. Rich text: an option on Text, or its own mechanism?
 4. Observation matrix: a Repeat shown as a grid, or its own mechanism?
-5. Kind / Mode / Template split and setup layers (§6): agree?
+5. ~~Kind / Mode / Template split and setup layers (§6)~~ **Resolved 2026-10-22:** setup = starting content + the product's setup values + initiator; no Kind or Mode in the core (D14).
 6. Who owns shared libraries (blocks, scales, tags): tenant, product, or both?
 7. Scoring model across products (EV averages ratings and Pass/Fail values; what do CI and EHS need?).
 8. Should the Form Builder keep EV's per-question Timer type, or fold it into Timer scopes?
+9. **Templates (parked 2026-10-22):** how do reusable blocks and full-form templates work together? Starting instinct: linked by default, with the link broken by the author. Research question C10.
 
 **For the code dive:** see [05-code-dive-brief.md](05-code-dive-brief.md).
 
@@ -367,5 +374,5 @@ Answer and record shapes are product-owned. Products key answers on question ID 
 
 1. Review this draft, [06](06-shared-vs-product.md) and the two companion pages with Evaluations, Check It and EHS product owners.
 2. Run the code dive for Check It and EHS ([05](05-code-dive-brief.md)). Evaluations' first pass is in.
-3. Decide the open questions in §10, starting with setup (Kind / Mode / Template).
+3. Decide the remaining open questions in §10 through the P1–P8 review in [08](08-prototype-build-brief.md). Setup is decided.
 4. Then define the Form Builder experience stage by stage: library and creation first.

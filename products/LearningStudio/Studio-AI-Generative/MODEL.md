@@ -647,6 +647,171 @@ gets the heavier handling regardless of grain.
 **Modality** is not editable on an existing activity. Changing modality is
 transmute (parent `MODEL.md`), which creates a sibling activity.
 
+**Built 2026-10-19 (Pass 8).** Two things the build settled:
+
+- *An added point the generation doesn't carry* is a fourth analysis verdict,
+  **not covered**, with two dispositions: **cover it** (a `cover` item in
+  Pending — the next generation adds a carrier, and that carrier is the
+  requested change) or **claim anyway**. The second leaves a claim standing
+  with no carrier: Coverage and the preview report show it as not reached, and
+  it travels to the handoff review as "left as is". Whether an uncarried claim
+  should be allowed to stand at all is open; the mock allows it and makes it
+  visible rather than forbidding it.
+- *A removed point* is simply no longer claimed by the next generation — the
+  generator re-proposes its claims against the spec — and the diff attributes
+  the dropped claim to the spec, not to drift. The content that carried it
+  stays unless the author removes it in the analysis.
+
+---
+
+## G15 · A spec item is attributed by scope, not by element
+**2026-10-19** · raised by building G14
+
+G5/G6 attribute a change to a request by element id: an annotation targets an
+element, so a change to that element is requested and everything else is
+drift. A treatment-level spec edit (G14) names no element — "make this
+refresher-length" legitimately moves every narration line — so by-id
+attribution would report the whole generation as drift.
+
+A spec item therefore declares a **scope**: the element kinds and fields the
+field is entitled to move, supplied by the modality adapter. For the video,
+*treatment* may move narration text and remove lines; *audience* may relabel
+objects and redraw backgrounds; *assistant goal* may rewrite overlays;
+*activity constraints* may move nothing (they steer generation; if a
+generation changes under a constraint edit, that change is drift). For the
+scenario: *treatment* → step exit gates and probes; *audience* → settings;
+*goal* → the coach persona; *constraints* → characters' dress.
+
+Everything inside the scope is requested; everything outside is drift, caught
+by comparison and shown louder (G6), exactly as for an annotation. This keeps
+G6's stance — attribution never trusts the generator's account of what it did
+— while giving a spec edit the breadth it needs. A `cover` item is scoped the
+same way: a new element of the carrier kind, plus the claim it adds.
+
+---
+
+## G16 · An output's structure is composed from a brief, and every connection carries its reason
+**2026-10-19** · Pass 9, stage 1 · builds on parent D4 (edges live in the output) and D47 (reachability is computed; the author pins)
+
+**Compose** was the one parent operation never built. It is now the same
+shape as everything below the line in this spin-off: a **composition
+brief** directs it, the AI **proposes** the structure, the author reviews and
+accepts (D16). The brief is three things: the **default path** (an ordered
+list — the spine every learner is expected to follow), **rules** in prose
+that route by outcome, and a **completion** rule.
+
+**Outcomes are flat and per modality** (settled with the user, 2026-10-19):
+a knowledge check passes or fails; a scenario lands a level at a beat step;
+a video, podcast or job aid completes. Score bands belong to the real
+product, not this proof. **The entry is single and pinned**: every learner
+starts at the same activity, so every path has one root and reachability is
+one computation.
+
+**Every connection carries its reason.** The map alone is not the QA
+artifact; the map *with why each connection exists* is what a reviewer signs
+off. Five kinds:
+
+| Reason | Drawn by | Says |
+|---|---|---|
+| **default** | the brief's path | "Default path, step n" |
+| **rule n** | a brief rule | quotes the rule; the outcome it fires on |
+| **repair** | the composer | which point fell short on which path, and why this activity (the lightest carrier) was inserted |
+| **pin** | the author (D47) | which rule's skip now lands here instead of past it |
+| **gate** | the completion rule | the exit |
+
+The composer's **reasoning** is kept in order beside the map ("Rule 3: Strong
+on step 1 skips the check — straight to completion. Repair: on that path P1
+fell short of Working, so the inspection card was inserted before
+completion. Short: P3 is guaranteed on 4 of 5 paths and no repair exists.").
+
+**Repairs never override a rule.** When a path is short, the composer inserts
+the lightest activity that carries the point at the bar — as its **own
+instance** in the structure, never a node a rule's loop already owns — but
+it will not insert something the path's own rule skips. If the only carrier is
+exactly what the rule skips, it reports **short** and offers the author the
+fix: pin that activity required, drop the rule, or change the format's bar.
+The author decides; the composer explains.
+
+**The threshold reads reachability.** A point counts only if every path from
+entry to completion carries it at the bar (D47). The Outputs threshold gains
+"on paths: every path / n of m", and the handoff pin records the structure
+version, so a pin, a new rule or an accepted proposal clears a handoff like
+any other change (G11).
+
+**Pins apply at once; brief edits propose.** A pin is the author's input to
+the computation, so it recomposes immediately and bumps the version. A brief
+edit (a rule added, the path reordered) produces a **proposal** — the
+connections that would be added or removed, each with its reason, and the
+composer's new reasoning — accepted or discarded.
+
+**What the composer understands** is deliberately three rule shapes in this
+mock (fail X → repeat Y, retry; level on step N → Y before Z; level on step
+N → skip Z). An instruction outside them is **unmapped**: kept in the brief,
+flagged, and a handoff gate until reworded or removed. The real product's
+composer is a model; the point here is that an instruction it cannot honour
+is surfaced, never silently dropped.
+
+**Built 2026-10-20 (Pass 11) — creation and membership.** Creating an output
+is writing its composition brief; the composer's first proposal is the
+output, as v1. An output's **activity set is derived from its structure**:
+an activity is in an output because a node refers to it. There is no
+separate membership list to drift from the paths — adding to the default
+path, or writing a rule that names an activity, is what adds it. Kind and
+format are author configuration (G13): a format change moves the bar and
+is caught by the output signature like any other change; a change to Course
+drops rules and pins, because a Course is one path.
+
+**A simplification to remember:** a scenario's outcome edges are treated as
+alternatives in rule order. A learner can in fact be Strong on step 1 *and*
+Unthoughtful on step 2; the mock routes on whichever rule fires first.
+
+**Resolves OQ Q15:** a Course is one path, so an output walk-through is
+optional; an Experience's traversal is generated, so the walk-through
+(stage 2, the output rehearsal) is required before handoff.
+
+---
+
+## G17 · Output rehearsal is outcome-driven traversal; the all-paths table is the sign-off
+**2026-10-19** · Pass 9, stage 2 · D33 and D44 applied at output level
+
+At activity level the probabilistic thing is the coach's reply, so rehearsal
+(D33) rerolls replies. At output level the probabilistic thing is the
+**path** — which activity comes next given what the learner just did — so
+output rehearsal is the same instrument pointed at a different variable.
+
+**The walk.** The reviewer starts at the entry and, at each activity, picks
+an outcome (the flat set from G16). Each button names the connection it
+fires and the reason it carries, and the trace accumulates as a readable
+record: *Entry → video (completed, default path) → scenario (step 2:
+Unthoughtful) → podcast (brief rule 2) → check (failed) → inspection card
+(brief rule 1) → check (passed) → completion (gate)*. **Change** at any step
+truncates the trace there and rerolls everything after it — the D33 reroll,
+applied to a route instead of a reply. At completion, the points table says
+what this path reached against the bar.
+
+**The sign-off.** Beside the walk, every path from entry to completion is
+enumerated with every point against the bar. A red row names the path and
+the point it misses. **Sign off all paths** is offered only when every row
+is green, and it pins the structure version plus the activities' current
+generations (via the output signature): a pin, an accepted proposal, or any
+activity regenerating clears it, like a handoff (G11). The handoff gate for
+an Experience reads it.
+
+**The authoring gesture.** Where a walk ends short, the pin (D47) is offered
+in the completion panel, naming the lightest activity in the structure that
+carries the missing point at the bar. Rehearsal is where the gap is found,
+so rehearsal is where the fix is made — the same stance D33 took at activity
+level, where a kept roll becomes the example.
+
+**What stays separate** (D44): the rehearsal shows its workings — reasons,
+rerolls, the all-paths table. The learner preview (stage 3, built the same
+day) shows none of them: it runs the real activities, follows the edges on
+their actual outcomes — the scenario's landed levels, a pass/fail choice on
+the check's stand-in since the real check would score it — and only the
+**report** afterwards explains the path with the composer's reasons, the
+points it reached, the beats fired, and which of the enumerated paths it
+was.
+
 ---
 
 ## Coverage under generation
@@ -665,6 +830,13 @@ the **reviewer checks** it:
 
 Because every generation re-proposes its claims, *"what does this now appear to
 cover"* — the "suggest" half of D41 — comes for free.
+
+**Where it shows (Pass 8):** the review panel's **Coverage** tab — per claimed
+point, the carriers in the viewed generation (elements with timestamps for the
+video, the beat step for the scenario), who judged the depth, the point
+version; a claim with no carrier is flagged with a one-click cover request;
+content the generation carries that the spec doesn't claim is listed apart.
+Approval and confirmation are still granted from the preview report (G12).
 
 ---
 

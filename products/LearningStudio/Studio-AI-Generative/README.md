@@ -10,7 +10,7 @@ The comparison the team already lives: a UX designer moving from a Figma canvas
 to reviewing a live HTML prototype that Claude Code built — and steering the
 next version by pointing at things and saying what should change.
 
-**Status:** exploration. Passes 1–7 of the mock are built (`ver1/index.html`, opened
+**Status:** exploration. Passes 1–8 of the mock are built (`ver1/index.html`, opened
 through the loader `index.html`). Started 2026-10-15.
 
 Built as a versioned feature with the Design Toolbox and a flow map; the flow
@@ -23,10 +23,14 @@ artifact, a change map or a dockable panel. Same call as the parent prototype.
 ## Session handoff — 2026-10-19
 
 **Where it stands.** Four layers navigable from the rail (Info set, Brief,
-Activities, Outputs); two review renderers (video, scenario); decisions G1–G14
-in `MODEL.md`; 61 flow-map states, all rendering clean. Passes 1–5 are
-committed as `6034cf33`; passes 6a (Activities layer) and 7 (scenario) are
-the commit after it.
+Activities, Outputs); two review renderers (video, scenario); decisions G1–G17
+in `MODEL.md`; 82 flow-map states, all rendering clean. Passes 1–5 are
+committed as `6034cf33`, passes 6a and 7 as `bb924036`, Pass 8 (spec edits +
+the Coverage tab) as `0b98453a`, Pass 9 stage 1 (Compose) as `5461be36`,
+stage 2 (output rehearsal) as `40f28c08`, stage 3 (the preview follows the
+edges) as `a97c46fe`, Pass 10 (the Outputs layer at lower density) as
+`86a303ec`, Pass 11 (creating an output) as `f446cccf`, and Pass 12 (the
+UI copy audit) is the commit after it.
 
 **Known rough edges, deliberately left:**
 - The scenario's Interaction phase is the densest screen (steps · rehearsal ·
@@ -39,6 +43,32 @@ the commit after it.
   strip status from the plan.
 - Activities without a renderer (podcast, check, job aid) use **simulated**
   Regenerate / Approve buttons (labelled "sim") so the gates can be exercised.
+  Their spec edits queue into a `specQueue` on the row and land on sim
+  Regenerate.
+- The review panel now has four tabs. At the side docks the tab icons are
+  hidden (labels only) so the five dock buttons still fit; below 1100px the
+  tabs go icon-only with titles. The float panel grew to 380px for the same
+  reason.
+- A claim can stand with no carrier ("Claim anyway" in a points analysis).
+  Coverage and the preview report show it as not reached, and the handoff
+  review lists it under "left as is". Whether that should ever be allowed is
+  a design call not yet made — see the note under G14 in `MODEL.md`.
+- The spec editor's content effects are scripted stand-ins (a refresher
+  treatment takes each line's shorter alt; an audience change swaps the truck
+  and redraws scene 1; a goal change rewrites the overlays). What matters is
+  that each stays inside its field's scope (G15) and recomposition still
+  drifts (shorter lines move overlay windows).
+- The composer (Pass 9) parses rules with three regexes and resolves
+  activities by keyword (`ACT_WORDS`). It is a stand-in for a model; the
+  design point is that an instruction it can't honour is surfaced as
+  unmapped, never dropped. Scenario outcome edges are treated as alternatives
+  in rule order (a learner can't be routed on both step 1 and step 2 in one
+  run) — see G16.
+- Path enumeration lets a node be visited twice, which admits exactly one
+  retry loop. A second failure dead-ends in the enumeration (not a path), which
+  is fine for the proof but is not how the product would bound retries.
+- Seed deviation (Pass 9): the inspection card carries P1 at **Working** (was
+  Awareness) so the composer has a lighter repair than the check.
 
 **How the mock is verified** (no test framework; headless Chrome from the CLI):
 - *Every flow state renders without console errors:* loop over the `state:`
@@ -58,15 +88,73 @@ the commit after it.
 - Review state is **per activity**: `REV[id]` holds generations, Pending,
   locks, approval; `R` points at the open one. Shared shell state is `S`.
   Each modality is an `ADAPT[id]` with `elements / apply / fresh / carriers /
-  jump`. A new modality = a seed, an adapter, a renderer, a player stand-in.
+  claimed / specScope / coverKinds / jump`. A new modality = a seed, an
+  adapter, a renderer, a player stand-in.
+- **Coverage claims live on the generation** (Pass 8): `gen.claims` for the
+  video (point → carrier element ids), `gen.doc.covers` for the scenario
+  (point → depth + beat). `VIDEO_CLAIMS` is only the seed. The adapter's
+  `carriers(pid, gen)` / `claimed(gen)` read them; `provOf` staleness, the
+  Coverage tab and the preview report all go through the adapter.
+- **Pending item types:** `annotate`, `region`, `restore`, `pin`, and since
+  Pass 8 `spec` (`{ field, from, to }` — lands on the plan row in `apply`
+  via `applySpecToRow`) and `cover` (`{ pid, depth }` — the adapter adds a
+  carrier). The diff attributes a change to a `spec` item by **scope**
+  (`ADAPT[id].specScope[field]` = element kinds × fields, G15), never by
+  element id. Anything outside the scope is drift.
+- A points edit never rides a task. `commitSpec` writes the claim to the row
+  at once, then either `startOver(r, keep)` (scoped refresh) or
+  `startAnalysis(..., { scope })` — the same `analyse` / `findingsHTML` /
+  `applyFindings` path the brief uses, with `B.findings.scope` set. The
+  `points` entry in `LIB` is the per-point analysis (`pointFindings`); a
+  fourth verdict, `missing`, exists only there.
 - `POINTS` is derived from the information set (`syncPoints()`); never edit it
   directly. Every claim pins a point version (`prov[pid].ptv`).
 - The seed data for the six points, the library, the comments and the
   scenario is the parent's, extracted verbatim — don't retype it; re-extract.
 
-**Next:** Pass 8 — G14 spec edits (treatment fields ride the task; point
-changes get a scoped analyse/refresh) and a coverage panel on the video review
-matching the scenario's; then the job-aid proof.
+- **Compose (Pass 9):** an output's `structure` is composed lazily by
+  `structOf(o)` from `o.comp` (path, rules, completion) and `o.pins`:
+  `{ nodes, edges, spine, notes, unmapped, shorts, collisions, version }`.
+  Node ids are `n-<act>`; a repair inserts its own instance `n-<act>#rN`.
+  `enumeratePaths` / `reachOf` drive the threshold, the gates and the map;
+  `outSig` includes the structure version. Brief edits go to `o.draft` →
+  `proposeStructure` → `acceptProposal`; pins call `togglePin` and recompose
+  at once. The map is hand-rolled SVG (`layoutStructure`, `structMapSVG`),
+  layered by longest path with back edges detected on the DFS stack.
+
+- **Rehearsal (stage 2):** `o.reh.trace` is a list of edge ids; `rehNode`,
+  `rehEdges`, `rehActs` derive the rest; `rehWalk(o, [on…])` seeds a walk
+  (null = the default / otherwise connection). `pathReach(o, acts)` is the
+  per-path threshold; `signedOff(o)` compares `o.signedSig` to `sigKey(o)`.
+  Any structure change resets the trace.
+
+- **Preview (stage 3):** in output mode `P` carries `node`, `trace` (edge
+  ids), `items` (grows as the walk goes), `outcomes`, `runs` (the scenario's
+  levels and beats per visit). `pItemDone(outcome)` picks the next
+  connection with `nextEdge(st, node, outcome, scn)`; `seedExpPreview` is the
+  flow-map seed.
+
+- **Outputs UI (Pass 10):** `B.outOpen` + `B.outTab` select the detail and
+  its tab; `B.outEdit` opens the brief drawer; `B.outInfo` is the open ⓘ
+  note; `B.outReason` unfolds the reasoning. `outNext(o)` derives the single
+  next step from the first open gate; `outStatusLine(o)` the status words.
+  Rationale copy lives in `OUT_NOTES`.
+- **Creation (Pass 11):** `B.newOut` is the draft (`newOutDraft`),
+  `newOutputHTML` the modal, `createOutput` pushes the output and composes
+  v1. `o.acts` is derived by `syncActs(o)` after every compose, accept, pin
+  or kind change — never set by hand. `setKind` handles Course ↔ Experience;
+  the format is a plain property whose change the signature catches.
+  `B.addMenu` is the open "Add to an output" menu on the Activities layer.
+
+- **ⓘ notes (Pass 12):** `infoBtn(key)` / `infoNote(key)` render from
+  `NOTES` (falling back to `OUT_NOTES`); `INFO_OPEN` is the one open key,
+  toggled by a capture-phase document listener so the click never reaches a
+  layer's own handlers. Flow-state jumps reset it.
+
+**Next:** the Pass 10 *structure* (index + tabs) is still Outputs-only; the
+Brief, Information Set and Activities got its copy treatment in Pass 12 but
+not its layout. Or the job-aid proof — a static modality with no renderer,
+to show a new modality needs a review renderer, not a surface.
 
 ## If you are picking this up cold
 
@@ -247,6 +335,229 @@ the analysis says that element holds.
 Activities other than the main video have **simulated** Regenerate and Approve
 buttons (labelled "sim") so the gates can be satisfied end to end.
 
+## What the mock shows — Pass 9 · stage 1, Compose (2026-10-19)
+
+**Outputs** now has a third output, *Forklift Operator Experience*, whose
+traversal is generated. Open **Structure & reasons** on it (a Course has the
+same view with one path and no rules).
+
+- **A composition brief guides the composer** (G16): the default path as an
+  ordered list, routing rules in prose, a completion rule. The AI proposes
+  the map; the author accepts (D16). Three rule shapes are understood: *fails
+  X → repeats Y, then retries*; *<level> on <scenario> step N → hears Y before
+  Z*; *<level> on step N → skips Z*. Anything else is flagged **unmapped**,
+  kept in the brief, and blocks the handoff gate until reworded.
+- **Every connection carries its reason.** Click one: default path, the brief
+  rule quoted, a repair naming the point it protects and the rule it modifies,
+  a pin naming the rule whose skip now lands here, or the completion gate.
+  The composer's reasoning sits beside the map in order — this plus the map is
+  the QA record.
+- **Repairs are honest.** Rule 3 lets a Strong learner skip the check, which
+  leaves P1 short on that path. The composer inserts the inspection card as
+  its own instance (the lightest activity carrying P1 at Working) and says
+  so. P3 it cannot repair, because only the check reaches Mastery and that is
+  exactly what the rule skips: it reports *short*, and Flags offers **Pin the
+  check required** or **Drop rule 3**.
+- **Pins apply at once** (D47). Pinning the check retargets rule 3's skip
+  onto the check, the repair disappears, every point is guaranteed on every
+  path, the structure is v2, and the handoff pin (which now records the
+  structure version) clears.
+- **The threshold reads reachability**: "every path" or "n of m paths" per
+  point, with the missing paths named. The Paths list shows every route from
+  entry to completion with the outcomes that select it.
+- **Brief edits propose.** Add a rule or reorder the path and re-compose: the
+  proposal lists the connections it would add or remove, each with its
+  reason, plus the new reasoning. Accept bumps the version; discard restores
+  the draft.
+- Six flow-map states (lane I). The D38 collision check (two scenario
+  warm-ups in a row) is wired but nothing in the seed triggers it.
+
+## What the mock shows — Pass 9 · stage 2, output rehearsal (2026-10-19)
+
+Below the map on an output's Structure view (G17).
+
+- **Walk the structure.** Begin at the entry; at each activity pick what
+  happened. Every outcome button names the connection it fires, where it
+  leads and the reason it carries; the trace below reads as the QA record for
+  that path, with the reason under each step. The map lights the walked
+  route. **Change** at any step rerolls from there; **Restart** clears it.
+- **Completion shows what the path reached**, point by point against the
+  bar. A short path says so, and offers the pin right there: *Pin the check
+  required · carries P3 at Mastery*. Pinning recomposes (structure v2) and
+  resets the walk.
+- **All paths** enumerates every route from entry to completion with the
+  outcomes that select it and a chip per point. A red row names the path and
+  the point it misses, and sign-off is blocked until the structure is fixed.
+  **Sign off all paths** appears when every row is green; it is pinned to the
+  structure version and the activities' generations, so a pin, an accepted
+  proposal or a regeneration clears it. The Experience's handoff gate reads
+  it.
+- A Course gets the same card with one row and nothing to choose.
+- Five more flow-map states on lane I.
+
+## Pass 12 — UI copy audit: rationale out of the product (2026-10-20)
+
+Design reasoning from the build conversations had leaked into the UI. An
+audit of every string literal plus a rendered sweep of all flow states found
+86 visible decision references (D/G/Q numbers), 9 build-state notes ("Pass 1
+built the video", "not built", "this prototype"), about 30 design-rationale
+paragraphs, and three internal terms. All of it is out of the product copy:
+
+- **Decision references** are gone from body copy, tooltips and toasts. The
+  reasoning lives in `MODEL.md` and, on screen, behind an **ⓘ** on the card
+  or heading it explains. The ⓘ mechanism now works on every layer (one note
+  open at a time; `NOTES` holds the copy, `OUT_NOTES` the Outputs set).
+- **Build-state notes** are removed or rewritten in product voice ("Earlier
+  generations aren't shown here", "The knowledge check opens here").
+- **Rationale paragraphs** are one sentence each, with the reasoning behind
+  ⓘ — the Pass 10 treatment, now on the Brief, Information Set, Activities,
+  the scenario's phase notes, the Coverage tab and the preview reports.
+- **Vocabulary**: "no deliver" → *blocked*; "walled off" → *never shown to
+  learners*; "carrier / carried by" → *where it's taught / teaches*. LED,
+  lineage and composer stay.
+- **Prototype scaffolding stays as it was** by decision: the *sim* buttons,
+  the stand-in cards, the check's Pass / Fail chooser.
+- Three bugs the sweep surfaced are fixed: depths showing as "undefined" in
+  four strings (the format bar read `req` from an information-set record that
+  stores `requires`); the library popover staying open across flow-map
+  jumps; a dead "Pass 3" toast handler.
+
+**Keep it that way:** new UI copy is product voice. Put the why in
+`MODEL.md`, and if it's worth having on screen, in `NOTES` behind an ⓘ.
+
+## What the mock shows — Pass 11, creating an output (2026-10-20)
+
+The missing half of Compose: outputs were seeded, and nothing created one.
+
+- **New output** on the Outputs index. The composition brief *is* the
+  creation: name, kind (Course or Experience), format (which sets the bar),
+  the default path picked from generated activities, rules in prose for an
+  Experience, and the completion rule. **Compose** opens the new output on
+  its Structure tab with the first proposal as v1, the reasoning unfolded and
+  anything the composer couldn't repair flagged.
+- **The activity set is derived from the structure.** An activity is in an
+  output because a node refers to it, so adding to the path, or writing a
+  rule that names an activity, is what adds it. The old separate list is
+  gone, which removes the mismatch it would have created between the
+  threshold and the paths.
+- **Kind and format are editable on Overview.** Changing the format changes
+  the bar: the threshold recomputes, and the sign-off and any handoff clear
+  (the pin now records the format). Changing kind to Course drops the rules
+  and pins and recomposes as one path; to Experience lets rules route.
+- **From the Activities layer**, each generated activity's card has *Add to
+  an output*: pick an output and it is appended to that output's default
+  path with a proposal waiting in the drawer, or start a new output with it
+  as the first step.
+- Four flow-map states on lane J. Batch variants and output templates are
+  deliberately out (Q7).
+
+## What the mock shows — Pass 10, the Outputs layer at lower density (2026-10-19)
+
+The Outputs list and the structure view had grown to roughly forty data
+points per card and nine stacked sections on one scroll. This pass reorganises
+them around one question per screen, with the design rationale moved out of
+body copy.
+
+- **Outputs is an index.** One row per output: name, kind and format, a
+  status line in words ("Handoff cleared by a change · 5 paths · P3 short · 2
+  gates open"), and **one next step** derived from the first open gate ("Fix
+  the structure", "Rehearse & sign off the paths", "Review & approve", "Send
+  to publish pipeline"). No tables.
+- **An output is one page with four tabs.** *Overview*: activities with
+  their status, what the output is, the open gates in brief. *Structure*: a
+  flag strip (short points, unmapped rules) with their fixes, the brief as
+  one line with **Edit the brief**, the map with its why panel, and the
+  composer's reasoning folded. *Rehearsal*: the map lighting the route, the
+  walk, all paths, sign-off. *Readiness*: the gates, the threshold table
+  (Point · Needs · Delivered with who judged it · Paths · ✓), the handoff pin
+  and "changed since", preview / approve / send, structure versions.
+- **The composition brief edits in a side drawer**, and proposals arrive in
+  the same drawer; a strip on the Structure tab says a proposal is waiting.
+- **Map density**: outcome labels only where a choice exists, the "on n of m
+  paths" line only when a node is skippable, and a red **!** on the connection
+  where a point goes short — clicking it opens the why panel with the short
+  explained.
+- **Copy**: every explanatory paragraph became one sentence in product voice.
+  The G and D references live behind ⓘ buttons on each card heading; the
+  note opens inline and closes again. The same treatment is not yet applied
+  to Brief, Information Set or Activities.
+- Flow-map states for outputs now open the right tab (readiness for the
+  handoff states, structure or rehearsal for Compose).
+
+## What the mock shows — Pass 9 · stage 3, the preview follows the edges (2026-10-19)
+
+**Preview as learner** on any output now walks its structure instead of a
+fixed list (D44 kept: none of the rehearsal's workings show while walking).
+
+- The entry's connection picks the first activity. Each activity's **real
+  outcome** picks the next connection: the video completing, the levels the
+  scenario run actually landed (Unthoughtful on step 2 sends the learner to
+  the podcast, rule 2), and on the check's stand-in card a **Pass / Fail**
+  choice, since the real check would score it. Failing routes to the
+  inspection card and back to the check (rule 1). The side list shows the
+  path so far, each step's outcome, and what decided it; what comes next is
+  "decided by what happens here" wherever more than one connection leaves
+  the node.
+- **The report is the path taken**: every connection with its reason, the
+  points this path reached against the bar, the beats the scenario fired and
+  the level each landed, and which of the n enumerated paths this was. It
+  points at the rehearsal and the all-paths sign-off for the others.
+- The Experience card gains a **Rehearse paths** button beside Structure.
+- Two flow-map states; the output-preview gate (G1) is unchanged.
+
+The Pass 9 plan is complete. Remaining open: Q16 (what else a rule may
+condition on).
+
+## What the mock shows — Pass 8, spec edits and the Coverage tab (2026-10-19)
+
+Open a plan row in the **Brief** (or the brief chip on a review screen, which
+now lands on that activity's row, expanded). The detail row is the activity
+spec, split the way G14 draws it: **what** on the left (the points it claims),
+**how** on the right (audience, treatment, assistant goal, activity
+constraints).
+
+- **Treatment fields ride the next revision task** (G14). Change the
+  treatment, edit the goal, add a constraint: each queues at once as a
+  `spec` item — the field shows *#n queued · was …* with a revert, the row
+  shows *n spec edits queued*, and the review screen's Pending lists it beside
+  the annotations. Nothing regenerates until the task is sent; the spec value
+  lands with the generation it produces. Set a field back to its current
+  value and the item disappears.
+- **Attribution is by scope, not by element** (G15, new). A spec item names no
+  element, so the diff asks the adapter which element kinds × fields the
+  field is entitled to move. A refresher treatment shortens every narration
+  line — requested, in scope — and the overlay windows that move with them are
+  drift, caught by comparison (G6) and shown louder, exactly as for an
+  annotation.
+- **Points get the scoped G10 choice.** Adding or removing a point opens a
+  dialog for *this one activity*: the claim change, its consequences
+  (an SME confirmation cleared — reported, never repaired, D43; what each
+  output's threshold does; the handoff that clears), and **Analyse** or
+  **Refresh**. Refresh reuses the brief's cost dialog — the locks it would
+  throw away, the approval that goes stale — scoped to the activity.
+- **Analyse reads the live generation.** Adding P3 to the video: nothing
+  carries it, so the finding is *Not covered* — **Cover it** queues a `cover`
+  item (the next generation adds a carrier, and that new line is the requested
+  change) or **Claim anyway** leaves the claim standing uncarried. Adding P2 to
+  the scenario: step 3 already teaches the dismount, so the finding *holds*
+  and applying registers step 3 as P2's beat. Removing P2 from the video names
+  the narration line that carried it — remove it, or leave it (the content
+  stays, unclaimed).
+- **The generator re-proposes its claims against the spec.** A dropped point
+  is no longer claimed by the next generation; on the scenario the coverage
+  element loses that field, attributed to the spec rather than reported as
+  drift.
+- **Coverage tab** in the review panel (G1 promised it; the preview report was
+  the only place claims showed). Per claimed point: the depth, the carriers in
+  the viewed generation (video: each element with its timestamp, as a jump
+  target; scenario: the beat step and whether it's unskippable), who judged
+  the depth, the point version. A claim with no carrier is amber with
+  **Cover it**; content the generation carries that the spec doesn't claim is
+  listed separately. Approval and SME confirmation stay on the preview report
+  (G12).
+- Activities without a renderer take the same spec edits into a queue on the
+  row; sim Regenerate applies them.
+
 ## What the mock shows — Pass 7, the scenario (2026-10-16)
 
 The generated-at-runtime proof. The video was the easy case: static, so
@@ -387,8 +698,19 @@ Everything is in-memory; reload resets.
 5. ~~**Pass 5 — the Information Set layer**~~ — built 2026-10-16.
 6. ~~**Pass 6a — the Activities layer**~~ — built 2026-10-16.
 7. ~~**Pass 7 — the scenario review renderer**~~ — built 2026-10-16.
-8. **Pass 8** — G14 spec edits (treatment fields ride the task; point changes
-   get a scoped analyse/refresh) and a **coverage panel** in the review tooling
-   (G1 promises it; the preview report is the only place claims show today).
-9. Prove the loop again on **job aid** — now the *cheap* proof: a static modality with no renderer yet — an undesigned modality — to show a new
+8. ~~**Pass 8** — G14 spec edits and the Coverage tab~~ — built 2026-10-19.
+9. **Pass 9 — Compose and the output walk-through.** ~~Stage 1: structure,
+   composition brief, reasons, reachability, pins~~ — built 2026-10-19.
+   ~~Stage 2: output rehearsal~~ — built 2026-10-19. ~~Stage 3: learner
+   preview follows the edges~~ — built 2026-10-19.
+10. ~~**Pass 10** — the Outputs layer at lower density: index, four tabs,
+    rationale behind ⓘ~~ — built 2026-10-19. Candidate: the same treatment
+    for Brief, Information Set and Activities.
+11. ~~**Pass 11** — creating an output; the activity set derived from the
+    structure; kind and format editable; add-to-output from Activities~~ —
+    built 2026-10-20.
+12. ~~**Pass 12** — UI copy audit: decision refs, build notes and rationale
+    out of product copy, ⓘ on every layer, three vocabulary renames~~ —
+    done 2026-10-20.
+12. Prove the loop again on **job aid** — now the *cheap* proof: a static modality with no renderer yet — an undesigned modality — to show a new
    modality needs a review renderer, not a surface.

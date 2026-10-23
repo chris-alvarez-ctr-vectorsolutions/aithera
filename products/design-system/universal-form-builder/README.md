@@ -1,6 +1,6 @@
 # Form Builder: discovery
 
-**Status:** Discovery v1.1 — ready for review · **Started:** 2026-10-13 · **Updated:** 2026-10-14
+**Status:** Discovery v1.1 — ready for review · **Started:** 2026-10-13 · **Updated:** 2026-10-22
 **Internal project name:** Form Builder. There is no user-facing name: users see "Create checklist", "Edit evaluation form" and so on, in their own product's terms.
 
 ## What this is
@@ -28,6 +28,8 @@ Several Vector products each build their own form, checklist or question editor.
 | 01 | [Evaluations analysis](01-evaluations-analysis.md) | Evaluation forms, PD event forms, and **EV+ authoring confirmed against code** (§1a) |
 | 02 | [Check It analysis](02-check-it-analysis.md) | Checklist Management and the sandbox prototype |
 | 04 | [EHS analysis](04-ehs-analysis.md) | Incident, Corrective Action, Observation and JSA forms |
+| 08 | **[Prototype build brief](08-prototype-build-brief.md)** | Decisions and modelling assumptions (P1–P8), the product profiles as data, seed forms, the build passes and the **30-minute walkthrough script** for the clickable prototype |
+| — | **[Form Builder Prototype](prototype/index.html)** (page) | The shared authoring shell as Check It and Evaluations via a profile switch. Passes 1–5 built: library, setup, canvas + inspector, blocks, rules, preview and test run, quality, review, publish, versions. EHS profile on hold |
 | — | **[EV+ research questions](research/ev-plus-research-questions.md)** | What engineering pulls, what only EV+ users can answer, and what to pull first and then validate with users. Participants, method and timing |
 
 ## Key points
@@ -35,7 +37,7 @@ Several Vector products each build their own form, checklist or question editor.
 1. **Each product built one part of authoring well, and no product has all of it.** Check It has versioning and reusable blocks. Evaluations has the richest question types, scale presets and per-question roles. EHS has relationships between forms and system + custom fields. Nobody has live preview, review or testing.
 2. **Questions come from about a dozen core mechanisms** (Scale, Choice, Text, Measure, Date & time, Lookup, Location, Evidence, Script, Attest, Calculate, plus Repeat, Nested and Timer for structure). Each product customizes them with **presets**.
 3. **Products don't share their systems; they plug them in.** Tags, applies-to statuses, JAC codes, org hierarchy, rule outcomes and publish impact are all **product extensions**. EV's TargetSolutions Tags already work this way in production (06).
-4. **The Form Builder's job ends at Publish.** Products receive a form ID + version + kind and handle assignment and delivery. The Form Builder still asks each product "what uses this version?" so authors see the impact before publishing.
+4. **The Form Builder's job ends at Publish.** Products receive a form ID + version + their own setup values and handle assignment and delivery. The Form Builder still asks each product "what uses this version?" so authors see the impact before publishing.
 
 ## Evidence and confidence
 
@@ -56,7 +58,10 @@ Everything inferred is listed in the [code-dive brief](05-code-dive-brief.md). P
 
 - [ ] Review the journey maps, 03 and the mechanisms page with Evaluations, Check It and EHS product owners.
 - [ ] Run the code dive for Check It and EHS, and finish the open Evaluations items ([05](05-code-dive-brief.md)).
+- [x] Build the Form Builder prototype, passes 1–5 ([08](08-prototype-build-brief.md)). Pass 6 (EHS profile) on hold.
+- [ ] Run the walkthrough (script in 08) with Check It and Evaluations product owners; collect decisions on P1–P8 and the local-steps reading.
 - [ ] Run the EV+ user research ([research/](research/ev-plus-research-questions.md)): send the data pulls with the code-dive items, recruit, sessions in November, readout before the Q1 adoption decision.
-- [ ] Decide the open questions in 03 §10, starting with form setup and structure (Kind vs. Template).
+- [x] Decide form setup (2026-10-22): no Kind or Mode in the core; profile + setup values; templates parked ([08](08-prototype-build-brief.md) P2).
+- [ ] Decide the remaining open questions in 03 §10 through the P1–P8 review in 08.
 - [ ] Define the Form Builder experience stage by stage, starting with the library and form creation.
 - [ ] Decide which other products to review next.

@@ -61,17 +61,20 @@
     ]
   };
 
-  /* Quick Links mode — a UX-tools switch (bottom of the page), not product:
-       'all'     every tile is live (default)
-       'limited' the signed-in user lacks access to the supervisorOnly tiles:
-                 they stay visible but grayed out, and a tap explains why
-       'none'    the department has not configured any Quick Links — there is
-                 NO Home tab: sign-in lands on Record Completions (which keeps
-                 the tab bar and loses its X), and every route to Home goes to
-                 Record instead. See hasHome() / goTo().
-     Driven by APP.setQuickLinksMode() and the flow map's home-* nodes. */
+  /* Access profile — comes from the signed-in demo user (USERS[].access):
+       quickLinks 'all'     every tile is live
+                  'limited' the user lacks access to the supervisorOnly tiles:
+                            they stay visible but grayed out, and a tap explains why
+                  'none'    no Quick Links for this user — there is NO Home tab
+       record     false     no Record Completions either — no Record tab; the
+                            tab bar is Scan · Alerts · More
+     Landing screen = Home, else Record, else Scan (see landing() / goTo()).
+     Switched from the UX tools dock (User button) and the flow map's home-* nodes. */
   var quickLinksMode = 'all';
-  function hasHome() { return quickLinksMode !== 'none'; }
+  var recordAccess = true;
+  function hasHome()   { return quickLinksMode !== 'none'; }
+  function hasRecord() { return recordAccess; }
+  function landing()   { return hasHome() ? 'home' : hasRecord() ? 'record' : 'scan'; }
   var QUICK_LINKS_LOCKED = {
     body:  'Your account doesn’t have access to record this activity. Ask your supervisor or training officer to record it for you.'
   };
@@ -135,13 +138,21 @@
     'file-view':   { tab: 'more',   title: 'File', task: true, noHeader: true }
   };
 
-  /* Two demo users, switched from the UX tools dock (no second login needed).
-     `role` is NOT shown anywhere in the app — title data is not available at
-     launch — it only labels the dock button. The firefighter exists to demo
-     the "limited" Quick Links mode and the shared-device "Welcome back" screen. */
+  /* Demo users, switched from the UX tools dock (no second login needed). Each
+     is an access profile: `access.quickLinks` is the Quick Links mode and
+     `access.record` whether Record Completions exists for them at all.
+     `role` and `summary` are NOT shown anywhere in the app — title data is not
+     available at launch — they only label the dock button
+     ("Jordan Lee: Captain (full access)"). */
   var USERS = {
-    captain:     { id: 'captain',     initials: 'JL', name: 'Jordan Lee', role: 'Captain',     username: 'j.lee',    department: 'Springfield Fire Department' },
-    firefighter: { id: 'firefighter', initials: 'SR', name: 'Sam Rivera', role: 'Firefighter', username: 's.rivera', department: 'Springfield Fire Department' }
+    captain:     { id: 'captain',     initials: 'JL', name: 'Jordan Lee',     role: 'Captain',        username: 'j.lee',      department: 'Springfield Fire Department',
+                   access: { quickLinks: 'all',     record: true  }, summary: 'full access' },
+    firefighter: { id: 'firefighter', initials: 'SR', name: 'Sam Rivera',     role: 'Firefighter II', username: 's.rivera',   department: 'Springfield Fire Department',
+                   access: { quickLinks: 'limited', record: true  }, summary: 'limited Quick Links' },
+    leslie:      { id: 'leslie',      initials: 'LC', name: 'Leslie Carter',  role: 'Firefighter',    username: 'l.carter',   department: 'Springfield Fire Department',
+                   access: { quickLinks: 'none',    record: true  }, summary: 'no Quick Links' },
+    martin:      { id: 'martin',      initials: 'MN', name: 'Martin Newsome', role: 'Firefighter',    username: 'm.newsome',  department: 'Springfield Fire Department',
+                   access: { quickLinks: 'none',    record: false }, summary: 'no QL, no RCA' }
   };
   var USER = USERS.captain;
 
@@ -203,11 +214,17 @@
     // No Home tab without Quick Links (see hasHome); the tab bar, the task's X
     // and the "Go to Home" buttons all key off this class.
     app.classList.toggle('app--no-home', !hasHome());
+    app.classList.toggle('app--no-record', !hasRecord());   // hides the Record tab
     $('#ql-groups').innerHTML = QUICK_LINKS.groups.map(function (group) {
-      var tiles = group.tiles.map(function (tile) {
-        // Limited mode: supervisor-only tiles stay visible (the user can see
-        // what exists) but are grayed out, carry a lock, and explain on tap.
-        var locked = quickLinksMode === 'limited' && tile.supervisorOnly;
+      var isLocked = function (tile) { return quickLinksMode === 'limited' && tile.supervisorOnly; };
+      // Limited mode: within each group the tiles the user CAN use come first,
+      // locked ones sink to the bottom — admin order is kept inside each set.
+      var ordered = group.tiles.filter(function (t) { return !isLocked(t); })
+                    .concat(group.tiles.filter(isLocked));
+      var tiles = ordered.map(function (tile) {
+        // Supervisor-only tiles stay visible (the user can see what exists)
+        // but are grayed out, carry a lock, and explain on tap.
+        var locked = isLocked(tile);
         return '<button class="ql-tile' + (locked ? ' ql-tile--locked' : '') + '" type="button" data-ink="' + tile.ink + '"' +
                ' style="--tile:' + tile.color + '"' +
                (locked ? ' data-locked="true" aria-disabled="true"' : '') +
@@ -293,14 +310,23 @@
       '<p class="t-H4" style="margin-top:var(--space-1)">' + USER.department + '</p></div></div>';
   }
 
-  /* Switch the signed-in demo user (UX tools dock). Re-renders everything that
-     names the person; the screen the reviewer is on stays put. */
+  /* Switch the signed-in demo user (UX tools dock, flow map, ?user=). Applies
+     their access profile and re-renders everything that names the person or
+     depends on access; the current screen is re-run so the tab bar follows,
+     and a screen the new user does not have (Home, Record) becomes their
+     landing screen. */
   function setUser(id) {
     if (!USERS[id] || USERS[id] === USER) return;
     USER = USERS[id];
+    var modeChanged = quickLinksMode !== USER.access.quickLinks || recordAccess !== USER.access.record;
+    quickLinksMode = USER.access.quickLinks;
+    recordAccess   = USER.access.record;
     renderAccount(); renderProfile(); renderWho(); renderQuickLinks();
     if (!isShared()) $('#username').value = USER.username;
+    if (window.RC && window.RC.rerender) window.RC.rerender();   // Record's brand bar follows the profile
+    if (!app.hidden) goTo(currentScreen, { instant: true });
     document.dispatchEvent(new CustomEvent('ts:user', { detail: { id: id } }));
+    if (modeChanged) document.dispatchEvent(new CustomEvent('ts:quicklinks', { detail: { mode: quickLinksMode } }));
   }
 
   /* Unread count on the Alerts tab */
@@ -334,8 +360,12 @@
       if (!deviceId) setDevice('personal');
       showLoginPane();
     }
-    // No Quick Links → no Home tab: anything headed Home lands on Record.
-    if (id === 'home' && !hasHome()) id = 'record';
+    // No Quick Links → no Home tab: anything headed Home lands on Record, or
+    // on Scan when the user has no Record Completions either. The Record
+    // screen itself is still reachable without Record access, because a
+    // scanned QR code opens the self-assign form on it (see record.js).
+    if (id === 'home' && !hasHome()) id = landing();
+    if (id === 'record' && !hasRecord() && !(window.RC && window.RC.isSelf && window.RC.isSelf())) id = landing();
     // The pre-prompt has been answered. Shared devices skip it entirely, so a
     // tablet later switched to "Just me" still gets to see it.
     if (!outside && !isShared()) pushPromptSeen = true;
@@ -375,6 +405,11 @@
     var active = $('#screen-' + id);
     if (active) active.scrollTop = 0;
     setWhoMini(false);   // a new screen starts at the top, so the strip is open
+
+    // Scan as a LANDING screen (no Home, no Record) must not switch the camera
+    // on by itself: it opens in the ready state and waits for Open Camera.
+    // Every arrival resets it; users who chose the Scan tab get the live feed.
+    if (id === 'scan') $('#screen-scan').classList.toggle('scanner--ready', landing() === 'scan');
   }
   window.goTo = goTo;   // consumed by the Design Toolbox flow map
 
@@ -754,6 +789,10 @@
   $('#btn-scan').addEventListener('click', function () {
     if (window.RC) window.RC.openSelf('Physical Fitness', { scanned: true });
   });
+  // Ready state → live viewfinder (the one deliberate action that turns the camera on)
+  $('#btn-open-camera').addEventListener('click', function () {
+    $('#screen-scan').classList.remove('scanner--ready');
+  });
 
   $('#sheet-close').addEventListener('click', closeSheet);
   sheet.addEventListener('click', function (e) { if (e.target === sheet) closeSheet(); });
@@ -812,28 +851,24 @@
     setDevice: setDevice,
     openSso: openSso,
     openSheet: openSheet,   // files.js reuses the "this would launch X" sheet for links
-    // Quick Links mode: 'all' | 'limited' | 'none' (see quickLinksMode above).
-    // Driven by the UX tools dock and the flow map's home / home-limited /
-    // home-empty nodes.
+    // Access profile of the signed-in user (see USERS[].access). The mode is
+    // no longer switched on its own: setQuickLinksMode(mode) is kept for the
+    // ?ql= URL flag and picks the first demo user with that Quick Links mode.
     quickLinksMode: function () { return quickLinksMode; },
     hasHome: hasHome,
+    hasRecord: hasRecord,
+    landing: landing,
     setQuickLinksMode: function (mode) {
-      if (mode !== 'all' && mode !== 'limited' && mode !== 'none') return;
-      if (mode === quickLinksMode) return;
-      quickLinksMode = mode;
-      renderQuickLinks();
-      if (window.RC && window.RC.rerender) window.RC.rerender();   // Record's brand bar follows the mode
-      // Re-run the current screen so the tab bar / task chrome follow the mode
-      // (and a Home that no longer exists becomes Record).
-      if (!app.hidden) goTo(currentScreen, { instant: true });
-      document.dispatchEvent(new CustomEvent('ts:quicklinks', { detail: { mode: mode } }));
+      var match = Object.keys(USERS).filter(function (k) { return USERS[k].access.quickLinks === mode; })[0];
+      if (match) setUser(match);
     }
   };
 
-  // UX-tools URL flags (?user=firefighter, ?ql=limited|off) are applied here,
-  // before the flow map's #fm= boot, so a deep link renders the right person.
+  // UX-tools URL flags (?user=firefighter|leslie|martin, ?ql=limited|off) are
+  // applied here, before the flow map's #fm= boot, so a deep link renders the
+  // right person.
   var qs = location.search;
-  var um = qs.match(/[?&]user=(captain|firefighter)\b/);  if (um) window.APP.setUser(um[1]);
+  var um = qs.match(/[?&]user=(captain|firefighter|leslie|martin)\b/);  if (um) window.APP.setUser(um[1]);
   var qm = qs.match(/[?&]ql=(all|limited|off|none)\b/);   if (qm) window.APP.setQuickLinksMode(qm[1] === 'off' ? 'none' : qm[1]);
 
   // First launch asks for the country, then the device type; later launches remember both.

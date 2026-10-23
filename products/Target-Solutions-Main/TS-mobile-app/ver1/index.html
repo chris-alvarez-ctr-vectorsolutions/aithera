@@ -352,6 +352,18 @@
            reads as "pointing the phone at the code outside the workout room".
            The red corners are the app's framing guide over the feed. -->
       <section class="scanner" id="screen-scan">
+        <!-- Ready state: shown instead of the live feed when Scan is the
+             user's LANDING screen (no Home, no Record). Arriving in the app
+             must not switch the camera on by itself; the big button does.
+             Users who chose the Scan tab get the camera straight away. -->
+        <div class="scanner__ready">
+          <span class="scanner__ready-icon"><i class="fa-solid fa-qrcode"></i></span>
+          <h2 class="scanner__ready-title">Ready to scan</h2>
+          <p class="scanner__ready-copy">Open the camera and point it at the QR or barcode posted with an activity.</p>
+          <button class="t-Button t-Button--primary scanner__ready-btn" id="btn-open-camera" type="button">
+            <i class="fa-solid fa-camera"></i> Open Camera
+          </button>
+        </div>
         <div class="scanner__camera" aria-hidden="true">
           <div class="scanner__wall"></div>
           <div class="scanner__paper">
@@ -443,6 +455,9 @@
         <div class="fc-viewer__bar">
           <button class="rc-iconbtn rc-iconbtn--light" data-fc="close" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
           <span class="fc-viewer__title" id="fc-viewer-title"></span>
+          <!-- Only when the file came from a Quick Link: a way into the File
+               Center root without going back to Home first -->
+          <button class="fc-viewer__files" data-fc="files" id="fc-viewer-files" type="button" hidden><i class="fa-solid fa-folder-open"></i> File Center</button>
           <button class="rc-iconbtn rc-iconbtn--light" data-fc="share" type="button" aria-label="Share"><i class="fa-solid fa-arrow-up-from-bracket"></i></button>
         </div>
         <div class="fc-viewer__stage js-scroll" id="fc-viewer-stage"></div>
@@ -550,11 +565,12 @@
     var requested = id;
     if (window.APP) window.APP.setDevice(SHARED[id] ? 'shared' : 'personal');
     if (SHARED[id]) id = SHARED[id];
-    // Home has three states — Quick Links all live (home), some locked for this
-    // user (home-limited), none configured (home-empty). Only these touch the
-    // mode, so stepping to any other node leaves the UX-tools switch alone.
-    var HOME_MODES = { 'home': 'all', 'home-limited': 'limited', 'home-empty': 'none' };
-    if (window.APP && HOME_MODES[id]) { window.APP.setQuickLinksMode(HOME_MODES[id]); id = id === 'home-empty' ? 'record' : 'home'; }
+    // Home has four states, one per access profile — all Quick Links live
+    // (home), some locked (home-limited), none (home-empty → lands on Record),
+    // none and no Record Completions (home-no-record → lands on Scan). Only
+    // these switch the demo user; stepping to any other node leaves them alone.
+    var HOME_USERS = { 'home': 'captain', 'home-limited': 'firefighter', 'home-empty': 'leslie', 'home-no-record': 'martin', 'scan-ready': 'martin' };
+    if (window.APP && HOME_USERS[id]) { window.APP.setUser(HOME_USERS[id]); id = window.APP.landing(); }
     // "Log in with your agency" is the login screen with the SSO pane open;
     // the agency sign-in page is its own screen, opened for the demo agency.
     var agency = id === 'login-agency';
@@ -594,14 +610,14 @@
       title: 'TS Mobile App — Flow Map',
       applyState: 'applyFlowState',
       devNotes: '../DEV-NOTES.md',   // one copy at the feature root, shared with dev_handoff.html
-      canvas: { w: 2040, h: 780 },
+      canvas: { w: 2040, h: 910 },
       flows: [
         { id: 'onboarding', name: 'Getting In', pill: 'A', color: '#c9b8f0',
-          lane: { x: 20, y: 20, w: 740, h: 520 }, labelXY: { x: 40, y: 40 } },
+          lane: { x: 20, y: 20, w: 740, h: 650 }, labelXY: { x: 40, y: 40 } },
         { id: 'main', name: 'In the App', pill: 'B', color: '#a8d5ba',
-          lane: { x: 780, y: 20, w: 1240, h: 520 }, labelXY: { x: 800, y: 40 } },
+          lane: { x: 780, y: 20, w: 1240, h: 650 }, labelXY: { x: 800, y: 40 } },
         { id: 'shared', name: 'Shared Station Device', pill: 'C', color: '#f5d59a',
-          lane: { x: 20, y: 560, w: 2000, h: 200 }, labelXY: { x: 40, y: 580 } }
+          lane: { x: 20, y: 690, w: 2000, h: 200 }, labelXY: { x: 40, y: 710 } }
       ],
       nodes: [
         { id: 'region', flow: 'onboarding', entry: true, x: 60, y: 180,
@@ -627,10 +643,13 @@
           desc: 'Home shows Quick Links only, under a brand bar (department name, --brand colour) that scrolls away with the page. One customer-named card with customer-named group sub-headers and admin-ordered, admin-colored tiles.' },
         { id: 'home-limited', flow: 'main', x: 820, y: 440,
           step: 'Home', name: 'Limited Quick Links', state: 'home-limited',
-          desc: 'Some departments restrict certain Record Completions activities to admins or supervisors. A firefighter still sees every Quick Link, but the ones they cannot use are grayed out with a lock; tapping one explains that their account lacks access and to ask a supervisor. Switch the demo user and the Quick Links mode from the UX tools dock.' },
+          desc: 'Some departments restrict certain Record Completions activities to admins or supervisors. A firefighter still sees every Quick Link, but the ones they cannot use sink to the bottom of their group as flat light gray tiles with a dark gray icon and a lock; tapping one explains that their account lacks access and to ask a supervisor. Switch to Sam Rivera from the User button in the UX tools dock.' },
         { id: 'home-empty', flow: 'main', x: 820, y: 320,
           step: 'No Quick Links', name: 'No Home Tab', state: 'home-empty',
-          desc: 'A department with no Quick Links configured has no Home tab at all: sign-in lands straight on Record Completions, which keeps the tab bar (Record · Scan · Alerts · More) and loses its X since there is nowhere to leave to. Anything that would go Home (the notification prompt, "Go to Home" after a submit) goes to Record instead. Set Quick Links to None in the UX tools dock to see it.' },
+          desc: 'A user with no Quick Links has no Home tab at all: sign-in lands straight on Record Completions, which keeps the tab bar (Record · Scan · Alerts · More) and loses its X since there is nowhere to leave to. Anything that would go Home (the notification prompt, "Go to Home" after a submit) goes to Record instead. Switch to Leslie Carter from the User button in the UX tools dock.' },
+        { id: 'home-no-record', flow: 'main', x: 820, y: 560,
+          step: 'No Quick Links, no Record', name: 'Scan Only', state: 'home-no-record',
+          desc: 'A user with neither Quick Links nor Record Completions access has no Home tab and no Record tab: the bar is Scan · Alerts · More and sign-in lands on Scan in its ready state (the camera waits for a tap). A scanned QR code still opens the self-assign form (recording for yourself is not the Record Completions tool); closing it returns to Scan. Switch to Martin Newsome from the User button in the UX tools dock.' },
         { id: 'record', flow: 'main', x: 1000, y: 60,
           step: 'Tab', name: 'Record: Activities', state: 'record',
           desc: 'The Activities view of the full-screen task. No app bar: the screen draws its own title row (X keeps the draft, Vector AI badge) and the tab bar hides while the flow is open. An Activities | Participants segmented control (with counts) replaces the old stepper: two views of one record, in any order; Cancel and Submit sit under both. Empty state offers Add Activities; RCA Quick Links land here with their activity already added.' },
@@ -660,7 +679,10 @@
           desc: 'Confirmation for one person: activity, date and duration, "Recorded for you". Record another, or Home.' },
         { id: 'scan', flow: 'main', x: 1000, y: 175,
           step: 'Tab', name: 'Scan', state: 'scan',
-          desc: 'QR/barcode viewfinder. The simulated scan resolves to the Physical Fitness self-assign — the printed code outside the workout room. A real code could point at any activity.' },
+          desc: 'QR/barcode viewfinder, live the moment the Scan tab is chosen. The simulated scan resolves to the Physical Fitness self-assign — the printed code outside the workout room. A real code could point at any activity.' },
+        { id: 'scan-ready', flow: 'main', x: 1000, y: 560,
+          step: 'Landing', name: 'Scan: Ready', state: 'scan-ready',
+          desc: 'For users who LAND on Scan (no Home, no Record) the camera must not switch on just because the app opened. Scan shows a call to action — "Ready to scan" and a big Open Camera button — and the live viewfinder appears only after that tap. Returning to the tab later shows the ready state again.' },
         { id: 'more', flow: 'main', x: 1000, y: 290,
           step: 'Tab', name: 'More', state: 'more',
           desc: 'Account row (→ Profile), File Center, and the web platform shortcut.' },
@@ -678,23 +700,23 @@
           desc: 'Read-only browse of the department File Center, opened from More at the root. Breadcrumb, search within the folder, and a sort menu (name, type, date) up top; folders first, then files and links, each with the gray "Imported From …" subtitle from the web platform. No admin functions — nothing uploads, edits, moves or deletes.' },
         { id: 'files-folder', flow: 'main', x: 1600, y: 300,
           step: 'Quick Link', name: 'Imported Resources', state: 'files-folder',
-          desc: 'A folder-targeted Quick Link lands directly in that folder. "Up one level" and the breadcrumb climb past the starting folder, so the user can reach anything in the File Center from here. The back arrow always exits — to Home here, to More when opened from More — never walks back through folders visited.' },
+          desc: 'A folder-targeted Quick Link lands directly in that folder. "Up one level" and the breadcrumb climb past the starting folder, so the user can reach anything in the File Center from here. The back arrow always exits — to Home here, to More when opened from More — never walks back through folders visited. A file-targeted Quick Link opens the file itself; its viewer bar carries a File Center button to the root folder, next to the X that returns to Home.' },
         { id: 'file-view', flow: 'main', x: 1800, y: 300,
           step: 'Viewer', name: 'In-App Viewer', state: 'file-view',
           desc: 'PDFs, images and text open in the app: full-screen, dark bar with X / file name / share, pinch or double-tap to zoom, and a "3 of 12" page counter on PDFs that follows the scroll. Share offers the device share sheet, Save to device, and Open in another app.' },
         { id: 'file-download', flow: 'main', x: 1800, y: 430,
           step: 'Sheet', name: 'Download', state: 'file-download',
           desc: 'PowerPoint, Word, Excel, ZIP and anything else the app cannot render: a short sheet first (name, type, size, a Wi-Fi nudge above 25 MB) with Download and Cancel. Download shows progress in the sheet, then a "Saved to your device · Open" toast.' },
-        { id: 'login-shared', flow: 'shared', x: 60, y: 620,
+        { id: 'login-shared', flow: 'shared', x: 60, y: 750,
           step: 'Sign in', name: 'Log In (shared)', state: 'login-shared',
           desc: 'Same form, stricter: no Face ID opt-in, username never prefilled, and a note stating the inactivity check. The device pill reads "Shared station device".' },
-        { id: 'home-shared', flow: 'shared', x: 260, y: 620,
+        { id: 'home-shared', flow: 'shared', x: 260, y: 750,
           step: 'In the app', name: 'Identity Strip', state: 'home-shared',
           desc: 'A navy "Signed in as Jordan Lee · Not you? Switch" strip pinned between the status bar and the app, above every screen including the Record task. Switch signs out to a cleared login form. The push pre-prompt is skipped on shared devices.' },
-        { id: 'record-shared', flow: 'shared', x: 460, y: 620,
+        { id: 'record-shared', flow: 'shared', x: 460, y: 750,
           step: 'Recording', name: 'Participants (shared)', state: 'record-shared',
           desc: 'The Participants view on a shared device. The identity strip pinned above the task is the only "who is this" cue — the extra "Recording as Jordan Lee · Not you?" line was removed as redundant. Signing out from the strip discards the draft so it never carries over to the next user.' },
-        { id: 'idle', flow: 'shared', x: 660, y: 620,
+        { id: 'idle', flow: 'shared', x: 660, y: 750,
           step: 'After 1 h idle', name: 'Welcome Back', state: 'idle',
           desc: 'No automatic sign-out: a rig iPad is picked up at the start of a 12-hour shift and must not kick the captain out mid-shift. After an hour without touches a full-screen "Welcome back" asks who is holding the device — Continue as Jordan Lee (straight back to where they were, nothing lost) or Sign in to a different account. No countdown. The prototype fires after 45 s so it can be seen.' }
       ],
@@ -713,6 +735,8 @@
         ['home-empty', 'record'],
         ['home-empty', 'scan'],
         ['home-limited', 'record'],
+        ['home-no-record', 'scan-ready'],
+        ['scan-ready', 'self-assign'],
         ['record', 'record-picker'],
         ['record-picker', 'record-form'],
         ['record-form', 'record-voice'],
@@ -743,11 +767,14 @@
 
 <!-- ── UX tools: prototype switches docked into the toolbox pill ─────────────
      Review tooling only — NOT part of the product; developers strip this too.
-       • User — switches the signed-in demo user (Jordan Lee the captain, Sam
-         Rivera the firefighter) without a second login. ?user=firefighter
-       • Quick Links — cycles All → Limited → None (APP.setQuickLinksMode).
-         None removes the Home tab: sign-in lands on Record Completions.
-         ?ql=limited / ?ql=off start the page there. -->
+       • User — cycles the four demo users, each an access profile, without a
+         second login, and lands on that user's landing screen:
+           Jordan Lee: Captain (full access)
+           Sam Rivera: Firefighter II (limited Quick Links)
+           Leslie Carter: Firefighter (no Quick Links → no Home tab)
+           Martin Newsome: Firefighter (no QL, no RCA → Scan · Alerts · More)
+         ?user=firefighter|leslie|martin starts the page as that person
+         (?ql=limited|off still works and picks the matching user). -->
 <script>
   (function () {
     var BTN_CSS = 'display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.08);' +
@@ -760,48 +787,32 @@
       return b;
     }
 
-    // ── User ────────────────────────────────────────────────────────────────
-    var userBtn = mk('Switch the signed-in demo user');
-    var ORDER = ['captain', 'firefighter'];
+    // ── User (access profile) ───────────────────────────────────────────────
+    var userBtn = mk('Cycle the signed-in demo user — each one is an access profile');
+    var ORDER = ['captain', 'firefighter', 'leslie', 'martin'];
+    var TONE  = { captain: '#2563eb', firefighter: '#d97706', leslie: '#52525b', martin: '#7f1d1d' };
     function paintUser() {
       var u = window.APP ? window.APP.user : null;
       userBtn.innerHTML = '<span style="color:#a1a1aa">User</span> ' +
-        '<span style="' + PILL + 'background:#2563eb;color:#fff;">' + (u ? u.name + ' \u00b7 ' + u.role : '\u2014') + '</span>';
+        '<span style="' + PILL + 'background:' + (u ? TONE[u.id] : '#52525b') + ';color:#fff;">' +
+        (u ? u.name + ': ' + u.role + ' (' + u.summary + ')' : '\u2014') + '</span>';
     }
     userBtn.addEventListener('click', function () {
       if (!window.APP) return;
       var next = ORDER[(ORDER.indexOf(window.APP.userId()) + 1) % ORDER.length];
       window.APP.setUser(next);
+      if (window.goTo) window.goTo('home');   // their landing screen (goTo remaps Home)
     });
     document.addEventListener('ts:user', paintUser);
 
-    // ── Quick Links mode ────────────────────────────────────────────────────
-    var qlBtn = mk('Cycle Quick Links: all live \u2192 some locked for this user \u2192 none configured (no Home tab)');
-    var MODES = ['all', 'limited', 'none'];
-    var LOOK  = { all:     { label: 'All',     css: 'background:#16a34a;color:#fff;' },
-                  limited: { label: 'Limited', css: 'background:#d97706;color:#fff;' },
-                  none:    { label: 'None',    css: 'background:#52525b;color:#e4e4e7;' } };
-    function paintQl() {
-      var m = window.APP ? window.APP.quickLinksMode() : 'all';
-      qlBtn.innerHTML = 'Quick Links <span style="' + PILL + LOOK[m].css + '">' + LOOK[m].label + '</span>';
-    }
-    qlBtn.addEventListener('click', function () {
-      if (!window.APP) return;
-      var next = MODES[(MODES.indexOf(window.APP.quickLinksMode()) + 1) % MODES.length];
-      window.APP.setQuickLinksMode(next);
-      if (window.goTo) window.goTo('home');   // show the change where it lives
-    });
-    document.addEventListener('ts:quicklinks', paintQl);
-
     // (?user= / ?ql= URL flags are applied in app.js init, before the flow map boots.)
-    paintUser(); paintQl();
+    paintUser();
 
-    // One group so the two switches stay side by side in the pill. Dock into
-    // the toolbox; it may mount a beat after this script runs.
+    // Dock into the toolbox; it may mount a beat after this script runs.
     var group = document.createElement('span');
     group.id = 'ux-tools';
     group.style.cssText = 'display:inline-flex;align-items:center;gap:6px;';
-    group.appendChild(userBtn); group.appendChild(qlBtn);
+    group.appendChild(userBtn);
     var tries = 0;
     (function dock() {
       if (window.ToolboxDock && typeof window.ToolboxDock.add === 'function') { window.ToolboxDock.add(group); return; }
