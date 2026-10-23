@@ -706,7 +706,6 @@
               'practices and methods can be modified to minimize the chance of exposure. Proper personal ' +
               'protective equipment is an important component in preventing the transfer of bloodborne ' +
               'pathogens from an infected person to a healthy person.</p>' +
-            '<button class="cp-desc-more" id="cpDescMore" type="button" aria-controls="cpDesc" aria-expanded="false" hidden>More</button>' +
             '<div class="cp-chips">' +
               '<span class="cp-chip due"><i class="fa-solid fa-calendar-day"></i> Required · due Oct 3</span>' +
               '<span class="cp-chip"><i class="fa-solid fa-briefcase"></i> ' + esc(L.label) + '</span>' +
@@ -773,21 +772,47 @@
     var course = readCourse();
 
     // 2026-10-24: a long course description (the official one is a full
-    // paragraph) is clamped to three lines with More / Less. Measured after
-    // render, so a short description never shows the toggle.
-    var desc = document.getElementById('cpDesc'), more = document.getElementById('cpDescMore');
-    if (desc && more) {
-      desc.classList.add('is-clamped');
-      if (desc.scrollHeight > desc.clientHeight + 1) {
-        more.hidden = false;
-        more.addEventListener('click', function () {
-          var open = desc.classList.toggle('is-clamped') === false;
-          more.setAttribute('aria-expanded', String(open));
-          more.textContent = open ? 'Less' : 'More';
-        });
-      } else {
-        desc.classList.remove('is-clamped');
-      }
+    // paragraph) shows three lines, cut at a word with "… More" sitting at
+    // the end of the third line; More expands it in place with "Less" at
+    // the end. Fitted by measuring, not CSS line-clamp, so the button lands
+    // exactly where the text stops. A short description shows no button.
+    var desc = document.getElementById('cpDesc');
+    if (desc) {
+      var full = desc.textContent, words = full.split(' '), open = false;
+      var more = document.createElement('button');
+      more.type = 'button'; more.className = 'cp-desc-more';
+      more.setAttribute('aria-controls', 'cpDesc');
+      // offsetHeight, not the bounding box: the screen scales in on entry,
+      // and a transformed box would under-count lines mid-animation.
+      var lines = function () { return Math.round(desc.offsetHeight / parseFloat(getComputedStyle(desc).lineHeight)); };
+      var fit = function () {
+        desc.textContent = full;
+        if (open) { desc.append(' '); }
+        else if (lines() <= 3) { return; }
+        else {
+          // Longest run of whole words that still leaves room for "… More".
+          var lo = 1, hi = words.length - 1;
+          while (lo < hi) {
+            var mid = Math.ceil((lo + hi) / 2);
+            desc.textContent = words.slice(0, mid).join(' ').replace(/[,.;:]$/, '') + '\u2026 ';
+            desc.appendChild(more);
+            if (lines() <= 3) lo = mid; else hi = mid - 1;
+          }
+          desc.textContent = words.slice(0, lo).join(' ').replace(/[,.;:]$/, '') + '\u2026 ';
+        }
+        more.textContent = open ? 'Less' : 'More';
+        more.setAttribute('aria-expanded', String(open));
+        desc.appendChild(more);
+      };
+      more.addEventListener('click', function () { open = !open; fit(); more.focus(); });
+      fit();
+      // Again once the web font is in: it sets wider than the fallback.
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { if (document.body.contains(desc)) fit(); });
+      var fitT, onResize = function () {
+        if (!document.body.contains(desc)) { window.removeEventListener('resize', onResize); return; }
+        clearTimeout(fitT); fitT = setTimeout(fit, 120);
+      };
+      window.addEventListener('resize', onResize);
     }
 
     // D11: resumable progress now lives on the Sharps row itself (see the
