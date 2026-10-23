@@ -8141,6 +8141,11 @@
     // video Skip pill (this file's own videoFrame/mountVideo) reads
     // LE.reviewMode() directly and needs no engine-side gate.
     reviewGate: true,
+    // User testing (2026-10-24): no "Course overview" label on the cover, and
+    // the footer "?" (reviewer captions) only while Review mode is on — both
+    // confused testers as something a learner was meant to use.
+    coverLabel: '',
+    reviewCaptions: true,
     lenses: LENSES,
     lensOrder: LENS_ORDER,
     // Every beat with a scene in it moves with the sector.
