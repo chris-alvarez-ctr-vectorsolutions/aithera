@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Overview — Vector Training Admin</title>
+
+    <!-- Vector Web Components (core v1.22.3 / themes v1.9.3, the versions cached in context/) -->
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+    <!-- Self-hosted Font Awesome Pro (repo root is four levels up from verN/) -->
+    <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="admin.css?v=63" />
+</head>
+<body>
+    <div id="head"></div>
+    <main class="rp-main">
+
+        <!-- The headline: did the training work, across every adaptive course? -->
+        <section class="rp-card hero" aria-label="Outcome achievement" id="hero"></section>
+
+        <!-- Two org-wide numbers built the same way: label, number, what it counts, the same bar the
+             Courses list and course report use, then one line about what to do next.
+             Need support rides in the competency tile: they are the finishers who did not show it. -->
+        <section class="rp-kpis rp-kpis--2" id="kpis" aria-label="Key figures"></section>
+
+        <!-- Attention lives inside each course: if someone needs help, it is in the context of a course -->
+        <section class="rp-card cl cl--embed" aria-label="Active courses">
+            <div class="rp-card-head">
+                <div><h2>Active courses</h2><p class="rp-card-sub" id="courseSub" style="margin:2px 0 0"></p></div>
+                <a href="courses.html" class="card-link">All courses <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+            <!-- Same rows as the Courses page (Admin.courseList), capped to the soonest due -->
+            <div id="courseRows"></div>
+        </section>
+
+    </main>
+
+    <script src="data.js?v=15"></script>
+    <script src="admin-ui.js?v=11"></script>
+    <script>
+
+      (function () {
+        var B = window.BBP, A = window.Admin, S = B.sector, E = A.esc;
+        var scope = A.getScope(), node = B.node(scope);
+        A.head({ active: 'overview', title: 'Overview', scope: true,
+                 chips: ['<span class="rp-chip"><i class="fa-solid fa-calendar"></i> Sep 28 – Oct 19</span>'] });
+        A.wirePops();
+
+        function tile(label, value, sub, cls, extra) {
+          return '<div class="rp-card tile' + (cls || '') + '"><span class="tile-label">' + label + '</span><span class="tile-value">' + value + '</span><span class="tile-delta flat">' + sub + '</span>' + (extra || '') + '</div>';
+        }
+        // One summary per course, the same numbers the Courses page shows.
+        var courses = B.courseSummary(scope).sort(function (a, b) { return a.days - b.days; });
+        var totA = 0, totC = 0, adC = 0, adD = 0, sup = 0;
+        courses.forEach(function (c) { totA += c.assigned; totC += c.completed; if (c.adaptive) { adC += c.completed; adD += c.demo; sup += c.support; } });
+        var soon = courses[0];
+
+        /* ---- Outcome achievement: skill-area results at Good or better, now vs. at the start, over every adaptive course ---- */
+        var scored = courses.filter(function (c) { return c.adaptive && c.areas; });
+        var live = scored.filter(function (c) { return !c.early && c.completed >= 8; });
+        var wB = 0, wA = 0, w = 0;
+        live.forEach(function (c) { wB += c.before * c.completed; wA += c.after * c.completed; w += c.completed; });
+        var before = w ? Math.round(wB / w) : 0, after = w ? Math.round(wA / w) : 0;
+        function pos(v) { return Math.max(0, Math.min(100, (v - 50) / 50 * 100)); }
+        function row(c) {
+          var tooEarly = !(c.completed >= 8 && !c.early);
+          var track = tooEarly ? '<div class="dm-track dim"></div>' :
+            '<div class="dm-track" role="img" aria-label="' + E(c.name) + ': ' + c.before + '% at Good or better before, ' + c.after + '% after"><span class="dm-line" style="left:' + pos(c.before) + '%;width:' + (pos(c.after) - pos(c.before)) + '%"></span>' +
+            '<span class="dm-dot before" style="left:' + pos(c.before) + '%"></span><span class="dm-dot after" style="left:' + pos(c.after) + '%"></span></div>';
+          var val = tooEarly ? '<div class="dm-val"><b class="dim">Too early</b><em class="dim">' + c.completed + ' finished</em></div>'
+                             : '<div class="dm-val"><b>' + c.before + '% → ' + c.after + '%</b><em>+' + (c.after - c.before) + ' pts</em></div>';
+          return '<div class="dm-row"><div class="dm-name"><h3>' + (c.id === 'bbp' ? '<a href="course-report.html">' + E(c.name) + '</a>' : E(c.name)) + '</h3><small>' + c.completed + ' of ' + c.assigned + ' finished</small></div>' + track + val + '</div>';
+        }
+        // Scales to any number of courses: only the lowest-scoring few get a row (they need attention first),
+        // courses with too few finishers to score share one line, and the full list lives on the Courses page.
+        var MAX_ROWS = 5;
+        var shown = live.slice().sort(function (a, b) { return a.after - b.after; }).slice(0, MAX_ROWS);
+        var early = scored.filter(function (c) { return live.indexOf(c) < 0; });
+        // Always a count, never a list of names: it has to read the same at 2 courses or 40. The threshold lives in the tip.
+        var earlyTxt = !early.length ? '' : early.length + (early.length === 1 ? ' course' : ' courses') + ' not scored yet ' +
+          A.info('<p>A course is scored once at least 8 people have finished it. Until then, a few results would swing the number too much.</p>', 'Why some courses are not scored yet');
+        var heroFoot = '<div class="hero-rows-foot"><span>' + (earlyTxt ? '<i class="fa-regular fa-hourglass-half"></i>' + earlyTxt : '') + '</span>' +
+          '<a class="card-link" href="courses.html">See all ' + courses.length + ' courses <i class="fa-solid fa-arrow-right"></i></a></div>';
+        document.getElementById('hero').innerHTML =
+          '<div class="hero-main"><span class="tile-label">Outcome achievement ' + A.info('<p><b>Of everything people were measured on</b> in adaptive courses, the share at <b>Good or better</b> now, compared with where they started (the opening questions).</p><p>Weighted by who has finished. Courses with only a few finishers are shown but not counted yet. Standard courses report completion only, so they are not scored here.</p>', 'How outcome achievement is measured') + '</span>' +
+            '<span class="hero-n">' + after + '<small>%</small></span>' +
+            '<span class="hero-s">of skill areas at <b>Good or better</b> after training</span>' +
+            '<span class="hero-lift"><i class="fa-solid fa-arrow-trend-up"></i> +' + (after - before) + ' pts from ' + before + '% at the start</span>' +
+            '<small class="hero-f">' + live.length + ' adaptive courses · ' + w + ' finishers counted</small></div>' +
+          '<div class="hero-rows"><div class="dm-head"><span class="dm-head-l">' + (live.length > MAX_ROWS ? 'Lowest ' + MAX_ROWS + ' of ' + live.length : 'Lowest first') + '</span><div class="dm-axis-lbl"><span>50%</span><span>75%</span><span>100%</span></div><span></span></div>' +
+            shown.map(row).join('') + heroFoot + '</div>';
+        A.wirePops();
+
+        /* ---- Key figures ---- */
+        var adS = 0, adT = 0;
+        courses.forEach(function (c) { if (c.adaptive) { adS += c.strong; adT += c.ontrack; } });
+        function seg(key, n, label, total) {
+          return n ? '<span class="seg-' + key + '" style="flex:' + n + ' 1 0" title="' + label + ': ' + n + ' of ' + total + '"></span>' : '';
+        }
+        function kpi(o) {
+          return '<div class="rp-card tile kt"><span class="tile-label">' + o.label + '</span>' +
+            '<span class="tile-value">' + o.value + '<small>%</small></span><span class="kt-sub">' + o.sub + '</span>' +
+            '<span class="pg-bar" role="img" aria-label="' + o.aria + '">' + o.bar + '</span>' +
+            '<span class="kt-foot"><span>' + o.foot + '</span>' + (o.link || '') + '</span></div>';
+        }
+        document.getElementById('kpis').innerHTML =
+          kpi({ label: 'Finished', value: B.pct(totC, totA), sub: totC + ' of ' + totA + ' assignments · ' + courses.length + ' courses',
+                bar: seg('done', totC, 'Finished', totA) + seg('open', totA - totC, 'Not finished', totA),
+                aria: totC + ' finished, ' + (totA - totC) + ' not finished',
+                foot: '<i class="fa-regular fa-clock"></i>Next due <b>' + soon.due + '</b> · ' + E(soon.name) }) +
+          kpi({ label: 'Showed competency', value: B.pct(adD, adC), sub: adD + ' of ' + adC + ' who finished adaptive courses',
+                bar: seg('strong', adS, 'Doing well', adC) + seg('ontrack', adT, 'On track', adC) + seg('support', sup, 'Needs support', adC),
+                aria: adS + ' doing well, ' + adT + ' on track, ' + sup + ' need support',
+                foot: '<i class="fa-solid fa-flag"></i><b>' + sup + ' need support</b> · still working on a key area',
+                link: '<a class="card-link" href="learners.html?f=support">See who <i class="fa-solid fa-arrow-right"></i></a>' });
+
+        /* ---- Active courses: the Courses page list, soonest due first, capped so it scales ---- */
+        var MAX_COURSES = 5;
+        document.getElementById('courseRows').innerHTML = A.courseList(courses.slice(0, MAX_COURSES).map(function (c) { c.href = c.id === 'bbp' ? 'course-report.html' : null; return c; }));
+        document.getElementById('courseSub').textContent = 'Soonest due first' + (courses.length > MAX_COURSES ? ' · ' + MAX_COURSES + ' of ' + courses.length : '');
+      })();
+
+    </script>
+    <script src="../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
+</body>
+</html>

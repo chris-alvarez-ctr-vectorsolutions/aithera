@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings — Vector Training Admin</title>
+
+    <!-- Vector Web Components (core v1.22.3 / themes v1.9.3, the versions cached in context/) -->
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+    <!-- Self-hosted Font Awesome Pro (repo root is four levels up from verN/) -->
+    <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="admin.css?v=63" />
+</head>
+<body>
+    <div id="head"></div>
+    <main class="rp-main">
+
+        <div class="split">
+            <section class="rp-card tree-card" aria-label="Where settings apply">
+                <div class="rp-card-head"><h2>Where it applies</h2></div>
+                <p class="rp-card-sub" style="margin-bottom:8px">Set a default for the whole organization, then change it for a group that needs something different.</p>
+                <div id="tree"></div>
+            </section>
+
+            <div style="display:grid;gap:18px;min-width:0">
+                <section class="rp-card" aria-label="Adaptive settings">
+                    <div class="rp-card-head">
+                        <div><h2 id="nodeTitle"></h2><p class="rp-card-sub" id="nodeSub" style="margin:2px 0 0"></p></div>
+                        <a class="card-link" id="previewLink" href="preview.html">Preview what this does <i class="fa-solid fa-arrow-right"></i></a>
+                    </div>
+                    <div id="rows"></div>
+                </section>
+                <div class="always" id="always"></div>
+                <div class="wiz-foot" style="border:0;margin:0;padding:0">
+                    <span class="rp-footline" id="saved"><i class="fa-solid fa-circle-check" style="color:var(--rp-ok)"></i> Changes save as you make them.</span>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="data.js?v=15"></script>
+    <script src="admin-ui.js?v=11"></script>
+    <script>
+
+      (function () {
+        var B = window.BBP, A = window.Admin, S = B.sector;
+        A.head({ active: 'settings', title: 'Settings', assign: true });
+        var sel = new URLSearchParams(location.search).get('node');
+        if (!sel || !B.node(sel)) sel = S.tree.id;
+
+        function hasOverride(id, cfg) { var c = cfg[id]; return c && ((c.on && Object.keys(c.on).length) || (c.lock && Object.keys(c.lock).length)); }
+
+        function drawTree(cfg) {
+          function rows(n, d) {
+            var dot = hasOverride(n.id, cfg) ? '<i class="fa-solid fa-circle" style="font-size:6px;color:var(--rp-vio);margin-left:6px" title="Has its own settings"></i>' : '';
+            var h = '<button type="button" class="tree-row' + (n.id === sel ? ' on' : '') + '" data-id="' + n.id + '" style="padding-left:' + (12 + d * 18) + 'px">' +
+              '<i class="fa-solid ' + (n.kids ? 'fa-folder-tree' : 'fa-user-group') + '"></i><span class="tree-name">' + A.esc(n.name) + dot + '</span>' +
+              '<span class="tree-lvl">' + A.esc(S.levels[d] || '') + ' · ' + B.headcount(n.id) + '</span></button>';
+            (n.kids || []).forEach(function (k) { h += rows(k, d + 1); });
+            return h;
+          }
+          var t = document.getElementById('tree'); t.innerHTML = rows(S.tree, 0);
+          t.querySelectorAll('.tree-row').forEach(function (r) { r.addEventListener('click', function () { sel = r.dataset.id; render(); }); });
+        }
+
+        function toast(msg) {
+          var s = document.getElementById('saved');
+          s.innerHTML = '<i class="fa-solid fa-circle-check" style="color:var(--rp-ok)"></i> ' + msg;
+        }
+
+        function render() {
+          var cfg = B.liveCfg(), eff = B.effective(sel, cfg), node = B.node(sel), chain = B.pathTo(sel);
+          drawTree(cfg);
+          document.getElementById('nodeTitle').textContent = node.name;
+          document.getElementById('nodeSub').textContent = B.levelName(sel) + ' · ' + B.headcount(sel) + ' people' +
+            (chain.length > 1 ? ' · inherits from ' + chain[chain.length - 2].name : ' · applies to everyone unless a group below changes it');
+          document.getElementById('previewLink').href = 'preview.html?node=' + sel;
+
+          document.getElementById('rows').innerHTML = B.BEHAVIORS.map(function (b) {
+            var e = eff[b.key], lockedAbove = e.lockedBy && e.lockedBy.id !== sel;
+            var setHere = cfg[sel] && cfg[sel].on && cfg[sel].on[b.key] != null;
+            var prov;
+            if (lockedAbove) prov = '<span class="prov lock"><i class="fa-solid fa-lock"></i> Locked by ' + A.esc(e.lockedBy.name) + '</span>';
+            else if (setHere && sel !== S.tree.id) prov = '<span class="prov set"><i class="fa-solid fa-pen"></i> Set for ' + A.esc(node.name) + ' · <button type="button" data-reset="' + b.key + '">Use ' + A.esc(chain[chain.length - 2].name) + '’s setting</button></span>';
+            else if (sel === S.tree.id) prov = '<span class="prov"><i class="fa-solid fa-building"></i> Default for everyone</span>';
+            else prov = '<span class="prov"><i class="fa-solid fa-arrow-turn-down"></i> From ' + A.esc(e.from.name) + '</span>';
+            var lockBtn = (!lockedAbove && node.kids)
+              ? '<button type="button" class="lock-toggle' + ((cfg[sel] && cfg[sel].lock && cfg[sel].lock[b.key]) ? ' on' : '') + '" data-lock="' + b.key + '" title="When locked, groups below can’t change this"><i class="fa-solid fa-lock"></i>' +
+                ((cfg[sel] && cfg[sel].lock && cfg[sel].lock[b.key]) ? 'Locked for groups below' : 'Lock for groups below') + '</button>' : '';
+            return '<div class="set-row"><span class="set-ico"><i class="fa-solid ' + b.icon + '"></i></span>' +
+              '<div class="set-main"><h3>' + A.esc(b.label) + '</h3><p>' + A.esc(b.help) + '</p>' + prov + '</div>' +
+              '<div class="set-ctl">' + lockBtn + '<vwc-switch data-key="' + b.key + '" accessible-name="' + A.esc(b.label) + '"' + (e.value ? ' checked' : '') + (lockedAbove ? ' disabled' : '') + '></vwc-switch></div></div>';
+          }).join('');
+
+          document.querySelectorAll('#rows vwc-switch').forEach(function (sw) {
+            sw.addEventListener('checked-change', function () {
+              var k = sw.dataset.key, c = B.liveCfg();
+              if (sw.checked === B.effective(sel, c)[k].value) return;        // programmatic echo
+              c[sel] = c[sel] || {}; c[sel].on = c[sel].on || {}; c[sel].on[k] = sw.checked;
+              B.saveCfg(c); toast('Saved · ' + B.BEHAVIORS.filter(function (b) { return b.key === k; })[0].label + ' is now ' + (sw.checked ? 'on' : 'off') + ' for ' + node.name); render();
+            });
+          });
+          document.querySelectorAll('#rows [data-reset]').forEach(function (bt) {
+            bt.addEventListener('click', function () {
+              var c = B.liveCfg(); delete c[sel].on[bt.dataset.reset]; B.saveCfg(c); toast('Saved'); render();
+            });
+          });
+          document.querySelectorAll('#rows [data-lock]').forEach(function (bt) {
+            bt.addEventListener('click', function () {
+              var c = B.liveCfg(), k = bt.dataset.lock; c[sel] = c[sel] || {}; c[sel].lock = c[sel].lock || {};
+              if (c[sel].lock[k]) delete c[sel].lock[k]; else c[sel].lock[k] = true;
+              B.saveCfg(c); toast(c[sel].lock[k] ? 'Locked for everything below ' + node.name : 'Unlocked'); render();
+            });
+          });
+          document.getElementById('always').innerHTML = '<i class="fa-solid fa-shield-check"></i><b>Always included, whatever you choose.</b> Some parts of every course are required by the training standard, so they can’t be switched off or skipped: spotting hazards, the live practice, and the closing check. Vector sets these.';
+        }
+        render();
+      })();
+
+    </script>
+    <script src="../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
+</body>
+</html>

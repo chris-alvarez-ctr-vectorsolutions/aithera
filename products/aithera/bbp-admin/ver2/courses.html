@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Courses — Vector Training Admin</title>
+
+    <!-- Vector Web Components (core v1.22.3 / themes v1.9.3, the versions cached in context/) -->
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+    <!-- Self-hosted Font Awesome Pro (repo root is four levels up from verN/) -->
+    <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="admin.css?v=63" />
+</head>
+<body>
+    <div id="head"></div>
+    <main class="rp-main">
+
+        <!-- Active vs past: the same segmented control the course report uses for Outcomes / Pacing -->
+        <div class="cc-toolbar">
+            <span class="sec-toggle" role="group" aria-label="Show courses">
+                <button type="button" class="on" data-when="active" aria-pressed="true">Active <span class="tg-n" id="nActive"></span></button>
+                <button type="button" data-when="past" aria-pressed="false">Past <span class="tg-n" id="nPast"></span></button>
+            </span>
+            <span class="cc-toolbar-note" id="gridNote"></span>
+        </div>
+        <!-- One list, not a grid of cards (Admin.courseList, shared with the Overview): column labels and the bar
+             legend are said once, every row compares like with like, and it scales to any number of courses. -->
+        <section class="rp-card cl" aria-label="Courses" id="courseList"></section>
+
+    </main>
+
+    <script src="data.js?v=15"></script>
+    <script src="admin-ui.js?v=11"></script>
+    <script>
+
+      (function () {
+        var B = window.BBP, A = window.Admin, S = B.sector;
+        var scope = A.getScope(), t = B.stats(scope), n = B.headcount(scope);
+        A.head({ active: 'courses', title: 'Courses', scope: true });
+        A.wirePops();
+        var active = B.courseSummary(scope).map(function (c) { c.href = c.id === 'bbp' ? 'course-report.html' : null; return c; });
+        var past = B.pastCourseSummary(scope);
+        document.getElementById('nActive').textContent = active.length;
+        document.getElementById('nPast').textContent = past.length;
+        function draw(when) {
+          var list = when === 'past' ? past : active;
+          document.getElementById('courseList').innerHTML = A.courseList(list);
+          document.getElementById('gridNote').textContent = when === 'past'
+            ? 'Closed assignments, most recent first. Numbers are final.'
+            : 'Open assignments, soonest due first.';
+          document.querySelectorAll('[data-when]').forEach(function (b) { var on = b.dataset.when === when; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+        }
+        document.querySelectorAll('[data-when]').forEach(function (b) { b.addEventListener('click', function () { draw(b.dataset.when); }); });
+        draw(new URLSearchParams(location.search).get('show') === 'past' ? 'past' : 'active');
+      })();
+
+    </script>
+    <script src="../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
+</body>
+</html>

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preview — Vector Training Admin</title>
+
+    <!-- Vector Web Components (core v1.22.3 / themes v1.9.3, the versions cached in context/) -->
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+    <!-- Self-hosted Font Awesome Pro (repo root is four levels up from verN/) -->
+    <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="admin.css?v=63" />
+</head>
+<body>
+    <div id="head"></div>
+    <main class="rp-main">
+
+        <div class="callout" id="banner" hidden><i class="fa-solid fa-circle-info"></i><div></div></div>
+
+        <section class="rp-card" aria-label="Who to preview">
+            <div class="pv-top">
+                <div><span class="lbl">Try it as someone who…</span>
+                    <span class="persona" id="persona" role="group" aria-label="Learner"></span></div>
+                <div id="settingsPills" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-left:auto"></div>
+            </div>
+        </section>
+
+        <section class="rp-card" aria-label="Route">
+            <div class="rp-card-head">
+                <h2>Their route</h2>
+                <span id="routeInfo"></span>
+            </div>
+            <p class="rp-card-sub" id="routeNote"></p>
+            <div class="map-scroll" id="routeMap"></div>
+            <div id="timeBar"></div>
+        </section>
+
+        <div class="pv-grid">
+            <section class="rp-card" aria-label="Course outline">
+                <div class="rp-card-head"><h2>In order</h2></div>
+                <ol class="outline" id="outline"></ol>
+            </section>
+            <section aria-label="What the learner sees" style="min-width:0">
+                <div class="learner-screen">
+                    <div class="ls-bar"><i class="fa-solid fa-circle"></i><i class="fa-solid fa-circle"></i><i class="fa-solid fa-circle"></i><span id="lsBar"></span></div>
+                    <div class="ls-body" id="lsBody"></div>
+                </div>
+                <div class="why" id="why"></div>
+                <div class="step-nav"><vaadin-button theme="secondary" id="prev"><i class="fa-solid fa-arrow-left" style="margin-right:7px"></i>Previous</vaadin-button><vaadin-button theme="primary" id="nextStep">Next<i class="fa-solid fa-arrow-right" style="margin-left:7px"></i></vaadin-button></div>
+            </section>
+        </div>
+
+    </main>
+
+    <script src="data.js?v=15"></script>
+    <script src="admin-ui.js?v=11"></script>
+    <script src="flow.js?v=19"></script>
+    <script src="credit.js?v=3"></script>
+    <script>
+
+      /* ---- Flow map: one state per learner type ---- */
+      function applyFlowState(id, opts) {
+        opts = opts || {};
+        if (window.PreviewFlow) window.PreviewFlow.setPersona(id);
+        if (!opts.instant) window.scrollTo(0, 0);
+      }
+      window.applyFlowState = applyFlowState;
+      function bootFromHash() {
+        var m = (location.hash || '').match(/fm=([\w-]+)/);
+        if (m) { try { applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (e) {} }
+      }
+      window.addEventListener('hashchange', bootFromHash);
+      window.TOOLBOX_CONFIG = { flowMap: {
+        title: 'Preview — Flow Map', applyState: 'applyFlowState', canvas: { w: 1240, h: 300 },
+        flows: [{ id: 'main', name: 'Preview', pill: 'A', color: '#c9b8f0', lane: { x: 20, y: 20, w: 1200, h: 260 }, labelXY: { x: 40, y: 40 } }],
+        nodes: [
+          { id: 'new',   flow: 'main', entry: true, x: 160, y: 100, step: '1', name: 'New to this',        state: 'new',   desc: 'Takes the course as written. The baseline route.' },
+          { id: 'ahead', flow: 'main', x: 560, y: 100, step: '2', name: 'Already knows it',   state: 'ahead', desc: 'Skips Lesson 1 and gets harder checks in Lesson 2, if those settings are on.' },
+          { id: 'miss',  flow: 'main', x: 960, y: 100, step: '3', name: 'Gets one wrong',     state: 'miss',  desc: 'Misses the live practice, so a short extra round is added, if that setting is on.' }
+        ],
+        edges: []
+      } };
+
+      (function () {
+        var B = window.BBP, A = window.Admin, S = B.sector, ST = B.steps();
+        var q = new URLSearchParams(location.search);
+        var fromAssign = q.get('from') === 'assign';
+        var asg = fromAssign ? B.load('bbp.assign', null) : null;
+        var node = (asg && B.node(asg.unit) && asg.unit) || (q.get('node') && B.node(q.get('node')) ? q.get('node') : S.tree.id);
+        var persona = ['new', 'ahead', 'miss'].indexOf(q.get('persona')) >= 0 ? q.get('persona') : 'new';
+        var picked = 'open';
+
+        var PERSONAS = [['new', 'is new to this'], ['ahead', 'already knows it'], ['miss', 'gets one wrong']];
+        var NOUN = S.key === 'mfg' ? 'blade' : 'needle';
+
+        function eff() {
+          var e = B.effective(node, B.liveCfg()), out = {};
+          B.BEHAVIORS.forEach(function (b) {
+            out[b.key] = fromAssign && asg && asg.ov && asg.ov[b.key] != null && !e[b.key].lockedBy ? asg.ov[b.key] : e[b.key].value;
+          });
+          return out;
+        }
+
+        /* ---- the route this learner takes, given the settings in force ---- */
+        function build() {
+          var f = eff(), items = [];
+          var isAhead = persona === 'ahead', isMiss = persona === 'miss';
+          var skipped = isAhead && f.skip, harder = isAhead && f.harder, extra = isMiss && f.extra;
+          items.push({ id: 'open', title: ST.open.title, state: 'on', sub: 'Four short questions',
+            why: ['Four short questions tell the course what this person already knows. They’re also the “before” in your report.', ''] });
+          items.push({ id: 'l1', title: ST.l1.title, state: skipped ? 'skip' : 'on', sub: skipped ? 'Skipped. They already know it.' : 'About 6 minutes',
+            tag: skipped ? ['skip', 'Skipped'] : null,
+            why: skipped ? ['They answered the opening question on handling correctly, so this lesson was skipped. It still counts as covered on their record.', 'skip']
+              : (isAhead ? ['They already know this, but skip-ahead is off for this group, so everyone takes the lesson.', ''] : ['The correct handling steps, in a realistic moment. If they miss the check at the end, a short refresher video follows.', '']) });
+          items.push({ id: 'l2', title: ST.l2.title, state: harder ? 'hard' : 'on', sub: harder ? 'Harder version' : 'About 6 minutes',
+            tag: harder ? ['hard', 'Harder'] : ['req', 'Required'],
+            why: harder ? ['They answered the opening hazard question correctly, so the checks here are harder. The lesson itself is required either way.', 'hard']
+              : (isAhead ? ['Harder checks are off for this group, so they get the standard version. This lesson is required for everyone.', ''] : ['Recognizing a full container or a sharp left in the wrong place. Required by the training standard, so it’s never skipped.', '']) });
+          items.push({ id: 'l3', title: ST.l3.title, state: 'on', sub: 'About 5 minutes',
+            why: ['A short story about someone hurt by a shortcut they never saw. If a person shows little belief that it matters, a stronger version is served instead.', ''] });
+          items.push({ id: 'practice', title: ST.practice.title, state: 'on', sub: 'About 6 minutes', tag: ['req', 'Required'],
+            why: [isMiss ? 'They gave in to the shortcut on the first try. The course notices and responds on the next step.' : 'A live conversation with an AI coworker who pushes back. It’s scored against a written standard, and required for everyone.', ''] });
+          if (isMiss) items.push({ id: 'extra', title: ST.extra.title, state: extra ? 'added' : 'off', sub: extra ? 'Added for them · 2 minutes' : 'Off for this group',
+            tag: extra ? ['added', 'Added'] : null,
+            why: extra ? ['They missed the live practice, so a short, targeted round was added before moving on. Then they’re back on the main route.', 'added']
+              : ['Extra practice is off for this group, so the route moves straight on. The miss is still recorded and shown in your report.', ''] });
+          items.push({ id: 'close', title: ST.close.title, state: 'on', sub: 'The same questions again',
+            why: ['The same four questions as the start, so your report can show what changed.', ''] });
+          items.push({ id: 'follow', title: ST.follow.title, state: f.followup ? 'on' : 'off', sub: f.followup ? 'Queued for 30 days later' : 'Off for this group',
+            why: [f.followup ? 'Five minutes, a month later, to see whether the habit stuck.' : '30-day check-ins are off for this group.', ''] });
+          return { items: items, f: f, skipped: skipped, harder: harder, extra: extra };
+        }
+
+        /* ---- what the learner sees on each step ---- */
+        function screen(id, b) {
+          var scene = ST[id] && ST[id].scene;
+          var o = function (arr) { return '<div class="ls-opts">' + arr.map(function (t) { return '<div class="ls-opt">' + A.esc(t) + '</div>'; }).join('') + '</div>'; };
+          switch (id) {
+            case 'open': return { eyebrow: 'Before you begin', title: 'A few quick questions',
+              body: '<p>Question 1 of 4. What’s the right way to handle a used ' + NOUN + '?</p>' + o(['Plan where it will go, then put it straight into a sharps container.', 'Set it down somewhere safe and deal with it at the end of the task.', 'Recap it first so it’s safe to carry.']) };
+            case 'l1': return { eyebrow: 'Lesson 1', title: 'Put it away right away', body: '<p>' + A.esc(scene) + '</p><p><b>What do you do?</b></p>' + o(['Carry it to the container now.', 'Leave it here and take care of it at the end of the run.']) };
+            case 'l2': return { eyebrow: b.harder ? 'Lesson 2 · harder version' : 'Lesson 2', title: 'Spot the hazard', body: '<p>' + A.esc(scene) + (b.harder ? ' Nothing looks obviously wrong, and you are short on time.' : '') + '</p><p><b>What should you notice?</b></p>' + o(['The container has stopped containing. It’s time to swap it.', 'It’s fine for one more.', 'Someone else will take care of it.']) };
+            case 'l3': return { eyebrow: 'Lesson 3', title: 'The shortcut that hurts someone else', body: '<p>' + A.esc(scene) + '</p><p>The shortcut was one person’s. The risk became someone else’s.</p>' };
+            case 'practice': return { eyebrow: 'Practice', title: 'Say it out loud', body: '<p>' + A.esc(scene) + '</p><div class="ls-opt" style="color:var(--rp-ink-faint)"><i class="fa-solid fa-microphone" style="margin-right:8px"></i>Speak or type your reply…</div>' };
+            case 'extra': return { eyebrow: 'Extra practice', title: 'Try that one more time', body: '<p>This time, say the words you would actually use in the moment. A coach will give you one pointer afterward.</p><div class="ls-opt" style="color:var(--rp-ink-faint)"><i class="fa-solid fa-microphone" style="margin-right:8px"></i>Speak or type your reply…</div>' };
+            case 'close': return { eyebrow: 'Closing check', title: 'The same questions, one more time', body: '<p>Question 1 of 4. What’s the right way to handle a used ' + NOUN + '?</p>' + o(['Plan where it will go, then put it straight into a sharps container.', 'Set it down somewhere safe and deal with it at the end of the task.', 'Recap it first so it’s safe to carry.']) };
+            default: return { eyebrow: '30 days later', title: 'A five-minute check-in', body: '<p>A short scenario, a month on, to see whether the habit stuck. Their result updates the record in your report.</p>' };
+          }
+        }
+
+        function render() {
+          var b = build(), f = b.f;
+          // header + scope (settings are looked up for the chosen group)
+          var chips = ['<span class="rp-chip"><i class="fa-solid fa-masks-theater"></i> ' + A.esc(S.short) + ' version</span>'];
+          if (document.getElementById('head')) A.head({ active: '', title: 'Preview Bloodborne Pathogens', crumbs: [{ label: 'Courses', href: 'courses.html' }, { label: 'Preview' }],
+            scope: !fromAssign, chips: chips, assign: false,
+            onScope: function (id) { B.save('bbp.scope.' + B.sectorKey, id); location.href = 'preview.html?node=' + id + '&persona=' + persona; } });
+          A.wirePops();
+
+          var ban = document.getElementById('banner');
+          if (fromAssign) { ban.hidden = false; ban.querySelector('div').innerHTML = '<b>Previewing the course as you’re about to assign it,</b> with your assignment changes applied. <a href="assign.html" class="inline-link">Back to the assignment</a>'; }
+
+          document.getElementById('persona').innerHTML = PERSONAS.map(function (p) { return '<button type="button" data-p="' + p[0] + '" class="' + (p[0] === persona ? 'on' : '') + '">' + p[1] + '</button>'; }).join('');
+          document.querySelectorAll('#persona button').forEach(function (bt) { bt.addEventListener('click', function () { setPersona(bt.dataset.p); }); });
+
+          document.getElementById('settingsPills').innerHTML = '<span class="lbl" style="margin:0">Settings for ' + A.esc(B.node(node).name) + '</span>' + B.BEHAVIORS.map(function (bh, i) {
+            return '<span class="pill' + (f[bh.key] ? '' : ' off') + '" title="' + A.esc(bh.label) + '"><i class="fa-solid ' + (f[bh.key] ? 'fa-check' : 'fa-minus') + '"></i>' + ['Skip ahead', 'Harder checks', 'Extra practice', '30-day check-in'][i] + '</span>';
+          }).join('') + (fromAssign ? '' : '<a class="inline-link" style="font-size:12px" href="settings.html?node=' + node + '">Change</a>');
+
+          var note = { new: 'Takes the course as written. This is the baseline route.',
+            ahead: 'Answers the opening questions correctly. What happens next depends on your settings: skip-ahead ' + (f.skip ? 'is on, so Lesson 1 is skipped' : 'is off, so everyone takes Lesson 1') + '; harder checks ' + (f.harder ? 'are on, so Lesson 2 gets harder' : 'are off, so Lesson 2 stays standard') + '.',
+            miss: 'Gives in to the shortcut in the live practice. Extra practice is ' + (f.extra ? 'on, so a short round is added' : 'off, so the route moves on and the miss is recorded') + '.' }[persona];
+          document.getElementById('routeNote').textContent = note;
+          document.getElementById('routeInfo').innerHTML = A.info('<p>The line is the course as written. Dashed branches are things the course <b>can</b> do. The lit ones are what happens for this learner, with your settings. Click any step to see what they’d see.</p>', 'How to read the route');
+          A.wirePops();
+          drawFlow(b);
+
+          document.getElementById('outline').innerHTML = b.items.map(function (it) {
+            var ic = { on: 'fa-circle-check', skip: 'fa-forward', hard: 'fa-arrow-trend-up', added: 'fa-wand-magic-sparkles', off: 'fa-circle-minus' }[it.state];
+            return '<li><button type="button" class="ol-item ' + (it.state === 'skip' ? 'skip ' : it.state === 'added' ? 'added ' : it.state === 'hard' ? 'hard ' : '') + (it.id === picked ? 'sel' : '') + '" data-id="' + it.id + '"><i class="fa-solid ' + ic + ' ic"></i>' +
+              '<span><span class="ttl">' + A.esc(it.title) + (it.tag ? '<span class="ol-tag ' + it.tag[0] + '">' + it.tag[1] + '</span>' : '') + '</span><span class="sub">' + A.esc(it.sub) + '</span></span></button></li>';
+          }).join('');
+          document.querySelectorAll('.ol-item').forEach(function (bt) { bt.addEventListener('click', function () { pick(bt.dataset.id); }); });
+          show(b);
+        }
+
+        function drawFlow(b) {
+          var taken = {}; if (b.skipped) taken.l1 = 'skip'; if (b.harder) taken.l2 = 'harder'; if (b.extra) taken.practice = 'extra';
+          Flow.render(document.getElementById('routeMap'), { steps: B.MODULE.steps, taken: taken,
+            off: { skip: !b.f.skip, harder: !b.f.harder, extra: !b.f.extra }, follow: b.f.followup ? 'queued' : 'off', selected: picked, onPick: pick });
+          Flow.timeBar(document.getElementById('timeBar'), { steps: B.MODULE.steps, taken: taken });
+        }
+        function ids(b) { return b.items.map(function (i) { return i.id; }); }
+        function show(b) {
+          var cur = b.items.filter(function (i) { return i.id === picked; })[0] || b.items[0];
+          picked = cur.id;
+          var sc = screen(cur.id, b);
+          document.getElementById('lsBar').textContent = 'Bloodborne Pathogens · ' + cur.title;
+          document.getElementById('lsBody').innerHTML = '<div class="ls-eyebrow">' + A.esc(sc.eyebrow) + '</div><h3>' + A.esc(sc.title) + '</h3>' + sc.body;
+          var w = cur.why;
+          document.getElementById('why').innerHTML = '<div class="why-card ' + w[1] + '"><i class="fa-solid ' + ({ skip: 'fa-forward', hard: 'fa-arrow-trend-up', added: 'fa-wand-magic-sparkles' }[w[1]] || 'fa-lightbulb') + '"></i><div><b>Why this learner gets this</b><span>' + A.esc(w[0]) + '</span></div></div>';
+          document.querySelectorAll('.ol-item').forEach(function (bt) { bt.classList.toggle('sel', bt.dataset.id === picked); });
+          var list = ids(b), i = list.indexOf(picked);
+          document.getElementById('prev').toggleAttribute('disabled', i <= 0);
+          document.getElementById('nextStep').toggleAttribute('disabled', i >= list.length - 1);
+        }
+        function pick(id) {
+          var b = build();
+                    if (!b.items.some(function (i) { return i.id === id; })) { id = id === 'extra' ? 'practice' : 'open'; }
+          picked = id; show(b);
+          drawFlow(b);
+        }
+        function setPersona(p) { persona = p; picked = 'open'; render(); }
+        window.PreviewFlow = { setPersona: setPersona };
+
+        document.getElementById('prev').addEventListener('click', function () { var l = ids(build()), i = l.indexOf(picked); if (i > 0) pick(l[i - 1]); });
+        document.getElementById('nextStep').addEventListener('click', function () { var l = ids(build()), i = l.indexOf(picked); if (i < l.length - 1) pick(l[i + 1]); });
+        // Scope: follow the shared scope unless a node was given.
+        if (!fromAssign && !q.get('node')) node = A.getScope();
+        render(); bootFromHash();
+      })();
+
+    </script>
+    <script src="../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
+</body>
+</html>

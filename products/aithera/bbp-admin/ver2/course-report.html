@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bloodborne Pathogens — Course Report</title>
+
+    <!-- Vector Web Components (core v1.22.3 / themes v1.9.3, the versions cached in context/) -->
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+    <!-- Self-hosted Font Awesome Pro (repo root is four levels up from verN/) -->
+    <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="admin.css?v=63" />
+</head>
+<body>
+    <div id="head"></div>
+    <main class="rp-main">
+
+        <div class="panel">
+
+            <!-- Is this course still moving, or wrapped? Every number below depends on the answer. -->
+            <div class="state-strip" id="stateStrip"></div>
+
+            <!-- One card answers "how did people do": the split of all enrolled, then each group. Finished and competency are sums of these, so they live in the summary line. -->
+            <section class="rp-card people-card" aria-label="Learner performance">
+                <div class="rp-card-head"><h2>Learner performance</h2><span id="whoInfo"></span></div>
+                <!-- Same .perf block as each card on the Courses page, at full size -->
+                <div class="perf">
+                    <div id="whoSum"></div>
+                    <div class="pg-bar" id="whoBar" role="img"></div>
+                </div>
+                <div class="pg-row" id="who"></div>
+            </section>
+
+            <!-- Right after who did well: where they did well. One list of sections, two lenses. Outcomes first: what people can do matters more than how long it took. -->
+            <section class="rp-card bs" id="bySection" data-mode="outcomes" aria-label="Performance by section">
+                <div class="rp-card-head"><h2>Performance by section <span class="sofar-pill" data-open-only>so far</span></h2>
+                    <span class="sec-tools"><span id="attInfo"></span>
+                        <span class="sec-toggle" role="group" aria-label="Show by section">
+                            <button type="button" class="on" data-sec="outcomes" aria-pressed="true">Outcomes</button>
+                            <button type="button" data-sec="pacing" aria-pressed="false">Pacing</button>
+                        </span></span></div>
+                <!-- Same sections, same rows, same columns in both lenses; only what is drawn in them changes. -->
+                <div class="bs-intro">
+                    <span class="ov bs-l"><span class="m-o">Share of people at Good or better, before and after the module.</span><span class="m-p">Median time spent on each section, against its target length.</span></span>
+                    <span class="ov bs-r"><span class="m-o bs-legend"><i class="dm-k before"></i> Before <i class="dm-k after"></i> After</span><span class="m-p" id="paceTotals"></span></span>
+                </div>
+                <div class="dm-head"><span></span><div class="ov"><div class="dm-axis-lbl m-o"><span>50%</span><span>75%</span><span>100%</span></div><div class="dm-axis-lbl m-p" id="paceAxis"></div></div><span></span></div>
+                <div id="attRows"></div>
+                <div class="dm-key ov">
+                    <div class="bs-key m-o"><span><i class="dm-k before"></i> Before</span><span><i class="dm-k after"></i> After</span><span class="dm-note">Opening questions and the closing check supply the before and after</span></div>
+                    <div class="bs-key m-p"><span><i class="k-bar std"></i> On target</span><span><i class="k-bar over"></i> Over target</span><span><i class="k-bar under"></i> Under target</span><span><i class="k-tick"></i> Target</span><span class="dm-note" id="paceNote"></span></div>
+                </div>
+            </section>
+
+            <!-- Then the learning path: how the course adapted to get people there -->
+            <section class="rp-card" aria-label="Path map">
+                <div class="rp-card-head">
+                    <h2>Path map</h2>
+                    <span class="head-right"><span id="adaptChip"></span>
+                        <a class="card-link" href="preview.html">Preview learner routes <i class="fa-solid fa-arrow-right"></i></a></span>
+                </div>
+                <p class="rp-card-sub" id="adaptNote"></p>
+                <div class="pm-facts" id="pmFacts"></div>
+                <div class="map-scroll" id="routeMap"></div>
+            </section>
+
+        </div>
+
+        <vwc-drawer id="whoDrawer" overlay position="end" restore-focus-selector=".who-hit">
+            <div slot="drawer-header"></div>
+            <div slot="drawer-content"></div>
+        </vwc-drawer>
+
+    </main>
+
+    <script src="data.js?v=15"></script>
+    <script src="admin-ui.js?v=11"></script>
+    <script src="flow.js?v=19"></script>
+    <script>
+
+      (function () {
+        var B = window.BBP, A = window.Admin, S = B.sector;
+        var scope = A.getScope(), t = B.stats(scope), node = B.node(scope);
+        var eff = B.effective(scope, S.seed);
+        // Course state: open (people still working) or closed (wrapped, numbers are final).
+        var closed = new URLSearchParams(location.search).get('state') === 'closed';
+        var inFlight = t.unfinished;
+        var onCount = B.BEHAVIORS.filter(function (b) { return eff[b.key].value; }).length;
+
+        // Settings in force when this was assigned. Shown on the "Learning path results" view,
+        // where it explains what you're looking at, not in the page header.
+        var settingsChip =
+          '<span class="pop-anchor"><button type="button" class="rp-chip chip-btn" aria-expanded="false"><i class="fa-solid fa-toggle-on"></i> ' + (onCount === B.BEHAVIORS.length ? 'All ' + onCount + ' adaptive rules on' : (onCount ? onCount + ' of ' + B.BEHAVIORS.length + ' adaptive rules on' : 'Adaptive rules off')) + ' <i class="fa-solid fa-chevron-down" style="font-size:9px;color:var(--rp-ink-faint)"></i></button>' +
+          '<span class="rp-pop"><p><b>Settings when this was assigned</b></p>' +
+          B.BEHAVIORS.map(function (b) {
+            var e = eff[b.key];
+            return '<p style="display:flex;gap:8px;justify-content:space-between"><span>' + A.esc(b.label) + '</span><span class="pill' + (e.value ? '' : ' off') + '">' + (e.value ? 'On' : 'Off') + '</span></p>';
+          }).join('') +
+          '<p><a href="settings.html">Change settings for future assignments</a></p></span></span>';
+        var versionSub = '<i class="fa-solid fa-masks-theater" style="color:var(--rp-ink-faint);margin-right:6px"></i>' + A.esc(S.short) + ' version ' +
+          A.info('<p><b>Written for this sector.</b> ' + A.esc(S.versionNote) + '</p><p>Everyone in this group receives this version. Other sectors receive their own.</p>', 'About the version');
+
+        A.head({ active: 'courses', title: 'Bloodborne Pathogens', scope: true, sub: versionSub,
+                 assignLabel: 'Assign again', assignHref: 'assign.html?course=bbp',
+                 crumbs: [{ label: 'Courses', href: 'courses.html' }, { label: 'Bloodborne Pathogens' }],
+                 chips: ['<span class="rp-chip"><i class="fa-solid fa-calendar"></i> Due Nov 6</span>'] });
+        A.wirePops();
+
+        /* ---- Status strip: still moving, or wrapped ---- */
+        var now = B.whereNow(t.unfinished), stuck = Object.keys(now).filter(function (k) { return k !== 'start'; }).sort(function (a, b) { return now[b] - now[a]; })[0];
+        var stuckName = B.MODULE.steps.filter(function (s) { return s.id === stuck; })[0].label.toLowerCase();
+        var started = t.unfinished - now.start;
+        document.getElementById('stateStrip').innerHTML = closed
+          ? '<span class="st-badge closed"><i class="fa-solid fa-lock"></i> Closed</span><span class="st-txt"><b>Final results.</b> Closed Nov 6 · ' + t.completed + ' of ' + t.assigned + ' finished · ' + t.unfinished + ' did not finish.</span>'
+          : '<span class="st-badge live"><i></i> Open</span><span class="st-txt"><b>' + t.unfinished + ' still to go</b> · ' + now[stuck] + ' of them ' + (now[stuck] === 1 ? 'is' : 'are') + ' at ' + stuckName +
+            (now.start ? ', ' + now.start + ' ' + (now.start === 1 ? 'has' : 'have') + ' not started' : '') + '.</span>';
+        document.querySelectorAll('[data-open-only]').forEach(function (el) { el.hidden = closed; });
+
+        /* ---- Summary: three numbers, before/after, who to look at ---- */
+        function tile(label, value, delta, cls) {
+          return '<div class="rp-card tile' + (cls || '') + '"><span class="tile-label">' + label + '</span><span class="tile-value">' + value + '</span><span class="tile-delta flat">' + delta + '</span></div>';
+        }
+        // Headline = the same .perf block the Courses page cards use: competency big, finished as the sub line.
+        document.getElementById('whoSum').innerHTML =
+          '<div class="perf-head"><span class="perf-n">' + B.pct(t.demonstrated, t.completed) + '%</span><span class="perf-l">of finishers showed competency</span></div>' +
+          '<p class="perf-sub"><b>' + B.pct(t.completed, t.assigned) + '% finished</b> · ' + t.completed + ' of ' + t.assigned + ' · ' + t.demonstrated + ' people doing well or on track</p>';
+
+        // Share of people at Good or better, before and after, per section. Excellent is the
+        // secondary line. "Doing it right" is only performed live, so its "before" is the
+        // first attempt, and its "after" is where people ended up once extra practice ran.
+        var SECTIONS = B.SECTIONS;
+        function pos(v) { return Math.max(0, Math.min(100, (v - 50) / 50 * 100)); }
+        // Each section is taught by one lesson, so its pacing is that lesson's. Two sections share Lesson 3.
+        var STEP_OF = ['l1', 'l2', 'l3', 'l3', 'practice'];
+        function stepById(id) { return B.MODULE.steps.filter(function (s) { return s.id === id; })[0]; }
+        var maxMin = 0, totalMed = 0, totalTarget = 0;
+        Object.keys(B.GROUP_DWELL).forEach(function (k) { var v = B.GROUP_DWELL[k], st = stepById(k); maxMin = Math.max(maxMin, v[1], st.mins); totalMed += v[1]; totalTarget += st.mins; });
+        function sg(n) { return n > 0 ? '+' + n : (n < 0 ? '−' + Math.abs(n) : '0'); }
+        document.getElementById('attRows').innerHTML = SECTIONS.map(function (r, i) {
+          var b = 100 - r.before[0], a = 100 - r.after[0];
+          var st = stepById(STEP_OF[i]), med = B.GROUP_DWELL[STEP_OF[i]][1], tgt = st.mins, gap = med - tgt;
+          var kind = gap > 0 ? 'over' : (gap < 0 ? 'under' : '');
+          var shared = i === 3 ? ' (shared)' : '';
+          return '<div class="dm-row"><div class="dm-name"><h3>' + r.name + '</h3><span class="ov">' +
+              '<small class="m-o">Excellent ' + r.before[2] + '% → ' + r.after[2] + '%' + (r.note ? ' · ' + r.note : '') + '</small>' +
+              '<small class="m-p">' + st.sub + ' · ' + st.label + shared + '</small></span></div>' +
+            '<div class="dm-track" role="img" aria-label="' + r.name + ': ' + b + '% at Good or better before, ' + a + '% after; ' + med + ' minutes against a ' + tgt + ' minute target">' +
+              '<span class="dm-line m-o" style="left:' + pos(b) + '%;width:' + (pos(a) - pos(b)) + '%"></span>' +
+              '<span class="dm-dot before m-o" style="left:' + pos(b) + '%"></span><span class="dm-dot after m-o" style="left:' + pos(a) + '%"></span>' +
+              '<span class="pc-bar m-p ' + kind + '" style="--w:' + (med / maxMin * 100).toFixed(1) + '%"></span><span class="pc-tick m-p" style="left:' + (tgt / maxMin * 100).toFixed(1) + '%"></span></div>' +
+            '<div class="dm-val ov"><span class="m-o"><b>' + b + '% → ' + a + '%</b><em>+' + (a - b) + ' pts</em></span>' +
+              '<span class="m-p"><b>' + med + ' min</b><em class="' + kind + '">' + (gap ? sg(gap) + ' vs target ' + tgt : 'on target ' + tgt) + '</em></span></div></div>';
+        }).join('');
+        document.getElementById('paceAxis').innerHTML = '<span>0</span><span>' + Math.round(maxMin / 2) + '</span><span>' + maxMin + ' min</span>';
+        (function () {
+          var g = totalMed - totalTarget;
+          document.getElementById('paceTotals').innerHTML = totalMed + ' min median · target ' + totalTarget + ' <span class="tb-d ' + (g > 0 ? 'slow' : (g < 0 ? 'skip' : '')) + '">' + sg(g).replace('0', g ? '' : '0') + (g ? ' min' : ' min') + '</span>';
+          document.getElementById('paceNote').textContent = 'Opening questions and the closing check (' + B.GROUP_DWELL.open[1] + ' + ' + B.GROUP_DWELL.close[1] + ' min) are in the total';
+        })();
+        document.getElementById('attInfo').innerHTML = A.info('<p><b>Each row</b> is a section of the module. The hollow dot is where people started, and the solid dot is where they ended. The numbers are the share of people at <b>Good or better</b>, so a longer line means more movement.</p><p>For the first four sections, “before” is the opening questions. <b>Doing it right</b> is only performed live, so its “before” is each person’s first attempt and its “after” is where they ended up after any extra practice.</p><p>Excellent is shown underneath as a second measure.</p>', 'How to read this');
+
+        // People at a glance: three plain counts. The full list opens in a side panel
+        // on this page, so the admin never loses which course they are looking at.
+        // Groups are decided on what people can demonstrate at the end, never on speed or route.
+        var all = B.LEARNERS.filter(function (l) { return B.inScope(l, scope); });
+        var GROUPS = [
+          { key: 'strong',  label: 'Doing well',    total: t.strong,     icon: 'fa-circle-check', cls: 'good',
+            rule: 'Nothing at Practice Needed, and Excellent in at least three areas.', line: 'Excellent in three or more areas' },
+          { key: 'ontrack', label: 'On track',      total: t.ontrack,    icon: 'fa-circle-dot',   cls: 'ontrack',
+            rule: 'Nothing at Practice Needed, and Excellent in fewer than three areas.', line: 'Good or better in every area' },
+          { key: 'support', label: 'Needs support', total: t.support,    icon: 'fa-flag',         cls: 'warn',
+            rule: 'At least one area still at Practice Needed after the course, so a key point was missed.', line: 'Follow-up check-in Nov 15' },
+          { key: 'open',    label: 'Not finished',  total: t.unfinished, icon: 'fa-hourglass-half', cls: 'mut',
+            rule: 'Not started, or stalled partway through.', line: closed ? 'Missed the Nov 6 due date' : 'Due Nov 6 · 17 days left', remind: !closed }
+        ];
+        function members(g) {
+          var rows = all.filter(function (l) { return B.standing(l) === g.key; });
+          if (g.key === 'support') rows.sort(function (a, b) { return b.profile.filter(function (x) { return x === 1; }).length - a.profile.filter(function (x) { return x === 1; }).length; });
+          return rows;
+        }
+        var reminded = false;
+        function remindBtn(g, extra) {
+          if (!g.remind) return '';
+          return reminded
+            ? '<span class="remind-done"><i class="fa-solid fa-check"></i> Reminder sent</span>'
+            : '<vaadin-button theme="secondary" class="remind' + (extra || '') + '" data-remind><i class="fa-solid fa-bell" style="margin-right:7px"></i>Remind ' + g.total + '</vaadin-button>';
+        }
+        function pgHtml(g) {
+          var line = g.remind && reminded ? 'Reminder sent to ' + g.total + ' people · due Nov 6' : g.line;
+          return '<div class="pg ' + g.cls + '"><button type="button" class="who-hit" data-g="' + g.key + '" aria-label="Open the ' + g.label + ' list"></button>' +
+            '<span class="pg-n">' + g.total + '</span>' +
+            '<span class="pg-main"><b><i class="fa-solid ' + g.icon + '"></i>' + g.label + '</b><small>' + line + '</small></span>' + remindBtn(g) + '</div>';
+        }
+        // One bar for everyone enrolled; each group's share of all 128, in the same order as the columns.
+        document.getElementById('whoBar').innerHTML = GROUPS.map(function (g) {
+          return '<span class="seg-' + g.key + '" style="flex:' + g.total + ' 1 0" title="' + g.label + ': ' + g.total + ' of ' + t.assigned + '"></span>';
+        }).join('');
+        document.getElementById('whoBar').setAttribute('aria-label', GROUPS.map(function (g) { return g.total + ' ' + g.label.toLowerCase(); }).join(', ') + ', of ' + t.assigned + ' enrolled');
+        // The groups add up: the finished three make the 120, the last is the 8 still working.
+        function drawPeople() {
+          var fin = GROUPS.filter(function (g) { return g.key !== 'open'; }), left = GROUPS.filter(function (g) { return g.key === 'open'; });
+          document.getElementById('who').innerHTML =
+            '<div class="pg-set pg-set--fin"><p class="pg-cap">Of the ' + t.completed + ' who finished</p><div class="pg-grp">' + fin.map(pgHtml).join('') + '</div></div>' +
+            '<div class="pg-set pg-set--left"><p class="pg-cap">Still in the course</p><div class="pg-grp">' + left.map(pgHtml).join('') + '</div></div>';
+          document.querySelectorAll('.who-hit').forEach(function (b) { b.addEventListener('click', function () { openDrawer(b.dataset.g); }); });
+          document.querySelectorAll('[data-remind]').forEach(function (b) { b.addEventListener('click', sendReminder); });
+        }
+        function sendReminder() { reminded = true; drawPeople(); if (drawer.open) drawList(); }
+        document.getElementById('whoInfo').innerHTML = A.info('<p><b>Showed competency</b> means finished with nothing left at Practice Needed, so it is Doing well plus On track. Needs support are the finishers who still have an area open.</p><p>Groups are based on results only. Speed, skipping ahead and extra practice never count for or against someone.</p>', 'How these are decided');
+        A.wirePops();
+
+        // ---- The side panel (Vector drawer, overlay from the right) ----
+        var drawer = document.getElementById('whoDrawer'), cur = 'strong';
+        function drawList() {
+          var g = GROUPS.filter(function (x) { return x.key === cur; })[0], rows = members(g);
+          drawer.querySelector('[slot="drawer-header"]').innerHTML = '<span class="dr-title">' + g.label + ' <b>' + g.total + '</b></span>';
+          drawer.querySelector('[slot="drawer-content"]').innerHTML =
+            '<div class="dr-switch" role="group" aria-label="Group">' + GROUPS.map(function (x) {
+              return '<button type="button" class="' + (x.key === cur ? 'on' : '') + '" data-g="' + x.key + '">' + x.label + '<small>' + x.total + '</small></button>';
+            }).join('') + '</div>' +
+            '<p class="dr-rule">' + g.rule + '</p>' +
+            (g.remind ? '<div class="dr-remind">' + remindBtn(g) + '<small>' + (reminded ? 'Everyone in this group has been reminded.' : 'Sends a reminder with the due date.') + '</small></div>' : '') +
+            (rows.length ? rows.map(function (l) {
+              var u = B.node(l.unit);
+              return '<a class="dr-row" href="' + A.learnerHref(l) + '&from=course&g=' + cur + '"><span class="row-avatar" style="margin:0">' + A.initials(l.name) + '</span>' +
+                '<span class="dr-who"><b>' + A.esc(l.name) + '</b><small>' + A.esc(l.role) + ' · ' + A.esc(u.name) + '</small><em>' + A.esc(B.standingReason(l)) + '</em></span>' +
+                (l.profile ? A.dots(l.profile) : '') + '</a>';
+            }).join('') : '<p class="rp-card-sub">Nobody in this group.</p>');
+          drawer.querySelectorAll('[data-remind]').forEach(function (b) { b.addEventListener('click', sendReminder); });
+          drawer.querySelectorAll('.dr-switch button').forEach(function (b) { b.addEventListener('click', function () { cur = b.dataset.g; drawList(); }); });
+        }
+        function openDrawer(key) { cur = key; drawList(); drawer.open = true; drawer.setAttribute('open', ''); }
+        drawPeople();
+        var pq = new URLSearchParams(location.search).get('people');
+        if (pq && GROUPS.some(function (g) { return g.key === pq; })) openDrawer(pq);
+
+        function renderRoute() {
+          // One line of scope, then what each branch did. The counts also sit on the map; these add the "so what".
+          document.getElementById('adaptNote').innerHTML = 'Routes taken by the ' + t.completed + ' who finished.' + (closed ? '' : ' Blue pills show where the ' + t.unfinished + ' still working are now.');
+          // Name the step each branch touches, so the arch on the map and the sentence say the same thing.
+          function stepWith(type) { return B.MODULE.steps.filter(function (s) { return (s.variants || []).some(function (v) { return v.type === type; }); })[0].label; }
+          function fact(key, hl, cls, icon, n, head, body) {
+            var on = eff[key].value;
+            return '<div class="pm-fact ' + cls + (on ? '' : ' off') + '" data-hl="' + hl + '" tabindex="0"><span class="pm-ico"><i class="fa-solid ' + icon + '"></i></span><span><b>' +
+              (on ? n + ' ' + head : head) + '</b><small>' + (on ? body : 'Off for this assignment') + '</small></span></div>';
+          }
+          document.getElementById('pmFacts').innerHTML =
+            fact('skip', 'skip', 'sk', 'fa-forward', t.skipped, 'skipped ' + stepWith('skip'), 'About 9 minutes saved each. Skipped lessons still count as covered.') +
+            fact('harder', 'harder', 'hd', 'fa-angles-up', t.harder, 'got harder checks', 'Tougher questions at ' + stepWith('harder') + ' for stronger learners.') +
+            fact('extra', 'extra', 'ex', 'fa-wand-magic-sparkles', t.extra, 'got extra practice', 'Added at ' + stepWith('insert') + '. 87% of them reached Good or better.');
+          // Hover or focus a fact and its branch stays lit on the map while the rest fades.
+          document.querySelectorAll('.pm-fact:not(.off)').forEach(function (f) {
+            var map = document.getElementById('routeMap');
+            function on() { map.dataset.hl = f.dataset.hl; } function off() { delete map.dataset.hl; }
+            f.addEventListener('mouseenter', on); f.addEventListener('mouseleave', off); f.addEventListener('focus', on); f.addEventListener('blur', off);
+          });
+          document.getElementById('adaptChip').innerHTML = settingsChip;
+          var cb = document.querySelector('#adaptChip .chip-btn'), cp = cb.nextElementSibling;
+          cb.addEventListener('click', function (e) { e.stopPropagation(); if (cp.classList.toggle('open')) A.placePop(cp); });
+          document.addEventListener('click', function (e) { if (!cp.contains(e.target)) cp.classList.remove('open'); });
+          var gd = {}, gm = {}, slow = [], total = 0, typ = 0, written = 0;
+          Object.keys(B.GROUP_DWELL).forEach(function (k) {
+            var v = B.GROUP_DWELL[k]; gd[k] = { typical: v[0], actual: v[1] }; gm[k] = v[1]; total += v[1]; typ += v[0]; written += B.MODULE.steps.filter(function (s) { return s.id === k; })[0].mins;
+            if (v[1] / v[0] >= 1.4 && v[1] - v[0] >= 2) slow.push(B.MODULE.steps.filter(function (s) { return s.id === k; })[0].short.toLowerCase());
+          });
+          Flow.render(document.getElementById('routeMap'), { steps: B.MODULE.steps, total: t.completed,
+            counts: { skip: eff.skip.value ? t.skipped : 0, harder: eff.harder.value ? t.harder : 0, extra: t.extra },
+            off: { skip: !eff.skip.value, harder: !eff.harder.value, extra: !eff.extra.value }, follow: eff.followup.value ? 'queued' : 'off', dwell: gd,
+            now: closed ? null : now });
+        }
+        renderRoute();
+        // Outcomes first; Pacing is one click away. The "?" explains outcomes only.
+        var secBtns = document.querySelectorAll('.sec-toggle button');
+        secBtns.forEach(function (b) {
+          b.addEventListener('click', function () {
+            secBtns.forEach(function (x) { var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); });
+            document.getElementById('bySection').dataset.mode = b.dataset.sec;
+            document.getElementById('attInfo').hidden = b.dataset.sec !== 'outcomes';
+          });
+        });
+      })();
+
+    </script>
+    <script src="../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
+</body>
+</html>
