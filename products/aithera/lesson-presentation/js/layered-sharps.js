@@ -7240,22 +7240,12 @@
   // ==========================================================================
   var RECORD_CONTENT =
     '<main class="ll-object" id="recordObject">' +
+      '<span class="rs-badge" aria-hidden="true"><i class="fa-solid fa-check"></i></span>' +
       '<p class="ll-eyebrow">Your results</p>' +
-      '<h2 id="recHead">Here’s what you showed.</h2>' +
-      '<p class="ll-sub">Eight things this module asked of you, and where each answer came from — not a tick for finishing.</p>' +
-      '<div class="rec-groups" id="recList"></div>' +
-      '<p class="res-basis" id="recBasis"></p>' +
+      '<h2 id="recHead">Module complete!</h2>' +
+      '<p class="ll-sub">Based on your answers and your choices in the scenario.</p>' +
+      '<div class="rs-wrap" id="recList"></div>' +
     '</main>';
-  // The learner's own record, in the learner's own words. Know / Feel / Do
-  // survives as three plain headings and the row icon; the sub-level, the
-  // theoretical construct and the assessment policy are gone from this screen —
-  // they live in the step captions behind the footer "?" and in the Learning
-  // Layer view, which is where a reviewer is looking for them anyway.
-  var REC_GROUPS = [
-    { head: 'What you know',   ids: ['K1', 'K2'] },
-    { head: 'How you see it',  ids: ['F1', 'F2', 'F3'] },
-    { head: 'What you did',    ids: ['D1', 'D2', 'D3'] }
-  ];
   // The two Feel objectives asked before and after now report the MOVE rather
   // than the level, because the level on its own says more about the person
   // than about the module. `held` is not a failure and is not dressed up as
@@ -7265,68 +7255,10 @@
     held: { cls: 'held', icon: 'fa-minus',            label: 'Held' },
     down: { cls: 'down', icon: 'fa-arrow-trend-down', label: 'Moved down' }
   };
-  // F3's reportable figure is how far the learner's read of the room was from
-  // the real, cited figure — norm misperception is that gap and nothing
-  // else. It used to be moveChip(entry answer, "better or worse than that
-  // figure"), which are different scales: a learner who said "Most do" and
-  // then "About the same" against a 92.7% majority had agreed with themselves
-  // twice and was filed as having moved DOWN.
-  //  Graded against the real figure (92.7%, Gershon et al. 2000 — see
-  //  DEBRIEF_STAT), not against a majority/not binary. The thresholds below
-  //  predate that real figure, from when this was graded per sector against
-  //  four different illustrative numbers (as low as 48%); kept as thresholds
-  //  rather than collapsed to a flat 92.7% check so this still degrades
-  //  correctly if the figure is ever revised. With today's number, "most" is
-  //  always right and "half"/"hardly anyone" are always underestimates.
-  function f3Read(f3, pct) {
-    if (!f3) return null;
-    if (f3 === 3) return pct >= 55 ? 'right' : 'better';           // said most
-    if (f3 === 2) return pct >= 62 ? 'worse' : pct >= 45 ? 'right' : 'better';
-    return pct < 30 ? 'right' : 'worse';                           // said hardly anyone
-  }
-  function f3Pct(d) { return (d && d.pct) || debriefRows()[0].pct; }
-  // Item 14: the post leg re-asks the entry item, so the note reports what
-  // they said the second time rather than a "where does your shift sit"
-  // placement that no longer matches the question on screen.
-  function f3Note(f3, d, pct) {
-    var saidAgain = low(F3_WORDS[F3_KEYS[d.post]] || '');
-    if (!f3) {
-      return 'You saw the real figure and, asked again, said ' + saidAgain + '. ' +
-             'There is no earlier reading to compare it against in this run.';
-    }
-    var r = f3Read(f3, pct);
-    return 'Before the module started you read the room as \u201c' + F3_WORDS[F3_KEYS[f3]] + '\u201d, ' +
-           'against an actual ' + pct + '%' +
-           (r === 'right' ? '' : r === 'worse'
-             ? ' \u2014 fewer people take the shortcut than you thought'
-             : ' \u2014 more people take the shortcut than you thought') + '. ' +
-           'Asked the same question again after seeing the number, you said ' + saidAgain + '.';
-  }
-  // The open answer, folded into F1's evidence line. The chain used to save a
-  // `named` field and NOTHING ever read it — the one question in the module
-  // whose answer is a specific human being went to a dead key. Plain text on
-  // purpose: st[3] is escaped at render, so the learner's own words are safe
-  // to pass through and must not carry markup.
-  function namedNote(c) {
-    var nm = c.downstream && c.downstream.named;
-    return nm ? ' You also named the person downstream of you: \u201c' + nm + '\u201d.' : '';
-  }
-  function moveChip(before, after) {
-    if (!before || !after) return '';
-    var m = MOVE[after > before ? 'up' : after < before ? 'down' : 'held'];
-    return '<span class="apt-mom ' + m.cls + '"><i class="fa-solid ' + m.icon + '" aria-hidden="true"></i>' +
-      esc(m.label) + '</span>';
-  }
-  // Item 13: which carrier actually taught them, named in the record rather
-  // than left as an internal field nobody surfaces.
-  var MODALITY_LABEL = { video: 'a video', article: 'an article', tutor: 'a step-through' };
   // Item 13/D3: the shared scenario player's own additive write-back, read
   // here rather than assumed. Absent whenever the scenario has not run yet
   // (or hasn't reached its real debrief) — every caller below falls back to
   // the pre-item-13 generic line in that case, same as before this existed.
-  var SCENARIO_TIER_WORD = { MISSED: 'missed', PARTIAL: 'landed partially', SOUND: 'landed sound',
-                              BRIEF: 'kept it brief', REFLECTIVE: 'gave it real thought' };
-  var SCENARIO_TIER_RANK = { MISSED: 0, PARTIAL: 1, SOUND: 2 };
   function scenarioBeats() {
     try {
       var raw = JSON.parse(sessionStorage.getItem('scenario-result:' + scenarioKey()) || 'null');
@@ -7353,152 +7285,143 @@
         sessionStorage.setItem('bo-progress', JSON.stringify(prevProgress));
       }
     } catch (e) {}
-    // [ status, band, where it came from, what happened, move-chip ]
-    // Deck-aligned 2026-09-22: K1/K2 read their case's mastery check (base or
-    // test-up version, and whether the remedial video ran); F1/F3 compare the
-    // pre-check agreement against the same statement asked again.
-    function knowRow(chk, re, upWord) {
-      if (!chk) return ['Not asked', 'band-warn', 'No answer in this run', 'The case did not come up in this run.'];
+    // 2026-10-23: results, not a log of answers. Each topic the module
+    // actually measured lands in Strengths or Needs work, with how it was
+    // measured; topics asked both at the start and later also report the
+    // change. F2 (taught, never asked here) and D3 (a plan, not a result)
+    // are not graded — the plan gets its own card below.
+    // Each entry: { id, ok, line }. ok === null → not measured this run.
+    function knowTopic(id, chk, re) {
+      if (!chk) return null;
       var up = chk.variant === 'up';
-      if (chk.passed) {
-        return up
-          ? ['Shown', 'band-exc', 'From the pre-check and the harder case',
-             'You answered the pre-check correctly, so you got the harder version of this case — ' + upWord + ' — and answered its question correctly too.']
-          : ['Taught', 'band-ok', 'From the case and its question',
-             'Taught in the case, then checked straight afterwards — answered correctly.'];
-      }
-      return ['Taught', 'band-ok', 'From the case, its question' + (re ? ', and a second look' : ''),
-        'Missed the question after the ' + (up ? 'harder ' : '') + 'case' +
-        (!re ? '.' : re.passed ? ', then answered it correctly after a second look.'
-                               : ', and again after a second look.')];
+      if (chk.passed) return { id: id, ok: true, line: 'Answered correctly' + (up ? ', on the harder version.' : '.') };
+      if (re && re.passed) return { id: id, ok: true, line: 'Answered correctly on the second try.' };
+      return { id: id, ok: false, line: re ? 'Missed on both tries.' : 'Missed this question.' };
     }
-    function feelRow(pre, post, what) {
-      if (post && pre) {
-        return ['Recorded', 'band-ok', 'Asked at the start and again after ' + what,
-          'You rated this ' + pre + ' of 5 at the start and ' + post.score + ' of 5 after ' + what + '.',
-          moveChip(pre, post.score)];
-      }
-      if (post) {
-        return ['Recorded', 'band-ok', 'Asked after ' + what,
-          'You rated this ' + post.score + ' of 5 after ' + what + '. There is no rating from the start to compare it against.'];
-      }
-      return ['Rated only', 'band-warn', 'From your answer at the start',
-        pre ? 'You rated this ' + pre + ' of 5 at the start. The second ask did not come up in this run.'
-            : 'Neither ask came up in this run.'];
+    var AGREE_WORD = { 1: 'Strongly disagreed', 2: 'Disagreed', 3: 'Neither agreed nor disagreed', 4: 'Agreed', 5: 'Strongly agreed' };
+    function feelTopic(id, pre, post) {
+      var score = post ? post.score : pre;
+      if (score == null) return null;
+      return { id: id, ok: score >= 4,
+        line: AGREE_WORD[score] + ' (' + score + ' of 5).' };
     }
-    var state = {
-      K1: knowRow(c.k1check, c.k1recheck, 'the container a walk away and someone calling you over'),
-      K2: knowRow(c.k2check, c.k2recheck, 'a container nearing its line and a hazard you could not confirm'),
-      F1: feelRow(b.f1, c.f1post, 'the story of Chris and Jacob'),
-      // No question on F2 in this module — it is asked once for the whole
-      // course, in Module 2 (deck slide 15).
-      F2: ['Taught', 'band-ok', 'From the engineering controls section',
-           'Why a container protects more than gloves do. Asked once for the whole course, in an earlier module, so there is no question on it here.'],
-      F3: feelRow(b.f3, c.f3post, 'the debrief'),
-      // Both of these are shown on the scenario's own page now. D6: beat ids
-      // changed with the rebuild (decision / execution / container / close,
-      // was decision / pressure / container / transfer) \u2014 read from the
-      // shared player's own write-back (item 13) rather than asserted the
-      // same for every run regardless of what actually happened. `close` is
-      // sentiment only, not a KFD objective per K&A's script, so it has no
-      // row of its own here.
-      D1: c.scene
-        ? [c.scene.decision === 'now' ? 'Shown' : 'Recorded',
-           c.scene.decision === 'shortcut' ? 'band-warn' : c.scene.decision === 'now' ? 'band-exc' : 'band-ok',
-           'From the scenario',
-           c.scene.decision === 'now' ? 'You dealt with the sharp before answering the call.'
-             : c.scene.decision === 'later' ? 'You kept hold of the sharp but put off disposing of it until after helping.'
-             : 'You set the sharp down to answer the call.']
-        : (beats && beats.decision)
-        ? ['Shown', SCENARIO_TIER_RANK[beats.decision] === 0 ? 'band-warn' : 'band-ok',
-           'From the scenario',
-           'The decision beat ' + SCENARIO_TIER_WORD[beats.decision] + ' \u2014 what you did with the hazard the moment you were pulled away.']
-        : ['In the scenario', 'band-ok', 'From the scenario',
-           'Shown where you actually did it, with a real interruption rather than a button on a page. The scenario\u2019s own debrief carries what happened.'],
-      D2: c.scene && c.scene.rubric
-        ? (function () {
-            var r = c.scene.rubric, names = { 2: 'met', 1: 'partly met', 0: 'missed' };
-            var parts = SCENE_RUBRIC.map(function (x) {
-              return x.name + ' ' + (r[x.id] && r[x.id].score != null ? names[r[x.id].score] : 'not shown');
-            });
-            var anyMiss = SCENE_RUBRIC.some(function (x) { return r[x.id] && r[x.id].score === 0; });
-            return ['Shown', anyMiss ? 'band-warn' : 'band-ok', 'From the scenario', parts.join(' \u00b7 ') + '.'];
-          })()
-        : (beats && (beats.execution || beats.container))
-        ? ['Shown', SCENARIO_TIER_RANK[beats.execution] === 0 || SCENARIO_TIER_RANK[beats.container] === 0 ? 'band-warn' : 'band-ok', 'From the scenario',
-           'The walk-through beat ' + (SCENARIO_TIER_WORD[beats.execution] || 'did not come up') +
-           ', and the container beat ' + (SCENARIO_TIER_WORD[beats.container] || 'did not come up') +
-           ' \u2014 the container above its fill line, which is the part no list of options can ask you.']
-        : ['In the scenario', 'band-ok', 'From the scenario',
-           'Same place \u2014 including the container that was above its fill line, which is the part no list of options can ask you.'],
-      // D12: dropped the "check after the course" reference on both branches
-      // \u2014 no such check is scheduled by anything this module does, so the
-      // row should not promise one. D3 stays open either way; the written
-      // plan is the artifact this run actually has.
-      D3: (c.sustain && c.sustain.route)
-        ? ['Committed', 'band-ok', 'From the plan you wrote',
-           'You named ' + esc(low(c.sustain.cond)) + ' as the shift most likely to break it, and said the container is ' +
-           esc(c.sustain.route) + '. Still open \u2014 nothing today can show whether it held. The plan itself is the record.']
-        : ['Open', 'band-warn', 'Nothing to show yet',
-           'Nothing you did today can answer this one. It stays open, with nothing on your record to show either way.']
-    };
-    // Item 13: the count is computed, not asserted. D3 (Sustain) is excluded
-    // from it outright rather than status-matched — it structurally cannot
-    // close in one sitting (nothing today can show whether a commitment
-    // held), even on a run where the learner filled it in and its own row
-    // reads "Committed". The other nine landing anywhere but "answered"
-    // means the learner reached this screen before finishing the rest of
-    // the module (a deep link, mostly a review convenience) — the old fixed
-    // "seven here, two in the scenario, nine of ten" claimed the same count
-    // regardless.
-    var UNRESOLVED = { 'Not asked': 1, 'Open': 1 };
-    var NUM_WORD = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
-    var closable = Object.keys(state).filter(function (id) { return id !== 'D3'; });
-    var answered = closable.filter(function (id) { return !UNRESOLVED[state[id][0]]; }).length;
-    document.getElementById('recList').innerHTML = REC_GROUPS.map(function (g) {
-      return '<h3 class="rec-head">' + esc(g.head) + '</h3>' +
-        '<ul class="apt-list">' + g.ids.map(function (id) {
-          var o = obj(id), st = state[id];
-          return '<li class="apt-row">' +
-            '<span class="apt-ico"><i class="fa-solid ' +
-              (o.domain === 'Know' ? 'fa-book-open' : o.domain === 'Feel' ? 'fa-heart' : 'fa-bolt') + '" aria-hidden="true"></i></span>' +
-            '<div class="apt-main">' +
-              '<div class="apt-head"><h4>' + esc(o.name) + '</h4>' + (st[4] || '') + '</div>' +
-              '<div class="apt-bands"><span class="band ' + st[1] + '">' + esc(st[0]) + '</span>' +
-                '<span class="rec-src">' + esc(st[2]) + '</span></div>' +
-              '<p class="apt-evidence">' + esc(st[3]) + '</p>' +
-            '</div>' +
-          '</li>';
-        }).join('') + '</ul>';
-    }).join('');
-    document.getElementById('recBasis').innerHTML =
-      '<i class="fa-solid fa-circle-info"></i> Every line points at a moment rather than a tick for finishing ' +
-      'anything. ' + NUM_WORD[answered].charAt(0).toUpperCase() + NUM_WORD[answered].slice(1) +
-      ' of the ' + NUM_WORD[closable.length] + ' that can close are answered, and ' +
-      '<b>the last one stays open on purpose</b> — nothing a module does in one sitting can tell you what you ' +
-      'keep doing afterwards.';
-    // Silent on the path-change opener in three of the four cases — proving
-    // the procedure or testing up on K2 is already visible in the bands
-    // below, and CLARA restating it read as a fourth voice for one fact.
-    // The one case that keeps a line is the plain one: nothing moved, and
-    // nothing on screen already says so.
-    var movedLine = (k1TestUp() || k2TestUp() || feelLow('f1') || feelLow('f3'))
-      ? ''
-      : 'Based on the initial assessment, nothing about your path changed.';
-    // The count is stated once, in recBasis above — CLARA repeating the same
-    // number would be a second voice for one line. Her opening says what the
-    // caption cannot: the one thing that actually moved on this run.
-    typeFeedback(ctx, [
-      movedLine,
-      'Ask me about any line and I will tell you where it came from.'
-    ].filter(Boolean));
-    wireChat(ctx, [
-      'The two knowledge lines come from the cases. Answer the matching question right at the start and you get a harder version of that case instead of the standard one.',
-      'Spotting unsafe conditions is named in the regulation, so it is never taken away. A strong answer makes it harder instead.',
-      'The two agreement lines compare your rating at the start with the same statement asked again later. The move between them is the finding, not either number on its own.',
-      'The last line stays open on purpose — nothing today can show what you keep doing afterwards.'
-    ]);
-    ctx.positionOrb(false);
+    function decisionTopic() {
+      if (c.scene && c.scene.decision) {
+        var d = c.scene.decision;
+        return { id: 'D1', ok: d === 'now',
+          line: d === 'now' ? 'You disposed of the sharp before answering the call.'
+              : d === 'later' ? 'You held on to the sharp but put off disposing of it.'
+              : 'You set the sharp down to answer the call.' };
+      }
+      if (beats && beats.decision) {
+        return { id: 'D1', ok: beats.decision === 'SOUND',
+          line: beats.decision === 'SOUND' ? 'You dealt with the sharp before stepping away.'
+              : 'You stepped away before the sharp was dealt with.' };
+      }
+      return null;
+    }
+    function disposalTopic() {
+      if (c.scene && c.scene.rubric) {
+        var r = c.scene.rubric;
+        var short = SCENE_RUBRIC.filter(function (x) { return !(r[x.id] && r[x.id].score === 2); });
+        return { id: 'D2', ok: short.length === 0,
+          line: short.length === 0 ? 'Timing, technique, route and recovery were all on point.'
+              : 'Room to improve: ' + short.map(function (x) { return x.name.toLowerCase(); }).join(', ') + '.' };
+      }
+      if (beats && (beats.execution || beats.container)) {
+        var gaps = [];
+        if (beats.execution !== 'SOUND') gaps.push('getting the sharp to the container');
+        if (beats.container !== 'SOUND') gaps.push('handling the full container');
+        return { id: 'D2', ok: gaps.length === 0,
+          line: gaps.length === 0 ? 'You got it to a proper container, even when the first one was full.'
+              : 'Room to improve: ' + gaps.join(' and ') + '.' };
+      }
+      return null;
+    }
+    var topics = [
+      knowTopic('K1', c.k1check, c.k1recheck),
+      knowTopic('K2', c.k2check, c.k2recheck),
+      feelTopic('F1', b.f1, c.f1post),
+      feelTopic('F3', b.f3, c.f3post),
+      decisionTopic(),
+      disposalTopic()
+    ].filter(Boolean);
+
+    // Before → after, only where the same thing was measured twice. The
+    // pre-check knowledge items are right/wrong; the agreement items are 1–5.
+    function finalPass(chk, re) { return !!(chk && (chk.passed || (re && re.passed))); }
+    var changes = [];
+    if (!b.skipped) {
+      if (c.k1check && b.k1up != null) changes.push({ id: 'K1', before: b.k1up ? 1 : 0, after: finalPass(c.k1check, c.k1recheck) ? 1 : 0, max: 1, fmt: function (v) { return v ? 'Correct' : 'Incorrect'; } });
+      if (c.k2check && b.k2up != null) changes.push({ id: 'K2', before: b.k2up ? 1 : 0, after: finalPass(c.k2check, c.k2recheck) ? 1 : 0, max: 1, fmt: function (v) { return v ? 'Correct' : 'Incorrect'; } });
+      if (b.f1 != null && c.f1post) changes.push({ id: 'F1', before: b.f1, after: c.f1post.score, max: 5, fmt: function (v) { return v + ' of 5'; } });
+      if (b.f3 != null && c.f3post) changes.push({ id: 'F3', before: b.f3, after: c.f3post.score, max: 5, fmt: function (v) { return v + ' of 5'; } });
+    }
+    // Improved / Dropped / No change / Already strong, with its arrow icon.
+    function changeOf(ch) {
+      var k = ch.after > ch.before ? 'up' : ch.after < ch.before ? 'down' : 'held';
+      return { icon: MOVE[k].icon, cls: k === 'up' ? 'rs-ok' : k === 'down' ? 'rs-warn' : 'rs-flat',
+        label: k === 'up' ? 'Improved' : k === 'down' ? 'Dropped' : ch.after === ch.max ? 'Already strong' : 'No change' };
+    }
+
+    // 2026-10-23 pass 2: the screen should land as "done, and here is how
+    // it went" at a glance — topic names only up top, one line on
+    // improvement, and everything else behind "Show details".
+    function nameList(list, icon) {
+      return '<ul class="rs-names">' + list.map(function (t) {
+        return '<li><i class="fa-solid ' + icon + '" aria-hidden="true"></i>' + esc(obj(t.id).name) + '</li>';
+      }).join('') + '</ul>';
+    }
+    var strong = topics.filter(function (t) { return t.ok; });
+    var work = topics.filter(function (t) { return !t.ok; });
+    var improved = changes.filter(function (ch) { return ch.after > ch.before; }).length;
+
+    var html = '';
+    if (!topics.length) {
+      html = '<p class="rs-empty">No results yet. Finish the module to see them here.</p>';
+    } else {
+      // All strong: keep both columns — "Nothing — nice work" is the payoff.
+      // All to review: drop the empty Strengths column rather than show a
+      // "none" next to the module's own check mark.
+      html += '<section class="rs-summary' + (strong.length ? '' : ' rs-summary--one') + '">' +
+        (strong.length ? '<div class="rs-col rs-col--strong"><h3 class="rs-head">Strengths</h3>' +
+          nameList(strong, 'fa-circle-check') + '</div>' : '') +
+        '<div class="rs-col rs-col--work"><h3 class="rs-head">Worth a review</h3>' +
+          (work.length ? nameList(work, 'fa-circle-exclamation') : '<p class="rs-empty">Nothing \u2014 nice work</p>') + '</div>' +
+      '</section>';
+    }
+    if (improved) {
+      html += '<p class="rs-improved"><i class="fa-solid fa-arrow-trend-up" aria-hidden="true"></i>' +
+        'Improved on ' + improved + ' of ' + changes.length + ' since the pre-check</p>';
+    }
+
+    // The detail, for whoever wants it.
+    var more = '';
+    if (topics.length) {
+      more += '<h4 class="rs-sub">How you did</h4><ul class="rs-rows">' + topics.map(function (t) {
+        return '<li><i class="fa-solid ' + (t.ok ? 'fa-circle-check rs-ok' : 'fa-circle-exclamation rs-warn') + '" aria-hidden="true"></i>' +
+          '<span class="rs-topic">' + esc(obj(t.id).name) + '</span><span class="rs-val">' + esc(t.line) + '</span></li>';
+      }).join('') + '</ul>';
+    }
+    if (changes.length) {
+      more += '<h4 class="rs-sub">Since the pre-check</h4><ul class="rs-rows">' + changes.map(function (ch) {
+        var m = changeOf(ch);
+        return '<li><i class="fa-solid ' + m.icon + ' ' + m.cls + '" aria-hidden="true"></i>' +
+          '<span class="rs-topic">' + esc(obj(ch.id).name) + '</span>' +
+          '<span class="rs-val">' + esc(m.label) + ': ' + esc(ch.fmt(ch.before)) +
+            ' <i class="fa-solid fa-arrow-right rs-arrow" aria-hidden="true"></i> ' + esc(ch.fmt(ch.after)) + '</span></li>';
+      }).join('') + '</ul>';
+    }
+    if (c.sustain && c.sustain.route) {
+      more += '<h4 class="rs-sub">Your plan</h4>' +
+        '<p class="rs-plan">You named ' + esc(low(c.sustain.cond)) + ' as the shift most likely to test this, and said your container is ' +
+          esc(c.sustain.route) + '.</p>';
+    }
+    if (more) {
+      html += '<details class="rs-more"><summary>Show details<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>' +
+        '<div class="rs-more-body">' + more + '</div></details>';
+    }
+    document.getElementById('recList').innerHTML = html;
   }
 
   // ==========================================================================
@@ -8092,9 +8015,9 @@
       content: DOBASELINE_CONTENT, init: doBaselineInit,
       caption: { title: 'PERFORM · The culminating activity, four beats (D1/D2)', note: 'Alignment brief D6: rebuilt from a version keyed end-of-shift-sharps that re-staged chain’s own Chris/Jacob incident as the final exam — a redundancy, since the learner had already resolved that exact dilemma once. This version matches K&A’s script: an unclaimed blade, no character to negotiate with. Four coach-led beats, not roleplay — nobody is in the scene to react, only a decision (D1), a step-by-step description (D2), a complication testing Recovery (D2), and a closing sentiment question that is explicitly not a KFD objective and carries no Record row. Runs on its OWN page, so its rubric evidence lives in its debrief rather than on the record screen below; this beat is where both Do objectives are evidenced now. §6.3: Public Sector runs its own sector-authored scenario (scenarioKey()), not Manufacturing’s. D10: the Demo menu’s "Do-object baseline" toggle swaps this for an in-page video plus one stand-in question — the PRD’s literal Do-object ask, reviewer-only and never on a learner’s path.' },
       coach: { say: '' } },
-    { id: 'record', icon: 'fa-chart-simple', mins: 1, stage: 'Record', lesson: 'Your Record', mode: 'sidebar',
-      caption: { title: 'RECORD · Objective-level record', note: 'Eight objectives, each with the policy that governed it and where its evidence came from. Seven closed, one deliberately open — objective-level performance data from day one, which is what turns provenance into evidence without re-authoring anything. The learner’s view of this screen carries none of that vocabulary: Know / Feel / Do survives as three plain headings and the row icon, and the sub-level, theoretical construct and assessment policy live here and in the Learning Layer view.' },
-      coach: { say: '', ask: 'Ask CLARA about your record…' },
+    { id: 'record', icon: 'fa-chart-simple', mins: 1, stage: 'Record', lesson: 'Your Results', mode: 'floating', noCoach: true,
+      caption: { title: 'RECORD · Results (strengths, needs work, change since the pre-check)', note: 'Rebuilt 2026-10-23: no CLARA on this screen, content centered. Each measured topic (K1, K2, F1, F3, D1, D2) lands in Strengths or Needs work with how it was assessed; knowledge = correct (incl. on retry), agreement = 4–5 of 5, scenario = decision \u201cnow\u201d / all four rubric parts met. F2 is taught but never asked here, so it is not graded; D3 shows as \u201cYour plan\u201d, not a result. \u201cSince the pre-check\u201d compares the same four pre-check items against their later asks. Earlier note follows. Eight objectives, each with the policy that governed it and where its evidence came from. Seven closed, one deliberately open — objective-level performance data from day one, which is what turns provenance into evidence without re-authoring anything. The learner’s view of this screen carries none of that vocabulary: Know / Feel / Do survives as three plain headings and the row icon, and the sub-level, theoretical construct and assessment policy live here and in the Learning Layer view.' },
+      coach: { say: '' },
       content: RECORD_CONTENT, init: recordInit }
   ];
 
