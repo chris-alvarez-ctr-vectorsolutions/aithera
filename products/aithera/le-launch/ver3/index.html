@@ -12,8 +12,8 @@
     <!-- Self-hosted Font Awesome Pro (repo root is four levels up from verN/) -->
     <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
     <!-- The admin pages' stylesheet, so this reads as the same product; then this page's additions -->
-    <link rel="stylesheet" href="../../bbp-admin/ver1/admin.css?v=61" />
-    <link rel="stylesheet" href="launch.css?v=10" />
+    <link rel="stylesheet" href="../../bbp-admin/ver1/admin.css?v=63" />
+    <link rel="stylesheet" href="launch.css?v=11" />
 </head>
 <body>
 
@@ -51,7 +51,7 @@
                         <span class="step-edit">Edit</span>
                     </button>
                     <div class="step-body">
-                        <p class="rp-card-sub">Same as assigning any course, to one learner. Adaptive courses add one step: how it adapts.</p>
+                        <p class="rp-card-sub">Same as assigning any course, to one learner. Adaptive courses add one step: adaptations.</p>
                         <!-- A dropdown, since the list will grow. The rail shows the chosen course from the start and follows any change. -->
                         <vaadin-select theme="outlined" id="courseSel" label="Course" class="course-sel"></vaadin-select>
                         <div class="step-foot"><vaadin-button theme="primary" class="step-next">Continue</vaadin-button></div>
@@ -73,11 +73,6 @@
                             <vaadin-select theme="outlined" id="subsector" label="Sub-sector"></vaadin-select>
                             <vaadin-select theme="outlined" id="role" label="Role"></vaadin-select>
                             <vaadin-select theme="outlined" id="language" label="Language"></vaadin-select>
-                            <div class="fmt-field span-2">
-                                <span class="lbl" id="fmtLbl">Preferred format</span>
-                                <span class="persona" id="format" role="radiogroup" aria-labelledby="fmtLbl"></span>
-                                <p class="field-note" style="margin:8px 0 0">They can change this again during the opening check (listen mode).</p>
-                            </div>
                         </div>
                         <div class="step-foot"><vaadin-button theme="primary" class="step-next">Continue</vaadin-button></div>
                     </div>
@@ -88,7 +83,7 @@
                 <section class="rp-card step" data-step="adapt" aria-labelledby="hAdapt">
                     <button type="button" class="step-head" aria-expanded="false">
                         <span class="step-num">3</span>
-                        <span><h2 id="hAdapt">How it adapts</h2><span class="step-sum"></span></span>
+                        <span><h2 id="hAdapt">Adaptations</h2><span class="step-sum"></span></span>
                         <span class="step-edit">Edit</span>
                     </button>
                     <div class="step-body">
@@ -157,7 +152,7 @@
    courses; Bloodborne Pathogens isn't live yet, so it needs WIP preview.
    Field help text quotes the dev team's notes on what each option does.
 
-   Steps: Course → Learner → How it adapts → Testing options. Each has sensible
+   Steps: Course → Learner → Adaptations → Testing options. Each has sensible
    defaults, so finishing a step is one click on Continue. The button is off until
    all four are done. A setup link (one that names a course) arrives with every
    step done and a fresh learner ID, so each tester who opens it is one click from
@@ -194,11 +189,14 @@ var COORDINATORS = {
 };
 
 var STEPS = ['course', 'who', 'adapt', 'tools'];
-var STEP_NAME = { course: 'Course', who: 'Learner', adapt: 'How it adapts', tools: 'Testing options (advanced)' };
+var STEP_NAME = { course: 'Course', who: 'Learner', adapt: 'Adaptations', tools: 'Testing options (advanced)' };
 
 /* ---- Display names for the engine's raw values. Anything unlisted is shown with a capital first letter. ---- */
 var NICE = { edu: 'Education', commercial: 'Commercial', en: 'English', es: 'Español', video: 'Video', audio: 'Audio', text: 'Reading' };
 var FMT_ICON = { video: 'fa-circle-play', audio: 'fa-headphones', text: 'fa-book-open' };
+// What admins see for each format (the engine's values are video / audio / text).
+var FMT_LABEL = { video: 'Watch', audio: 'Listen', text: 'Read' };
+function fmtLabel(m) { return FMT_LABEL[m] || nice(m); }
 function nice(v) { return v == null ? '' : (NICE[v] || (v.charAt(0).toUpperCase() + v.slice(1))); }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 function $(id) { return document.getElementById(id); }
@@ -227,7 +225,8 @@ var st = {
   courses: SNAPSHOT,
   preview: true,           // true = WIP preview, false = Live
   course: SNAPSHOT[1].composite_id,
-  sector: null, subsector: null, role: null, language: 'en', modality: 'video',
+  sector: null, subsector: null, role: null, language: 'en',
+  formats: { video: true, audio: true, text: true },   // approved formats: what the learner can choose from
   testOut: true, testUp: true, demoMode: true, debugPanel: true,
   learnerName: 'Learner X', coordinator: 'default', identity: newIdentity(),
   step: 'course', done: {},  // which step is open (null = none), and which are finished
@@ -246,7 +245,8 @@ function allDone() { return STEPS.every(function (s) { return st.done[s]; }); }
   if (q.get('identity')) st.identity = q.get('identity');
   if (q.get('composite')) st.course = q.get('composite');
   if (q.get('name') !== null) st.learnerName = q.get('name');
-  ['sector', 'subsector', 'role', 'language', 'modality'].forEach(function (k) { var v = str(k); if (v !== undefined) st[k] = v; });
+  ['sector', 'subsector', 'role', 'language'].forEach(function (k) { var v = str(k); if (v !== undefined) st[k] = v; });
+  if (q.get('formats')) { var f = q.get('formats').split(','); Object.keys(st.formats).forEach(function (k) { st.formats[k] = f.indexOf(k) >= 0; }); }
   if (q.get('test_out') !== null) st.testOut = q.get('test_out') === 'true';
   if (q.get('test_up') !== null) st.testUp = q.get('test_up') === 'true';
   if (q.get('debug_panel') !== null) st.debugPanel = /^(true|1)$/.test(q.get('debug_panel'));
@@ -264,7 +264,15 @@ function normalize() {
   st.subsector = keep(subsectorsFor(v, st.sector), st.subsector);
   st.role = keep(rolesFor(v, st.sector, st.subsector), st.role);
   st.language = keep(v.languages, st.language) || v.languages[0] || null;
-  st.modality = keep(v.modalities, st.modality) || v.modalities[0] || null;
+  // Approved formats stay within what this course offers, and at least one stays on.
+  v.modalities.forEach(function (m) { if (st.formats[m] == null) st.formats[m] = true; });
+  if (!approved().length) st.formats[v.modalities[0]] = true;
+}
+
+function approved() { var v = cur().vocabulary; return v.modalities.filter(function (m) { return st.formats[m]; }); }
+function formatsText() {
+  var a = approved();
+  return a.length === cur().vocabulary.modalities.length ? 'All formats' : a.map(fmtLabel).join(' and ') + ' only';
 }
 
 /* What stops a step from being finished, if anything. */
@@ -281,11 +289,11 @@ function summary(step) {
   if (step === 'course') return c.title;
   if (step === 'who') {
     var where = [st.role, st.subsector, st.sector].filter(Boolean).map(nice).join(', ') || 'No sector or role';
-    return (st.learnerName.trim() || 'No name') + ' · ' + where + ' · ' + nice(st.language) + ', ' + nice(st.modality);
+    return (st.learnerName.trim() || 'No name') + ' · ' + where + ' · ' + nice(st.language);
   }
   if (step === 'adapt') {
     var a = [st.testOut ? 'Skips what they know' : null, st.testUp ? 'Harder questions' : null].filter(Boolean);
-    return a.length ? a.join(', ') : 'Off. Everyone gets the same course.';
+    return (a.length ? a.join(', ') : 'Off. Everyone gets the same course.') + ' · ' + formatsText();
   }
   var tools = [st.debugPanel ? 'Debug panel' : null, st.demoMode ? 'Demo mode' : null].filter(Boolean);
   return (st.preview ? 'WIP preview' : 'Live') + ' · ' + st.identity + (tools.length ? ' · ' + tools.join(', ') : '');
@@ -344,13 +352,6 @@ function drawWho() {
   $('role').disabled = !roles.length;
   setSelect($('language'), v.languages, st.language);
   $('learnerName').value = st.learnerName;
-
-  $('format').innerHTML = v.modalities.map(function (m) {
-    return '<button type="button" role="radio" aria-checked="' + (m === st.modality) + '" data-m="' + m + '"><i class="fa-solid ' + (FMT_ICON[m] || 'fa-circle') + '"></i>' + esc(nice(m)) + '</button>';
-  }).join('');
-  document.querySelectorAll('#format button').forEach(function (b) {
-    b.addEventListener('click', function () { st.modality = b.dataset.m; drawWho(); drawRail(); });
-  });
 }
 
 /* One setting row, in the admin Settings page's shape: icon, plain label + help, switch on the right.
@@ -373,14 +374,33 @@ function drawSwitches() {
     setRow('testOut', 'fa-forward', 'Let people skip what they already know',
       'If someone answers the opening questions correctly, they skip that lesson. It still counts as covered on their record.', 'test_out', st.testOut) +
     setRow('testUp', 'fa-arrow-trend-up', 'Give stronger learners harder questions',
-      'People who are clearly ahead get tougher scenarios instead of the standard ones.', 'test_up', st.testUp);
+      'People who are clearly ahead get tougher scenarios instead of the standard ones.', 'test_up', st.testUp) +
+    formatsRow();
   $('toolRows').innerHTML =
     setRow('debugPanel', 'fa-bug', 'Debug panel', 'Opens a small panel showing which version of the content you’re on and why it was picked.', 'debug_panel', st.debugPanel) +
     setRow('demoMode', 'fa-forward-fast', 'Demo mode', 'Lets you fast-forward through the videos.', 'demo_mode', st.demoMode);
   document.querySelectorAll('vwc-switch[data-key]').forEach(function (sw) {
     sw.addEventListener('checked-change', function () { st[sw.dataset.key] = !!sw.checked; drawAdaptNote(); drawRail(); });
   });
+  document.querySelectorAll('[data-f]').forEach(function (b) {
+    b.addEventListener('click', function () { st.formats[b.dataset.f] = !st.formats[b.dataset.f]; drawSwitches(); drawRail(); });
+  });
   drawAdaptNote();
+}
+/* Approved formats: which ones the learner is offered. At least one stays on.
+   DEV NOTE: the engine has no field for an approved list yet. It only takes one `preferred_modality`
+   (see body() / onlyFormat()). Until it does, the learner view still offers every format. A list field
+   on the goal request (name up to the dev team) would let the course show only the approved ones.
+   No dev-key tag on this row on purpose: there's no real field name to show. */
+function formatsRow() {
+  var a = approved();
+  return '<div class="set-row"><span class="set-ico"><i class="fa-solid fa-photo-film"></i></span><div class="set-main"><h3>Approved formats</h3>' +
+    '<p>Learner can select their preferred modality during the opening pre-check.</p>' +
+    '<span class="fmt-checks" role="group" aria-label="Approved formats">' + cur().vocabulary.modalities.map(function (m) {
+      var on = !!st.formats[m], last = on && a.length === 1;
+      return '<button type="button" role="checkbox" aria-checked="' + on + '" class="fmt-chk' + (on ? ' on' : '') + '" data-f="' + m + '"' + (last ? ' disabled title="At least one format has to stay on"' : '') + '>' +
+        '<i class="fa-solid ' + (on ? 'fa-square-check' : 'fa-square') + '"></i><i class="fa-solid ' + (FMT_ICON[m] || 'fa-circle') + '"></i>' + esc(fmtLabel(m)) + '</button>';
+    }).join('') + '</span></div><div class="set-ctl"></div></div>';
 }
 
 function drawTools() {
@@ -461,14 +481,18 @@ function body() {
   return {
     identity: st.identity.trim(), composite_id: st.course,
     sector: st.sector, subsector: st.subsector, role: st.role, language: st.language,
-    test_out: st.testOut, test_up: st.testUp, preferred_modality: st.modality,
+    test_out: st.testOut, test_up: st.testUp, preferred_modality: onlyFormat(),
     learner_name: st.learnerName.trim() || null, coordinator: COORDINATORS[st.coordinator],
     demo_mode: st.demoMode, debug_panel: st.debugPanel, preview: st.preview
   };
 }
+// Until the engine takes a list: one approved format is sent as the preferred one; more than one sends none,
+// so the learner chooses at the opening pre-check.
+function onlyFormat() { var a = approved(); return a.length === 1 ? a[0] : null; }
 function choiceParams() {
   var q = new URLSearchParams({ composite: st.course });
-  ['sector', 'subsector', 'role', 'language', 'modality'].forEach(function (k) { if (st[k] != null) q.set(k, st[k]); });
+  ['sector', 'subsector', 'role', 'language'].forEach(function (k) { if (st[k] != null) q.set(k, st[k]); });
+  if (onlyFormat()) q.set('modality', onlyFormat());
   q.set('test_out', String(st.testOut)); q.set('test_up', String(st.testUp)); q.set('debug_panel', String(st.debugPanel));
   return q;
 }
@@ -481,6 +505,7 @@ function engineLink() {
 function selfLink() {
   var q = choiceParams(), mine = new URL(location.href);
   q.set('name', st.learnerName); q.set('demo_mode', String(st.demoMode)); q.set('coordinator', st.coordinator);
+  q.delete('modality'); q.set('formats', approved().join(','));
   if (!st.preview) q.set('content', 'live');
   mine.search = q.toString(); mine.hash = ''; return mine.toString();
 }
@@ -613,9 +638,9 @@ customElements.whenDefined('vaadin-select').then(function () {
         { id: 'course', flow: 'steps', entry: true, x: 60,  y: 80, step: '1', name: 'Course', state: 'course',
           desc: 'Pick the adaptive course. The rail shows it from the start. Start course is locked until all four steps are done.' },
         { id: 'who',    flow: 'steps', x: 360, y: 80, step: '2', name: 'Learner', state: 'who',
-          desc: 'Name, sector, sub-sector, role, language and preferred format.' },
-        { id: 'adapt',  flow: 'steps', x: 660, y: 80, step: '3', name: 'How it adapts', state: 'adapt',
-          desc: 'The two behaviors the engine lets you switch, plus a one-line note on how to see them work.' },
+          desc: 'Name, sector, sub-sector, role and language.' },
+        { id: 'adapt',  flow: 'steps', x: 660, y: 80, step: '3', name: 'Adaptations', state: 'adapt',
+          desc: 'The two behaviors the engine lets you switch, the approved formats, and a one-line note on how to see them adapt.' },
         { id: 'tools',  flow: 'steps', x: 960, y: 80, step: '4', name: 'Testing options', state: 'tools',
           desc: 'Content (WIP preview by default), learner ID, course coordinator, debug panel, demo mode. The defaults are fine, and none of it shows in the rail. Done unlocks Start course.' },
         { id: 'ready',  flow: 'after', x: 360, y: 300, step: '5', name: 'Ready to start', state: 'ready',
