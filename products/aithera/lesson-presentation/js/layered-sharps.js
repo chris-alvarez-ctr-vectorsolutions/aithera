@@ -805,7 +805,7 @@
         '</div>';
       }
       return '<button class="cp-row is-current is-startable" type="button" data-action="start" aria-label="Start ' + esc(m.name) + '">' + icoMain +
-        '<span class="cp-row-state todo">Up next</span>' +
+        '<span class="cp-row-state todo">Start</span>' +
       '</button>';
     }).join('');
 
