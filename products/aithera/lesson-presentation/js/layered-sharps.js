@@ -688,7 +688,7 @@
     var tags = m.state !== 'done';
     return '<span class="cp-row-meta"><span>About ' + m.mins + ' min' + (m.mins > 1 ? 's' : '') + '</span>' +
       (tags && m.adaptive ? '<span class="adapt"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>Adaptive</span>' : '') +
-      (tags && m.podcast ? '<span class="pod"><i class="fa-solid fa-headphones" aria-hidden="true"></i>Listen mode</span>' : '') +
+      (tags && m.podcast ? '<span class="pod"><i class="fa-solid fa-headphones" aria-hidden="true"></i>Listening</span>' : '') +
     '</span>';
   }
   function INTRO_CONTENT() { var L = lens(); return '' +
@@ -737,16 +737,12 @@
               modalityDropdown({ now: 'introModNow', btn: 'introModChange', wrap: 'introModPickWrap',
                 icon: 'introModNowIcon', label: 'introModNowLabel', pick: 'introModPick' },
                 ['video', 'listen', 'article'], null, MODE_CARD) +
-              // Only shown while Listening is the selected preference.
-              '<div class="cp-format-note cp-listen-note" id="introModNote" hidden>' +
-                '<span>Listening applies to modules that offer it.</span>' +
-                '<button class="cp-help" type="button" id="introModHelpBtn" aria-expanded="false" ' +
-                  'aria-controls="introModHelp" aria-label="What is Listening?">' +
-                  '<i class="fa-regular fa-circle-question" aria-hidden="true"></i></button>' +
-                '<div class="cp-help-tip" id="introModHelp" role="tooltip" hidden>' +
-                  'Listening is one continuous audio track with content presented as a host-led conversation. ' +
-                  'Once complete, you\u2019ll answer the questions on screen.</div>' +
-              '</div>' +
+              // The current choice's one-line description, the same line the
+              // "How do you prefer to learn?" screen shows under it (OFFER
+              // sub). It replaced Listening's own note + help tooltip
+              // (2026-10-27); Listening adds only its "modules that offer
+              // it" caveat.
+              '<p class="cp-format-note" id="introModNote" aria-live="polite"></p>' +
             '</div>' +
             // D11 → moved to the Demo menu: sector/role and the self-assigned
             // name are reviewer/demo-driver settings, not a choice a real
@@ -884,12 +880,6 @@
     // preference here, since that write is this card's own job, not
     // something a shared helper should do on every caller's behalf).
     var introPick = document.getElementById('introModPick');
-    var helpBtn = document.getElementById('introModHelpBtn'), helpTip = document.getElementById('introModHelp');
-    if (helpBtn && helpTip) helpBtn.addEventListener('click', function () {
-      var open = helpTip.hidden;
-      helpTip.hidden = !open;
-      helpBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    });
     if (introPick) {
       var introDD = initModalityDropdown(
         { btn: 'introModChange', wrap: 'introModPickWrap', icon: 'introModNowIcon', label: 'introModNowLabel' },
@@ -907,8 +897,8 @@
       var note = document.getElementById('introModNote');
       var showNote = function (k) {
         if (!note) return;
-        note.hidden = k !== 'listen';
-        if (k !== 'listen' && helpTip) { helpTip.hidden = true; helpBtn.setAttribute('aria-expanded', 'false'); }
+        var o = OFFER.filter(function (x) { return x.key === k; })[0];
+        note.textContent = (o ? o.sub : '') + (k === 'listen' ? ' Applies to modules that offer it.' : '');
       };
       introDD.render(curMode());
       markFmt(curMode());
