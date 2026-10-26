@@ -684,11 +684,12 @@
   ];
   // Tags only on modules still to take: they help a learner decide how to
   // take one, and on a finished module they're noise (2026-09-25 review).
+  // No audio tag (2026-10-27): the preference card already says Listening
+  // applies to modules that offer it, so the row doesn't repeat it.
   function moduleMeta(m) {
     var tags = m.state !== 'done';
     return '<span class="cp-row-meta"><span>About ' + m.mins + ' min' + (m.mins > 1 ? 's' : '') + '</span>' +
       (tags && m.adaptive ? '<span class="adapt"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>Adaptive</span>' : '') +
-      (tags && m.podcast ? '<span class="pod"><i class="fa-solid fa-headphones" aria-hidden="true"></i>Listening</span>' : '') +
     '</span>';
   }
   function INTRO_CONTENT() { var L = lens(); return '' +
