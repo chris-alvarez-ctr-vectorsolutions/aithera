@@ -719,11 +719,12 @@
             '<div id="cpRows"></div>' +
           '</section>' +
           '<aside class="cp-rail">' +
-            // 2026-09-29: the card sets the learner's MODE preference
-            // (Standard / Listen mode, the one the Listen mode offer screen
-            // reads), not a per-screen format. Watch / Read / Read to me is
-            // chosen on each screen and no longer carries between screens.
-            '<div class="cp-card cp-format"><h3>Preferred mode</h3>' +
+            // 2026-09-29: the card sets the learner's MODE preference (the
+            // one the "How do you prefer to learn?" screen reads), not a
+            // per-screen format. 2026-10-27: it offers that screen's own
+            // three options — Watching / Listening / Reading — rather than
+            // Classic / Listen mode.
+            '<div class="cp-card cp-format"><h3>How you prefer to learn</h3>' +
               // Collapsed to the current choice by default — a full four-way
               // picker on a page the learner has not started anything on yet
               // reads as a decision being demanded rather than a setting
@@ -735,15 +736,15 @@
               // one, honestly labeled) are still one tap away.
               modalityDropdown({ now: 'introModNow', btn: 'introModChange', wrap: 'introModPickWrap',
                 icon: 'introModNowIcon', label: 'introModNowLabel', pick: 'introModPick' },
-                ['standard', 'listen'], null, MODE_CARD) +
-              // Only shown while Listen mode is the selected preference.
+                ['video', 'listen', 'article'], null, MODE_CARD) +
+              // Only shown while Listening is the selected preference.
               '<div class="cp-format-note cp-listen-note" id="introModNote" hidden>' +
-                '<span>Listen mode applies to modules that offer it.</span>' +
+                '<span>Listening applies to modules that offer it.</span>' +
                 '<button class="cp-help" type="button" id="introModHelpBtn" aria-expanded="false" ' +
-                  'aria-controls="introModHelp" aria-label="What is Listen mode?">' +
+                  'aria-controls="introModHelp" aria-label="What is Listening?">' +
                   '<i class="fa-regular fa-circle-question" aria-hidden="true"></i></button>' +
                 '<div class="cp-help-tip" id="introModHelp" role="tooltip" hidden>' +
-                  'Listen mode is one continuous listen with content presented as a host-led conversation. ' +
+                  'Listening is one continuous audio track with content presented as a host-led conversation. ' +
                   'Once complete, you\u2019ll answer the questions on screen.</div>' +
               '</div>' +
             '</div>' +
@@ -893,9 +894,9 @@
       var introDD = initModalityDropdown(
         { btn: 'introModChange', wrap: 'introModPickWrap', icon: 'introModNowIcon', label: 'introModNowLabel' },
         MODE_CARD);
-      // No saved preference reads as Standard mode, the default — the offer
+      // No saved preference reads as Watching, the default — the offer
       // screen still treats it as unsaved and offers to save one.
-      var curMode = function () { return modePref() || 'standard'; };
+      var curMode = function () { return offerPref() || 'video'; };
       var markFmt = function (k) {
         [].forEach.call(introPick.querySelectorAll('.md-opt'), function (b) {
           var on = b.dataset.m === k;
@@ -915,7 +916,7 @@
       introPick.addEventListener('click', function (e) {
         var b = e.target.closest('.md-opt');
         if (!b) return;
-        setModePref(b.dataset.m);
+        setOfferPref(b.dataset.m);
         markFmt(b.dataset.m);
         showNote(b.dataset.m);
         introDD.render(b.dataset.m);
@@ -2939,11 +2940,6 @@
     standard: { icon: 'fa-display', name: 'Classic mode',
                 sub: function () { return 'Videos and articles with questions after each.'; } }
   };
-  // The title page's Preferred mode card, in the picker's own shape.
-  var MODE_CARD = {
-    standard: { icon: MODES.standard.icon, label: MODES.standard.name },
-    listen:   { icon: MODES.listen.icon, label: MODES.listen.name }
-  };
   // "How do you prefer to learn?" (2026-10-20, DLE alignment): the learner's
   // answer sets the modality. Listening = Listen mode; Watching and Reading are
   // Classic mode with the video or the article as the default carrier
@@ -2963,6 +2959,16 @@
     { key: 'listen',  name: 'Listening', icon: 'fa-headphones',  sub: 'An audio podcast with questions at the end.' },
     { key: 'article', name: 'Reading',   icon: 'fa-file-lines',  sub: 'Articles with questions after each.' }
   ];
+  // The title page's preference card, in the picker's own shape: the same
+  // three options, names, icons and order as the offer above (2026-10-27),
+  // so the setting reads the same wherever the learner meets it.
+  var MODE_CARD = {};
+  OFFER.forEach(function (o) { MODE_CARD[o.key] = { icon: o.icon, label: o.name }; });
+  // Saving an offer key writes the mode, and for Classic, which format.
+  function setOfferPref(k) {
+    setModePref(k === 'listen' ? 'listen' : 'standard');
+    if (k !== 'listen') setFormatPref(k);
+  }
   // The offer key a saved preference stands for, or null.
   function offerPref() {
     var m = modePref();
@@ -3055,8 +3061,7 @@
     // mode and, for Classic, which format.
     box.addEventListener('change', function () {
       if (!box.checked) return;
-      setModePref(picked === 'listen' ? 'listen' : 'standard');
-      if (picked !== 'listen') setFormatPref(picked);
+      setOfferPref(picked);
     });
 
     // Back from later in the module: this run's own pick wins. Otherwise the
@@ -4725,7 +4730,7 @@
   //  the learner arrives on the default and can still see, at any point,
   //  what the other option is.
   // `table` defaults to MODALITIES; the title page's mode card passes its own
-  // (MODE_CARD — Standard / Listen mode) through the same picker.
+  // (MODE_CARD — Watching / Listening / Reading) through the same picker.
   function modalityPicker(id, keys, table) {
     table = table || MODALITIES;
     return '<div class="md-pick" id="' + id + '" role="group" ' +
