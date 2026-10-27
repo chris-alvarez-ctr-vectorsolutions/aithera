@@ -454,8 +454,6 @@
     requestAnimationFrame(function () { applyZoom(true); drawLinks(); markNav(); drawStrip(); });
   }
   document.querySelectorAll('[data-mode]').forEach(function (b) { b.addEventListener('click', function () { setMode(b.dataset.mode); }); });
-  document.getElementById('toDesign').addEventListener('click', function () { setMode('design'); });
-  document.getElementById('toPlay').addEventListener('click', function () { setMode('play'); });
   document.addEventListener('keydown', function (e) {
     if (e.target.closest && e.target.closest('input, textarea, vaadin-select, [contenteditable]')) return;
     if (e.key === 'ArrowRight') { var n = neighbor(1); if (n) select(n); }
