@@ -2392,7 +2392,7 @@
     if (!DECK[deck].recheck) {
       var served = s.when || function () { return true; };
       s.served = served;
-      s.when = function () { return served() && !podcastPath(); };
+      s.when = function () { return served() && !podcastPath() && !readingPath(); };
     }
     return s;
   }
@@ -2440,6 +2440,11 @@
     // so that format decides the path.
     if (AP && AP.only()) return AP.only() === 'listen';
     return !!(readCourse().podpath || {}).podcast;
+  }
+  // Reading (2026-10-27): the scroll-story article, then the questions. See
+  // THE READING PATH below. Watching is the only per-screen carrier now.
+  function readingPath() {
+    return !podcastPath() && modalityId() === 'article';
   }
 
   // ---- The data ------------------------------------------------------------
@@ -2764,7 +2769,7 @@
   var OFFER = [
     { key: 'video',   name: 'Watching',  icon: 'fa-circle-play', sub: 'Videos with questions after each.' },
     { key: 'listen',  name: 'Listening', icon: 'fa-headphones',  sub: 'An audio podcast with questions at the end.' },
-    { key: 'article', name: 'Reading',   icon: 'fa-file-lines',  sub: 'Articles with questions after each.' }
+    { key: 'article', name: 'Reading',   icon: 'fa-file-lines',  sub: 'An article with questions at the end.' }
   ];
   // The title page's preference card, in the picker's own shape: the same
   // three options, names, icons and order as the offer above (2026-10-27),
@@ -2794,8 +2799,11 @@
           var k = o.key;
           // The visual is a quiet picture of the experience's shape: one long
           // listen then a short quiz, versus three watch/read-then-answer pairs.
+          // Reading is one long read then the quiz, the same shape as Listening.
           var vis = k === 'listen'
             ? '<span class="po-wave" data-wave></span><span class="po-kz"></span>'
+            : k === 'article'
+            ? '<span class="po-doc"></span><span class="po-kz"></span>'
             : '<span class="po-pair"><i class="w"></i><i class="k"></i></span>'.repeat(3);
           // Three tall cards side by side, each with its description showing. A
           // div, not a button, so each can hold richer content.
@@ -2807,7 +2815,7 @@
             '<span class="po-txt"><b>' + esc(o.name) + '</b>' +
               (k === pref ? '<span class="po-tag">Your preference</span>' : '') +
               '<small>' + esc(o.sub) + '</small></span>' +
-            '<span class="po-vis' + (k === 'listen' ? '' : ' po-vis--std') + '" aria-hidden="true">' + vis + '</span>' +
+            '<span class="po-vis' + (k === 'video' ? ' po-vis--std' : '') + '" aria-hidden="true">' + vis + '</span>' +
           '</div>';
         }).join('') +
       '</div>' +
@@ -3325,7 +3333,13 @@
         .catch(function () { document.getElementById('blQ').textContent = 'The questions couldn\u2019t be loaded. Reload the page to try again.'; });
       return;
     }
-    var items = podcheckItems(), n = items.length;
+    checkStack(ctx, podcheckItems(), 'podcast', 'podcheck');
+  }
+  // The stack itself, shared by Listening and Reading (readcheckInit): the
+  // items, the carrier saved with each answer, and the key marking it done.
+  // An item without a title shows just "Question N of M".
+  function checkStack(ctx, items, carrier, doneKey) {
+    var n = items.length;
     var askEl = document.getElementById('blAsk');
     var stepEl = document.getElementById('blStep');
     var qEl = document.getElementById('blQ');
@@ -3337,7 +3351,7 @@
     var far = document.getElementById('blPeek2');
     var MISS = 'Let’s dig into this again from a slightly different lens.';
 
-    function eyebrow(i) { return 'Question ' + (i + 1) + ' of ' + n + ' · ' + items[i].title; }
+    function eyebrow(i) { return 'Question ' + (i + 1) + ' of ' + n + (items[i].title ? ' · ' + items[i].title : ''); }
     function answerHtml(q, live) {
       return q.kind === 'likert' ? likertHtml(live) : mcqHtml(q.options, live);
     }
@@ -3424,7 +3438,7 @@
           // On a short window the verdict (and Next question under it) can
           // land under the fixed footer — bring them up into view.
           clearFooter(checkEl);
-          saveResult(q.key, { variant: q.variant, passed: ok, picked: v, carrier: 'podcast' });
+          saveResult(q.key, { variant: q.variant, passed: ok, picked: v, carrier: carrier });
           checkEl.textContent = i + 1 < n ? 'Next question' : 'Continue';
           checkEl.disabled = false;
           checkEl.onclick = function () { checkEl.onclick = null; spend(checkEl); advance(i); };
@@ -3434,10 +3448,10 @@
         spend(checkEl);
         if (q.kind === 'insight') {
           csMark(picked, 'neutral');
-          saveResult(q.key, { picked: v, answer: q.options[v].t, carrier: 'podcast' });
+          saveResult(q.key, { picked: v, answer: q.options[v].t, carrier: carrier });
         } else {
           picked.classList.add('is-picked');
-          saveResult(q.key, { score: v, carrier: 'podcast' });
+          saveResult(q.key, { score: v, carrier: carrier });
         }
         setTimeout(function () { advance(i); }, T(700));
       });
@@ -3469,7 +3483,7 @@
     }
     // Like the pre-check's last card: it drops off, and the module moves on.
     function done() {
-      saveResult('podcheck', { done: true });
+      saveResult(doneKey, { done: true });
       askEl.classList.add('is-dropping');
       dotsEl.classList.add('is-gone');
       ctx.enableNext();
@@ -3617,6 +3631,214 @@
     '</div></main>';
   }
   function listendoneInit(ctx) { ctx.setCoachSay(''); ctx.floatClose(); ctx.enableNext(); }
+
+  // ==========================================================================
+  //  THE READING PATH (2026-10-27).
+  //
+  //    pre-check → the offer → the article → the questions → a reteach for
+  //    each missed knowledge question → the scenario
+  //
+  //  The article is the "Next Pair of Hands" scroll story (sharps riff 08,
+  //  V2), embedded AS IT IS: its own ?embed=1 mode drops its top bar, and
+  //  none of its content is edited for this, so it can go through SME and
+  //  creative review first. It is Manufacturing-only and every sector reads
+  //  it until a Law Enforcement version exists (the reviewer tag says so).
+  //  Its three situations stay unscored practice; its gate stays its own.
+  //
+  //  Routing and scoring stay the module's. The questions after it are the
+  //  deck's, picked by the same rules as Watching (the harder K1/K2 question
+  //  on a correct pre-check answer, F1 and F3 asked again), and saved under
+  //  the same keys, so the results screen reads them unchanged. A missed
+  //  knowledge question gets that case's remedial narration (c1rem / c2rem)
+  //  as a reteach, then the same question once more (k1recheck / k2recheck).
+  //  The article itself never adapts: clara/docs/reading-chapter-crosswalk
+  //  .html is the parked plan for when it does.
+  // ==========================================================================
+  var READ_ARTICLE = '../experiments/sharps-riffs/08-scroll-story-v2.html';
+  // The article's chapters in order: V2's own section ids. s8 and s9 sit
+  // behind its activity (s7) until every situation has an answer.
+  var READ_CHAPTERS = ['top', 's1', 's3', 's4', 's5', 's6', 's7', 's8', 's9'];
+
+  function READ_CONTENT() {
+    return '<main class="ll-object ra-object">' +
+      '<iframe class="ra-view" id="raView" title="Article: The next pair of hands" src="' + READ_ARTICLE + '?embed=1"></iframe>' +
+    '</main>';
+  }
+  // The module's footer walks the article: Continue borrows "Next section"
+  // until the last chapter, Back steps up a chapter until the first. While
+  // the activity is still locked, Next waits on it, the way the article's
+  // own gate does. A run that already finished the article (Back from the
+  // questions) may Continue past the gate, since the article starts locked
+  // again on every load.
+  function readInit(ctx) {
+    ctx.setCoachSay('');
+    ctx.floatClose();
+    ctx.disableNext();
+    var view = document.getElementById('raView'), win = null, doc = null;
+    var raf = 0, shown = '', mo = null;
+    var finished = !!(readCourse().reading || {}).done;
+
+    function chapters() {
+      return READ_CHAPTERS.map(function (id) { return doc.getElementById(id); })
+        .filter(function (el) { return el && el.offsetParent !== null; });
+    }
+    function at(list) {
+      // The chapter whose top has passed 40% of the window, or the last one
+      // once the page is scrolled to its end.
+      if (win.scrollY + win.innerHeight >= doc.documentElement.scrollHeight - 4) return list.length - 1;
+      var line = win.innerHeight * .4, cur = 0;
+      list.forEach(function (el, i) { if (el.getBoundingClientRect().top <= line) cur = i; });
+      return cur;
+    }
+    function go(dir) {
+      var list = chapters(), to = list[at(list) + dir];
+      if (to) to.scrollIntoView({ behavior: doc.documentElement.classList.contains('rm') ? 'auto' : 'smooth', block: 'start' });
+    }
+    function refresh() {
+      if (!doc || !view.isConnected) return;
+      var list = chapters(), i = at(list), last = i >= list.length - 1;
+      var locked = doc.body.classList.contains('locked');
+      if (last && !locked && !finished) { finished = true; saveResult('reading', { done: true }); }
+      // Only touch the button when its state actually changes.
+      var state = !last ? 'next' : !locked || finished ? 'done' : 'wait';
+      if (state === shown) return;
+      shown = state;
+      if (state === 'done') { ctx.cancelNextAction(); ctx.enableNext(); return; }
+      // The press reverts the button, so put it back straight away rather
+      // than on the next frame (a background tab can hold frames back).
+      ctx.setNextAction('Next section', function () { shown = ''; go(1); refresh(); });
+      if (state === 'wait') ctx.els.next.disabled = true;
+    }
+    // A short timer rather than an animation frame: frames stall in a
+    // background or hidden tab, and the button would sit stale.
+    function tick() { if (!raf) raf = setTimeout(function () { raf = 0; refresh(); }, 60); }
+    // Back belongs to the article until its first chapter. Capture phase, so
+    // the engine's own Back never sees the press.
+    function onBack(e) {
+      if (!doc || !e.target.closest || e.target.closest('button') !== ctx.els.back) return;
+      if (at(chapters()) <= 0) return;
+      e.preventDefault(); e.stopPropagation();
+      go(-1);
+    }
+    window.addEventListener('click', onBack, true);
+
+    view.addEventListener('load', function () {
+      try { win = view.contentWindow; doc = view.contentDocument; } catch (e) { doc = null; }
+      // Opened from a double-clicked file, the browser keeps the article's
+      // page to itself: no chapter walking, just Continue.
+      if (!doc || !doc.body) { doc = null; ctx.enableNext(); return; }
+      win.addEventListener('scroll', tick, { passive: true });
+      win.addEventListener('resize', tick);
+      // The activity unlocking (body class) and the rest of the article
+      // opening (#afterGate loses hidden).
+      mo = new MutationObserver(tick);
+      mo.observe(doc.body, { attributes: true, attributeFilter: ['class', 'hidden'], subtree: true });
+      try { win.focus(); } catch (e) {}
+      refresh();
+    });
+
+    var stageRoot = document.querySelector('.ll-stage');
+    if (stageRoot && window.MutationObserver) {
+      var gone = new MutationObserver(function () {
+        if (view.isConnected) return;
+        gone.disconnect();
+        window.removeEventListener('click', onBack, true);
+        clearTimeout(raf);
+        if (mo) mo.disconnect();
+        ctx.cancelNextAction();
+      });
+      gone.observe(stageRoot, { childList: true });
+    }
+  }
+
+  // ---- The questions ---------------------------------------------------------
+  // The pre-check's card stack (checkStack, shared with Listening), holding
+  // the deck's question for each topic in the order Watching asks them. The
+  // version is the one Watching would have served: the harder K1/K2 case on
+  // a correct pre-check answer, the reinforced F1/F3 screen on a low one
+  // (those two ask the same agreement statement either way).
+  function readcheckItems() {
+    return [
+      k1TestUp() ? 'c1up' : 'c1base',
+      k2TestUp() ? 'c2up' : 'c2base',
+      'controls',
+      feelLow('f1') ? 'case3rf' : 'case3',
+      feelLow('f3') ? 'debriefrf' : 'debrief'
+    ].map(function (id) { return { id: id, q: deckCheck(deckFor(id)) }; })
+     .filter(function (it) { return it.q; });
+  }
+  function readcheckInit(ctx) {
+    ctx.setCoachSay('');
+    ctx.floatClose();
+    ctx.disableNext();
+    checkStack(ctx, readcheckItems(), 'article', 'readcheck');
+  }
+
+  // ---- The reteach -----------------------------------------------------------
+  // Watching serves the remedial screen after a missed knowledge question and
+  // then asks it again; Reading does the same in one place: the remedial
+  // case's narration, then the question that was missed, once (deckCheck on
+  // the remedial screen picks the missed version and its recheck key).
+  var READ_REMEDIAL = { k1check: 'c1rem', k2check: 'c2rem' };
+  function readMissed() {
+    var c = readCourse();
+    return Object.keys(READ_REMEDIAL).filter(function (k) {
+      return c[k] && c[k].passed === false && c[k].carrier === 'article';
+    }).map(function (k) { return READ_REMEDIAL[k]; });
+  }
+  function readreviewInit(ctx) {
+    ctx.setCoachSay('');
+    ctx.floatClose();
+    ctx.disableNext();
+    var root = document.getElementById('rv'), queue = readMissed(), qi = 0;
+    if (!queue.length) { root.innerHTML = '<p class="rv-note">Nothing to review.</p>'; ctx.enableNext(); return; }
+    function head(d) {
+      return '<p class="ll-eyebrow">Review' + (queue.length > 1 ? ' · ' + (qi + 1) + ' of ' + queue.length : '') + '</p>' +
+        '<h1 class="po-head" tabindex="-1">' + esc(d.title) + '</h1>';
+    }
+    function teach() {
+      var d = deckFor(queue[qi]);
+      root.innerHTML = head(d) +
+        '<div class="rv-card rv-card--text">' + d.narration.map(function (t) { return '<p>' + esc(t) + '</p>'; }).join('') + '</div>' +
+        '<div class="rv-actions"><button class="bl-check rv-go" type="button" id="rvGo">Try the question again</button></div>';
+      document.getElementById('rvGo').addEventListener('click', ask);
+      try { root.querySelector('.po-head').focus({ preventScroll: true }); } catch (e) {}
+    }
+    function ask() {
+      var d = deckFor(queue[qi]), q = deckCheck(d);
+      root.innerHTML = head(d) +
+        '<div class="rv-q">' +
+          '<h2 class="cs-q cs-q--lead">' + esc(q.stem) + '</h2>' +
+          mcqHtml(q.options, true) +
+          '<p class="dk-fb rv-fb" id="rvFb" role="status" hidden></p>' +
+          '<button class="bl-check" type="button" id="rvCheck" disabled>Check answer</button>' +
+        '</div>';
+      var host = root.querySelector('.dk-opts'), btn = document.getElementById('rvCheck'), fb = document.getElementById('rvFb');
+      wireChoice(host, btn, function (v, picked) {
+        var ok = v === q.correct;
+        csMark(picked, ok ? 'ok' : 'bad');
+        if (!ok) {
+          csTag(picked, 'Your answer');
+          var right = host.querySelectorAll('.cs-opt')[q.correct];
+          csMark(right, 'ok'); csTag(right, 'Correct answer');
+        }
+        fb.innerHTML = '<strong class="dk-fb-h"><i class="fa-solid ' + (ok ? 'fa-circle-check' : 'fa-circle-xmark') +
+            '" aria-hidden="true"></i> ' + (ok ? 'Correct' : 'Not quite') + '</strong>' +
+          (ok && q.okFb ? '<span class="dk-fb-b">' + esc(q.okFb) + '</span>' : '');
+        fb.className = 'dk-fb rv-fb ' + (ok ? 'is-ok' : 'is-bad');
+        fb.hidden = false;
+        saveResult(q.key, { variant: q.variant, passed: ok, picked: v, carrier: 'article-review' });
+        btn.textContent = qi + 1 < queue.length ? 'Next review' : 'Continue';
+        btn.disabled = false;
+        btn.onclick = function () {
+          qi++;
+          if (qi < queue.length) teach(); else { ctx.enableNext(); ctx.els.next.click(); }
+        };
+        btn.focus({ preventScroll: true });
+      });
+    }
+    teach();
+  }
 
   // ---- Reviewer tools ------------------------------------------------------------
   // Scenario switcher: the listens the pre-check can build, as Demo-menu
@@ -7857,6 +8079,25 @@
       caption: { title: 'CHECK · Completion (Listen mode)', note: 'The audio never hands off to the simulation, so this screen does. With Demo → Full scenario simulator on, the existing hand-off screen does this job instead, so this one steps aside.' },
       content: LISTENDONE_CONTENT, init: listendoneInit },
 
+    // ---- The reading path (see THE READING PATH above) ----------------------
+    { id: 'reading', icon: 'fa-file-lines', mins: 10, stage: 'Learn', lesson: 'Contain the Sharp', mode: 'floating', gate: true,
+      noCoach: true, coach: { say: '' },
+      when: function () { return readingPath(); },
+      // Reviewer tag: the article is the Manufacturing draft for every sector.
+      variant: function () { var l = LE.lensId(); return !l || l === 'manufacturing' ? null : 'Manufacturing article'; },
+      caption: { title: 'LEARN · The article (Reading)', note: 'The “Next Pair of Hands” scroll story (sharps riff 08, V2), embedded as it is in its ?embed=1 mode. Content unchanged pending SME and creative review; Manufacturing only, so every sector reads the Manufacturing draft for now. The footer walks its chapters; Continue waits on its three-situation activity, which stays unscored practice. It does not adapt: the questions after it carry the pre-check routing. The parked plan for aligning it with the eleven library chapters is clara/docs/reading-chapter-crosswalk.html.' },
+      content: READ_CONTENT, init: readInit },
+    { id: 'readcheck', icon: 'fa-list-check', mins: 3, stage: 'Check', lesson: 'Questions', mode: 'floating', gate: true,
+      noCoach: true, coach: { say: '' },
+      when: function () { return readingPath(); },
+      caption: { title: 'CHECK · The article’s questions (Reading)', note: 'The deck’s own questions in the pre-check’s card stack, one per topic in Watching’s order (K1, K2, F2, F1, F3), each from the version Watching would have served: the harder K1/K2 case on a correct pre-check answer. Saved under the same keys as Watching, so the results screen is unchanged.' },
+      content: PODCHECK_CONTENT, init: readcheckInit },
+    { id: 'readreview', icon: 'fa-rotate', mins: 2, stage: 'Check', lesson: 'Review', mode: 'floating', gate: true,
+      noCoach: true, coach: { say: '' }, adaptive: true, variant: 'Remedial version',
+      when: function () { return extraOn() && readingPath() && readMissed().length > 0; },
+      caption: { title: 'CHECK · Reteach (Reading)', note: 'Only after a missed knowledge question. The remedial case’s narration (deck c1rem / c2rem), then the missed question once more, saved as k1recheck / k2recheck, the same as Watching’s remedial screen.' },
+      content: REVIEW_CONTENT, init: readreviewInit },
+
     // ---- Deck slides 5–22 ----------------------------------------------------
     // Each case serves ONE of its versions: base, or the harder test-up version
     // when its pre-check question was answered correctly. A miss on either
@@ -7866,7 +8107,7 @@
     deckStep('c1up', { adaptive: true, variant: 'Mastery version', when: function () { return k1TestUp(); },
       caption: { title: 'LEARN · Case 1, test-up (K1) — deck slides 8–9', note: 'Served INSTEAD of the base case when pre-check question 1 was answered correctly. The harder version of the same procedure, then the slide 9 mastery check over it. A miss serves the remedial video (slide 7), same as the base case.' } }),
     deckStep('c1rem', { adaptive: true, variant: 'Remedial version',
-      when: function () { return extraOn() && checkMissed('k1check') && !podcastPath(); },
+      when: function () { return extraOn() && checkMissed('k1check') && !podcastPath() && !readingPath(); },
       caption: { title: 'LEARN · Case 1, remedial (K1) — deck slide 7', note: 'Only after a missed case 1 mastery check (either version). Re-teaches the never-recap, straight-to-container rule. Then re-asks the question that was missed (slide 6 or 9, whichever version ran); a second miss just moves the learner on.' } }),
 
     deckStep('c2base', { when: function () { return !k2TestUp(); },
@@ -7874,7 +8115,7 @@
     deckStep('c2up', { adaptive: true, variant: 'Mastery version', when: function () { return k2TestUp(); },
       caption: { title: 'LEARN · Case 2, test-up (K2) — deck slides 13–14', note: 'Served INSTEAD of the base case when pre-check question 2 was answered correctly. Slide 14 mastery check over it; a miss serves the remedial video (slide 12).' } }),
     deckStep('c2rem', { adaptive: true, variant: 'Remedial version',
-      when: function () { return extraOn() && checkMissed('k2check') && !podcastPath(); },
+      when: function () { return extraOn() && checkMissed('k2check') && !podcastPath() && !readingPath(); },
       caption: { title: 'LEARN · Case 2, remedial (K2) — deck slide 12', note: 'Only after a missed case 2 mastery check (either version). Re-teaches both recognition calls. Then re-asks the question that was missed (slide 11 or 14); a second miss just moves the learner on.' } }),
 
     deckStep('controls', {
@@ -8204,23 +8445,6 @@
       ],
       onChange: function (v, api) {
         try { sessionStorage.setItem('sh-video-style', v); sessionStorage.setItem('sh-modality', 'video'); } catch (e) {}
-        api.replay();
-      }
-    }, {
-      // Read as an article (default) or as Jessica's podcast transcript —
-      // the same chapters either way; see ARTICLE / PODCAST.
-      id: 'shReadStyleBtn', icon: 'fa-book-open', name: 'Read view',
-      note: 'Plain article, or the audio script as a transcript with speaker names',
-      // Only on a Reading run — there is no per-screen switch to land in the
-      // reader any more (2026-10-27).
-      visibleOn: function (step) { return !!DECK[step.id] && deckCarrier() === 'article'; },
-      type: 'select', value: readStyle,
-      options: [
-        { value: 'article', label: 'Article' },
-        { value: 'podcast', label: 'Audio script' }
-      ],
-      onChange: function (v, api) {
-        try { sessionStorage.setItem('sh-read-style', v); } catch (e) {}
         api.replay();
       }
     }, {
