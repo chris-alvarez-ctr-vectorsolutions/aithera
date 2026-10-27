@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
     <!-- Self-hosted Font Awesome Pro (repo root is four levels up from verN/) -->
     <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
-    <link rel="stylesheet" href="admin.css?v=63" />
+    <link rel="stylesheet" href="admin.css?v=64" />
 </head>
 <body>
     <div id="head"></div>
@@ -51,7 +51,7 @@
           { id: 'adapt',  flow: 'main', x: 440, y: 100, step: '3', name: 'Adaptations',        state: 'adapt',  desc: 'Four plain toggles plus the formats people can choose. Each toggle shows where its value came from; locked ones can’t be changed. Skipped for standard courses.' },
           { id: 'custom', flow: 'main', x: 640, y: 100, step: '4', name: 'Custom content',     state: 'custom', desc: 'Optional: add your own content, policies and resources, the same as a Standard or Learning Studio course.' },
           { id: 'review', flow: 'main', x: 840, y: 100, step: '5', name: 'Review and assign',  state: 'review', desc: 'One sentence on what will happen, then assign.' },
-          { id: 'done',   flow: 'main', x: 1040, y: 100, step: '✓', name: 'Assigned',          state: 'done',   desc: 'Confirmation, with a way to preview or return to courses.' }
+          { id: 'done',   flow: 'main', x: 1040, y: 100, step: '✓', name: 'Assigned',          state: 'done',   desc: 'Confirmation, with a way back to courses. Admin preview lives in the summary rail on every step before this.' }
         ],
         edges: [['course', 'people'], ['people', 'adapt'], ['adapt', 'custom'], ['custom', 'review'], ['review', 'done']]
       } };
@@ -244,8 +244,7 @@
             }
             return '<div class="set-row"><span class="set-ico"><i class="fa-solid ' + b.icon + '"></i></span><div class="set-main"><h3>' + A.esc(b.label) + '</h3><p>' + A.esc(b.help) + '</p>' + prov + '</div><div class="set-ctl">' + ctl + '</div></div>';
           }).join('') + formatsRow();
-          return '<div class="rp-card-head"><div><h2>How should this course adapt?</h2><p class="rp-card-sub" style="margin:2px 0 0">These come from your settings. Change them here only if this assignment is different.</p></div>' +
-            '<a class="card-link" id="pv" href="preview.html?from=assign" target="_blank" rel="noopener">Preview what people will see <i class="fa-solid fa-arrow-up-right-from-square"></i></a></div>' + rows +
+          return '<div class="rp-card-head"><div><h2>How should this course adapt?</h2><p class="rp-card-sub" style="margin:2px 0 0">These come from your settings. Change them here only if this assignment is different.</p></div></div>' + rows +
             '<div class="callout" style="margin-top:16px"><i class="fa-solid fa-wand-magic-sparkles"></i><div><b>What this means</b><br>' + A.esc(sentence()) + '</div></div>' +
             '<div class="always" style="margin-top:12px"><i class="fa-solid fa-shield-check"></i><b>Always included:</b> spotting hazards, the live practice, and the closing check. They’re required by the training standard.</div>' +
             foot(true, 'Next: custom content');
@@ -373,8 +372,7 @@
         function viewDone() {
           return '<div class="done-card"><div class="big"><i class="fa-solid fa-check"></i></div><h2>' + cur().name + ' is assigned</h2>' +
             '<p>' + count() + ' people were notified and it’s due ' + fmtDue() + '. Results appear in the course report as people finish.</p>' +
-            '<div class="row"><vaadin-button theme="primary" id="toReport">Go to courses</vaadin-button>' +
-            (cur().adaptive ? '<vaadin-button theme="secondary" id="toPreview">Preview what people will see</vaadin-button>' : '') + '</div></div>';
+            '<div class="row"><vaadin-button theme="primary" id="toReport">Go to courses</vaadin-button></div></div>';
         }
         function assign() { persist(); go('done'); }
 
@@ -382,7 +380,7 @@
         function railHTML() {
           var c = cur(), n = count(), ad = c.adaptive;
           var h = '<h3>Assignment</h3><div class="rail-course"><span class="ci ' + c.cls + '"><i class="fa-solid ' + c.icon + '"></i></span><span><b>' + c.name + '</b><small>' + (ad ? 'Adaptive' : 'Standard') + ' course' + (c.modules ? ' · ' + modsText() : '') + '</small></span></div>';
-          if (!n) return h + '<p class="rail-empty">Choose groups to see who gets this and which version.</p>';
+          if (!n) return h + '<p class="rail-empty">Choose groups to see who gets this and which version.</p>' + previewHTML();
           var groups = selectedLeaves().length;
           h += railRow('Who', '<b>' + n + ' people</b><small>' + groups + ' group' + (groups === 1 ? '' : 's') + '</small>');
           if (ad) {
@@ -401,7 +399,44 @@
               return '<span class="pill' + (v === 'off' ? ' off' : '') + '">' + lbl + (v === 'mixed' ? ': varies' : (v === 'on' ? '' : ': off')) + '</span>';
             }).join('') + '<span class="pill' + (formatsText() === 'Any format' ? '' : ' off') + '">' + formatsText() + '</span></div>';
           }
-          return h;
+          return h + previewHTML();
+        }
+
+        /* ---- Admin preview: the real learner view, with these choices ------------
+           Opens the Contain the Sharp prototype (the one module built) with this
+           assignment's modules, formats and adaptations on its URL. Its "Exit
+           admin preview" button comes back here; the wizard is saved first so it
+           reopens on the same step with nothing lost. Bloodborne Pathogens only. */
+        var DRAFT = 'bbp.assign.draft';
+        var SHARPS = '../../lesson-presentation/clara/sharps.html';
+        var FMT_KEY = { video: 'video', audio: 'listen', text: 'article' };   // admin format -> module format
+        function canPreview() { return st.course === 'bbp' && !(st.scope === 'pick' && !pickedMods().length); }
+        function previewHTML() {
+          if (st.course !== 'bbp') return '';
+          var off = !canPreview();
+          return '<div class="rail-preview"><vaadin-button theme="secondary" id="adminPreview"' + (off ? ' disabled' : '') + '>' +
+            '<i class="fa-solid fa-eye" style="margin-right:8px"></i>Admin preview</vaadin-button>' +
+            '<p>' + (off ? 'Choose at least one module to preview.' : 'See the course as a learner will, with these choices. The 30-day check-in isn’t part of the preview.') + '</p></div>';
+        }
+        // The value a learner in this assignment gets: this assignment's change,
+        // else the first chosen group's setting, else the organization's.
+        function previewVal(key) {
+          var leaf = selectedLeaves()[0], e = B.effective(leaf ? leaf.id : S.tree.id, B.liveCfg())[key];
+          if (st.ov[key] != null && !e.lockedBy) return st.ov[key];
+          return e.value;
+        }
+        function adminPreview() {
+          if (!canPreview()) return;
+          try { sessionStorage.setItem(DRAFT, JSON.stringify(st)); } catch (e) {}
+          var back = new URL(location.href); back.hash = ''; back.searchParams.set('draft', '1');
+          var mods = st.scope === 'full' ? cur().modules : pickedMods();
+          var q = new URLSearchParams({
+            adminPreview: '1', return: back.href, role: S.key === 'le' ? 'public' : 'manufacturing',
+            formats: FORMATS.filter(function (f) { return st.formats[f.id]; }).map(function (f) { return FMT_KEY[f.id]; }).join(','),
+            test_out: previewVal('skip') ? '1' : '0', test_up: previewVal('harder') ? '1' : '0', extra: previewVal('extra') ? '1' : '0',
+            modules: mods.map(function (m) { return m.id; }).join(',')
+          });
+          location.href = SHARPS + '?' + q.toString();
         }
         function draw() {
           wizard();
@@ -414,7 +449,7 @@
           lay.classList.toggle('no-rail', st.step === 'done');
           rail.innerHTML = st.step === 'done' ? '' : railHTML();
           var tr = document.getElementById('toReport'); if (tr) tr.addEventListener('click', function () { location.href = 'courses.html'; });
-          var tp = document.getElementById('toPreview'); if (tp) tp.addEventListener('click', function () { location.href = 'preview.html?from=assign'; });
+          var ap = document.getElementById('adminPreview'); if (ap) ap.addEventListener('click', adminPreview);
         }
         function go(step) {
           // Flow-map states need something selected to be meaningful.
@@ -429,6 +464,11 @@
 
         var pre = new URLSearchParams(location.search).get('course');
         if (pre && COURSES.some(function (c) { return c.id === pre; })) st.course = pre;
+        // Back from Admin preview: reopen the wizard exactly as it was left.
+        if (new URLSearchParams(location.search).get('draft') === '1') {
+          try { var d = JSON.parse(sessionStorage.getItem(DRAFT) || 'null'); if (d) Object.assign(st, d); } catch (e) {}
+          try { var u = new URL(location.href); u.searchParams.delete('draft'); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch (e) {}
+        }
         draw(); bootFromHash();
       })();
 

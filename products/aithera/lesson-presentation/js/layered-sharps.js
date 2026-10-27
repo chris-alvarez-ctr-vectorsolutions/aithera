@@ -622,7 +622,7 @@
   // for the Demo menu's sh-battery override and the code that reads it.
   function batteryResult() { return k1TestUp() ? 'proven' : 'unproven'; }
   // K2's own pre-check question decides case 2's test-up, independently of K1.
-  function k2TestUp() {
+  function k2Correct() {
     try { var o = sessionStorage.getItem('sh-battery');
           if (o === 'proven') return true; if (o === 'unproven') return false; } catch (e) {}
     return !!(readCourse().battery || {}).k2up;
@@ -675,13 +675,22 @@
   // Sharps, whose two are real — partly here to see how learners react to
   // "podcast" named as a way to take a module, before it is ever offered.
   var COURSE_MODULES = [
-    { name: 'Know the Risk', icon: 'fa-virus', mins: 11, state: 'done', adaptive: true },
-    { name: 'Barrier First', icon: 'fa-shield-halved', mins: 10, state: 'done' },
-    { name: 'Control the Hazard', icon: 'fa-sitemap', mins: 11, state: 'done', adaptive: true, podcast: true },
-    { name: 'Contain the Sharp', icon: 'fa-syringe', mins: 10, current: true, adaptive: true, podcast: true },
-    { name: 'Gear Up, Gear Down', icon: 'fa-mask-face', mins: 8, state: 'locked', podcast: true },
-    { name: 'Act on Exposure', icon: 'fa-file-medical', mins: 9, state: 'locked', adaptive: true }
+    { id: 'm1', name: 'Know the Risk', icon: 'fa-virus', mins: 11, state: 'done', adaptive: true },
+    { id: 'm2', name: 'Barrier First', icon: 'fa-shield-halved', mins: 10, state: 'done' },
+    { id: 'm3', name: 'Control the Hazard', icon: 'fa-sitemap', mins: 11, state: 'done', adaptive: true, podcast: true },
+    { id: 'm4', name: 'Contain the Sharp', icon: 'fa-syringe', mins: 10, current: true, adaptive: true, podcast: true },
+    { id: 'm5', name: 'Gear Up, Gear Down', icon: 'fa-mask-face', mins: 8, state: 'locked', podcast: true },
+    { id: 'm6', name: 'Act on Exposure', icon: 'fa-file-medical', mins: 9, state: 'locked', adaptive: true }
   ];
+  // The rows this cover lists. An admin preview shows only the modules the
+  // assignment picked, as a new learner would meet them: nothing done yet,
+  // and every module but this one marked as not in the preview, since only
+  // Contain the Sharp is built.
+  function courseModules() {
+    if (!AP) return COURSE_MODULES;
+    return COURSE_MODULES.filter(function (m) { return AP.modules.indexOf(m.id) > -1; })
+      .map(function (m) { return m.current ? m : { id: m.id, name: m.name, icon: m.icon, mins: m.mins, adaptive: m.adaptive, state: 'preview' }; });
+  }
   // Tags only on modules still to take: they help a learner decide how to
   // take one, and on a finished module they're noise (2026-09-25 review).
   // No audio tag (2026-10-27): the preference card already says Listening
@@ -697,7 +706,7 @@
       '<div class="cp-page">' +
         '<header class="cp-hero-band">' +
           '<div class="cp-hero">' +
-            '<p class="ll-eyebrow">' + COURSE_MODULES.length + ' Modules</p>' +
+            '<p class="ll-eyebrow">' + courseModules().length + (courseModules().length === 1 ? ' Module' : ' Modules') + '</p>' +
             '<h1>Bloodborne Pathogens</h1>' +
             '<p class="cp-desc" id="cpDesc">Bloodborne pathogens are microorganisms such as viruses or bacteria that, if ' +
               'present in blood, can cause disease in humans. These pathogens can be transmitted from an ' +
@@ -737,7 +746,7 @@
               // one, honestly labeled) are still one tap away.
               modalityDropdown({ now: 'introModNow', btn: 'introModChange', wrap: 'introModPickWrap',
                 icon: 'introModNowIcon', label: 'introModNowLabel', pick: 'introModPick' },
-                ['video', 'listen', 'article'], null, MODE_CARD) +
+                offeredKeys(), null, MODE_CARD) +
               // The current choice's one-line description, the same line the
               // "How do you prefer to learn?" screen shows under it (OFFER
               // sub). It replaced Listening's own note + help tooltip
@@ -823,12 +832,13 @@
     var hasProgress = !!(last && last !== 'intro' && LE.stepById(last));
 
 
-    document.getElementById('cpRows').innerHTML = COURSE_MODULES.map(function (m) {
+    document.getElementById('cpRows').innerHTML = courseModules().map(function (m) {
       if (!m.current) {
-        return '<div class="cp-row' + (m.state === 'locked' ? ' is-locked' : '') + '">' +
+        return '<div class="cp-row' + (m.state === 'done' ? '' : ' is-locked') + '">' +
           '<span class="cp-row-ico"><i class="fa-solid ' + m.icon + '"></i></span>' +
           '<span class="cp-row-main"><b>' + esc(m.name) + '</b>' + moduleMeta(m) + '</span>' +
-          '<span class="cp-row-state ' + m.state + '">' + (m.state === 'done' ? 'Complete' : 'Locked') + '</span>' +
+          '<span class="cp-row-state ' + (m.state === 'preview' ? 'locked' : m.state) + '">' +
+            (m.state === 'done' ? 'Complete' : m.state === 'preview' ? 'Not in preview' : 'Locked') + '</span>' +
         '</div>';
       }
       // Sharps is the only module with real content behind it, so it's the
@@ -887,7 +897,7 @@
         MODE_CARD);
       // No saved preference reads as Watching, the default — the offer
       // screen still treats it as unsaved and offers to save one.
-      var curMode = function () { return offerPref() || 'video'; };
+      var curMode = function () { var k = offerPref() || 'video'; return offeredKeys().indexOf(k) > -1 ? k : offeredKeys()[0]; };
       var markFmt = function (k) {
         [].forEach.call(introPick.querySelectorAll('.md-opt'), function (b) {
           var on = b.dataset.m === k;
@@ -1189,7 +1199,18 @@
   // The Demo menu can force either side of a routing decision (sh-battery for
   // the two knowledge questions, sh-feel for the two agreement statements);
   // otherwise the pre-check's own record decides.
-  function k1TestUp() {
+  // Admin preview (js/admin-preview.js): the assignment's own settings. Off
+  // for a learner, where every rule below runs as authored.
+  var AP = window.AdminPreview || null;
+  function testUpOn() { return !AP || AP.testUp; }
+  function testOutOn() { return !AP || AP.testOut; }
+  function extraOn() { return !AP || AP.extra; }
+  // k1Correct/k2Correct: what the pre-check answer was. k1TestUp/k2TestUp:
+  // whether that answer serves the harder version, which "Harder checks" off
+  // (an admin setting) prevents. Listen mode's skip reads the raw answer.
+  function k1TestUp() { return testUpOn() && k1Correct(); }
+  function k2TestUp() { return testUpOn() && k2Correct(); }
+  function k1Correct() {
     try { var o = sessionStorage.getItem('sh-battery');
           if (o === 'proven') return true; if (o === 'unproven') return false; } catch (e) {}
     return !!(readCourse().battery || {}).k1up;
@@ -2414,7 +2435,12 @@
   //  and decode don't work from a double-clicked file.
   // ==========================================================================
   var LISTEN_CONFIG_URL = '../data/sharps-listen/config.json';
-  function podcastPath() { return !!(readCourse().podpath || {}).podcast; }
+  function podcastPath() {
+    // Admin preview with one format allowed: the format screen is skipped,
+    // so that format decides the path.
+    if (AP && AP.only()) return AP.only() === 'listen';
+    return !!(readCourse().podpath || {}).podcast;
+  }
 
   // ---- The data ------------------------------------------------------------
   // One package per sector (config.sectors → that package's manifest.json),
@@ -2545,7 +2571,7 @@
     return v == null ? null : v;
   }
   function listenResultsLive() {
-    return { k1: { correct: k1TestUp() }, k2: { correct: k2TestUp() },
+    return { k1: { correct: k1Correct() }, k2: { correct: k2Correct() },
              f1: { score: feelScore('f1') }, f3: { score: feelScore('f3') } };
   }
   // The snapshot taken when Listen mode was chosen (older runs, saved before
@@ -2603,8 +2629,8 @@
       var def = m.topics[t];
       if (!def) throw new Error('The manifest’s order names “' + t + '”, which it doesn’t define.');
       var out = (trig.testOut || {})[t], reinforce = (trig.reinforce || {})[t], harder = (trig.harder || {})[t];
-      if (ruleHolds(out, results)) return { topic: t, how: 'skip', why: ruleWhy(out, results) + ' → tested out, part skipped' };
-      var needs = ruleHolds(reinforce, results), up = ruleHolds(harder, results);
+      if (testOutOn() && ruleHolds(out, results)) return { topic: t, how: 'skip', why: ruleWhy(out, results) + ' → tested out, part skipped' };
+      var needs = ruleHolds(reinforce, results), up = testUpOn() && ruleHolds(harder, results);
       if (needs && def.reinforced) return { topic: t, how: 'reinforced', why: ruleWhy(reinforce, results) + ' → reinforced version' };
       if (needs && def.addon) {
         var seam = seamFor(t, data), d = fileDur(def.normal.file, data);
@@ -2612,7 +2638,9 @@
           return { topic: t, how: 'addon', seam: seam, why: ruleWhy(reinforce, results) + ' → add-on spliced in at ' + seam + 's' };
       }
       if (up && def.harder) return { topic: t, how: 'harder', why: ruleWhy(harder, results) + ' → harder version' };
-      var why = out ? 'normal (' + out.item.toUpperCase() + ' pre-check not answered correctly)'
+      var why = out && !testOutOn() ? 'normal (skip ahead is off for this assignment)'
+        : harder && !testUpOn() ? 'normal (harder checks are off for this assignment)'
+        : out ? 'normal (' + out.item.toUpperCase() + ' pre-check not answered correctly)'
         : harder && !up ? 'normal (' + harder.item.toUpperCase() + ' pre-check not answered correctly)'
         : reinforce && !needs ? 'normal (no reinforcement needed)'
         : 'normal (single version)';
@@ -2743,6 +2771,10 @@
   // so the setting reads the same wherever the learner meets it.
   var MODE_CARD = {};
   OFFER.forEach(function (o) { MODE_CARD[o.key] = { icon: o.icon, label: o.name }; });
+  // The formats this run may offer: all three, or in an admin preview only
+  // the ones the assignment allows ("Formats people can choose").
+  function offered() { return AP ? OFFER.filter(function (o) { return AP.allows(o.key); }) : OFFER; }
+  function offeredKeys() { return offered().map(function (o) { return o.key; }); }
   // Saving an offer key writes the mode, and for Classic, which format.
   function setOfferPref(k) {
     setModePref(k === 'listen' ? 'listen' : 'standard');
@@ -2758,7 +2790,7 @@
     return '<main class="ll-object po-object"><div class="po">' +
       '<h1 class="po-head">How do you prefer to learn?</h1>' +
       '<div class="po-opts" role="radiogroup" aria-label="How do you prefer to learn?">' +
-        OFFER.map(function (o) {
+        offered().map(function (o) {
           var k = o.key;
           // The visual is a quiet picture of the experience's shape: one long
           // listen then a short quiz, versus three watch/read-then-answer pairs.
@@ -7798,6 +7830,8 @@
     // ---- The podcast path (see THE PODCAST PATH above) ----------------------
     { id: 'podoffer', icon: 'fa-headphones', stage: 'Entry', lesson: 'Choose a format', mode: 'floating', gate: true,
       noCoach: true, coach: { say: '' },
+      // Nothing to choose when an admin preview allows one format.
+      when: function () { return offered().length > 1; },
       caption: { title: 'ENTRY · The Listen mode offer (2026-09-25)', note: 'After the pre-check, because the pre-check is what builds the listen: its answers pick the chapters, and no runtime is shown for either option, so time never tips the choice. Yes freezes the cut; the module then stays in Listen mode (no switching partway). No keeps the screen-by-screen path in the learner\u2019s Watch or Read preference. How it works sits behind the info toggle. From the audio script (Contain_the_Sharp_<sector>_Podcast.pdf): one continuous listen, every check at the end. Called Listen mode, not podcast, on every learner surface (2026-09-29).' },
       content: PODOFFER_CONTENT, init: podofferInit },
     { id: 'podcast', icon: 'fa-headphones', stage: 'Learn', lesson: 'Contain the Sharp', mode: 'floating', gate: true,
@@ -7814,7 +7848,7 @@
       content: PODCHECK_CONTENT, init: podcheckInit },
     { id: 'listenreview', icon: 'fa-rotate', stage: 'Check', lesson: 'Review', mode: 'floating', gate: true,
       noCoach: true, coach: { say: '' }, mins: 2, adaptive: true, variant: 'Review set',
-      when: function () { return podcastPath() && listenMissed().length > 0; },
+      when: function () { return extraOn() && podcastPath() && listenMissed().length > 0; },
       get caption() { return { title: 'CHECK · Review set (Listen mode)', note: 'Only for missed KNOWLEDGE questions (config.checks role "knowledge"; belief misses get no review yet — LISTEN_FEEL_HOOK). Per topic: fact cards from data/sharps-listen/review/<topic>.json (placeholder: the deck\u2019s own remedial narration, verbatim), an optional recap (the manifest\u2019s quickTakes, plays only when pressed), then one retry of the same question (config.review.retries), saved under the topic\u2019s retryKey. Here because: ' + (LD() ? listenMissed().map(function (it) { return it.topic + ' question missed'; }).join(', ') : '\u2026') + '.' }; },
       content: REVIEW_CONTENT, init: reviewInit },
     { id: 'listendone', icon: 'fa-flag-checkered', stage: 'Check', lesson: 'Listen mode complete', mode: 'floating',
@@ -7832,7 +7866,7 @@
     deckStep('c1up', { adaptive: true, variant: 'Mastery version', when: function () { return k1TestUp(); },
       caption: { title: 'LEARN · Case 1, test-up (K1) — deck slides 8–9', note: 'Served INSTEAD of the base case when pre-check question 1 was answered correctly. The harder version of the same procedure, then the slide 9 mastery check over it. A miss serves the remedial video (slide 7), same as the base case.' } }),
     deckStep('c1rem', { adaptive: true, variant: 'Remedial version',
-      when: function () { return checkMissed('k1check') && !podcastPath(); },
+      when: function () { return extraOn() && checkMissed('k1check') && !podcastPath(); },
       caption: { title: 'LEARN · Case 1, remedial (K1) — deck slide 7', note: 'Only after a missed case 1 mastery check (either version). Re-teaches the never-recap, straight-to-container rule. Then re-asks the question that was missed (slide 6 or 9, whichever version ran); a second miss just moves the learner on.' } }),
 
     deckStep('c2base', { when: function () { return !k2TestUp(); },
@@ -7840,7 +7874,7 @@
     deckStep('c2up', { adaptive: true, variant: 'Mastery version', when: function () { return k2TestUp(); },
       caption: { title: 'LEARN · Case 2, test-up (K2) — deck slides 13–14', note: 'Served INSTEAD of the base case when pre-check question 2 was answered correctly. Slide 14 mastery check over it; a miss serves the remedial video (slide 12).' } }),
     deckStep('c2rem', { adaptive: true, variant: 'Remedial version',
-      when: function () { return checkMissed('k2check') && !podcastPath(); },
+      when: function () { return extraOn() && checkMissed('k2check') && !podcastPath(); },
       caption: { title: 'LEARN · Case 2, remedial (K2) — deck slide 12', note: 'Only after a missed case 2 mastery check (either version). Re-teaches both recognition calls. Then re-asks the question that was missed (slide 11 or 14); a second miss just moves the learner on.' } }),
 
     deckStep('controls', {
@@ -7948,6 +7982,23 @@
     // ?sim=1 / ?sim=0 — the Demo menu's "Full scenario simulator" switch as a
     // link, since that row only shows on the Perform screen itself. With
     // ?step=handoff it lands a reviewer straight on the hero bridge screen.
+    // Admin preview (js/admin-preview.js): one allowed Watch/Read format is
+    // the carrier from the start, since the format screen is skipped. Just
+    // Contain the Sharp assigned: skip the cover and open the module itself.
+    if (AP) {
+      var one = AP.only();
+      if (one && one !== 'listen') { try { sessionStorage.setItem('sh-modality', one); } catch (e) {} }
+      if (AP.modules.length === 1 && AP.modules[0] === 'm4' && !p.get('step')) {
+        var at = STEPS.findIndex(function (st) { return st.id === 'intro'; });
+        if (at > -1 && STEPS[at + 1]) {
+          try {
+            var u = new URL(location.href);
+            u.searchParams.set('step', STEPS[at + 1].id);
+            history.replaceState(null, '', u.pathname + u.search + u.hash);
+          } catch (e) {}
+        }
+      }
+    }
     var sim = p.get('sim');
     if (sim === '1' || sim === '0') {
       try { sessionStorage.setItem('sh-scene-mode', sim === '1' ? 'simulator' : 'scene'); } catch (e) {}

@@ -12,7 +12,7 @@
     <!-- Self-hosted Font Awesome Pro (repo root is four levels up from verN/) -->
     <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
     <!-- The admin pages' stylesheet, so this reads as the same product; then this page's additions -->
-    <link rel="stylesheet" href="../../bbp-admin/ver1/admin.css?v=63" />
+    <link rel="stylesheet" href="../../bbp-admin/ver1/admin.css?v=64" />
     <link rel="stylesheet" href="launch.css?v=11" />
 </head>
 <body>
@@ -126,6 +126,7 @@
                 <div id="railCallout" aria-live="polite"></div>
                 <div class="rail-actions">
                     <vaadin-button theme="primary" id="launch"><i class="fa-solid fa-play" style="margin-right:8px"></i>Start course</vaadin-button>
+                    <vaadin-button theme="secondary" id="adminPreview"><i class="fa-solid fa-eye" style="margin-right:8px"></i>Admin preview</vaadin-button>
                     <vaadin-button theme="tertiary" id="copyLink"><i class="fa-solid fa-link" style="margin-right:7px"></i>Copy setup link</vaadin-button>
                     <span class="copied" id="copied" hidden role="status">Link copied. Each person who opens it gets their own learner ID.</span>
                 </div>
@@ -254,6 +255,11 @@ function allDone() { return STEPS.every(function (s) { return st.done[s]; }); }
   if (q.get('content') === 'live') st.preview = false;
   if (q.get('coordinator') && COORDINATORS[q.get('coordinator')]) st.coordinator = q.get('coordinator');
   if (q.get('composite')) { STEPS.forEach(function (s) { st.done[s] = true; }); st.step = null; }
+  // Back from Admin preview: everything as it was left.
+  if (q.get('draft') === '1') {
+    try { var d = JSON.parse(sessionStorage.getItem('le-launch.draft') || 'null'); if (d) Object.assign(st, d); } catch (e) {}
+    history.replaceState(null, '', location.pathname);
+  }
 })();
 
 /* Keep every dependent choice valid for the selected course. */
@@ -436,6 +442,8 @@ function drawRail() {
   $('launch').disabled = st.busy || !ready;
   $('launch').innerHTML = st.busy ? 'Starting…' : '<i class="fa-solid fa-play" style="margin-right:8px"></i>Start course';
   $('copyLink').disabled = !ready;
+  // Admin preview runs the Contain the Sharp prototype, so only Bloodborne Pathogens has one.
+  $('adminPreview').hidden = !isBbp(c);
   $('railNote').innerHTML = !ready ? 'Finish each step to start.'
     : st.mode === 'direct' ? '<i class="fa-solid fa-circle-check"></i>Starts the course for this learner right here. Copy setup link to set up more testers the same way.'
     : '<i class="fa-solid fa-arrow-up-right-from-square"></i>Opens the engine’s launch page in a new tab with these choices filled in. Learner name, coordinator and demo mode aren’t carried over yet.';
@@ -510,6 +518,33 @@ function selfLink() {
   mine.search = q.toString(); mine.hash = ''; return mine.toString();
 }
 
+/* ---- Admin preview ----
+   Opens the design team's Contain the Sharp prototype as a learner would see it,
+   with these choices (sector, test out, test up, approved formats), and an "Exit
+   admin preview" button that comes back here. The page is saved first, so it
+   reopens exactly as it was left.
+   DEV NOTE: this is a design proposal. The engine has no admin preview mode yet,
+   so this does not start the engine; it shows how the mode should behave. */
+var DRAFT = 'le-launch.draft';
+var SHARPS = '../../lesson-presentation/clara/sharps.html';
+var PREVIEW_FMT = { video: 'video', audio: 'listen', text: 'article' };   // engine format -> prototype format
+function adminPreview() {
+  var keep = {};
+  ['preview', 'course', 'sector', 'subsector', 'role', 'language', 'formats', 'testOut', 'testUp', 'demoMode', 'debugPanel',
+   'learnerName', 'coordinator', 'identity', 'step', 'done'].forEach(function (k) { keep[k] = st[k]; });
+  try { sessionStorage.setItem(DRAFT, JSON.stringify(keep)); } catch (e) {}
+  var back = new URL(location.href); back.search = '?draft=1'; back.hash = '';
+  var q = new URLSearchParams({
+    adminPreview: '1', return: back.href,
+    // The prototype has Manufacturing and Law enforcement versions; other sectors preview Manufacturing.
+    role: st.sector === 'Public Sector' ? 'public' : 'manufacturing',
+    formats: approved().map(function (m) { return PREVIEW_FMT[m]; }).filter(Boolean).join(','),
+    test_out: st.testOut ? '1' : '0', test_up: st.testUp ? '1' : '0',
+    modules: 'm4'
+  });
+  location.href = SHARPS + '?' + q.toString();
+}
+
 function api(path, opts) {
   opts = opts || {};
   return fetch('/api/v1' + path, { method: opts.method || 'GET', headers: opts.body ? { 'Content-Type': 'application/json' } : {}, body: opts.body ? JSON.stringify(opts.body) : undefined })
@@ -574,6 +609,7 @@ $('learnerName').addEventListener('input', function (e) { st.learnerName = e.tar
 $('identity').addEventListener('input', function (e) { st.identity = e.target.value; drawSteps(); drawRail(); });
 $('newId').addEventListener('click', function () { st.identity = newIdentity(); $('identity').value = st.identity; drawSteps(); drawRail(); });
 $('launch').addEventListener('click', launch);
+$('adminPreview').addEventListener('click', adminPreview);
 $('copyLink').addEventListener('click', function () {
   var done = function () { $('copied').hidden = false; setTimeout(function () { $('copied').hidden = true; }, 2600); };
   if (navigator.clipboard) navigator.clipboard.writeText(selfLink()).then(done, function () { prompt('Copy this link', selfLink()); });
