@@ -3078,6 +3078,11 @@
       loadListenData().then(function (data) {
         var plan = resolveListen(listenResults(), data);
         var lp = listenPieces(plan, data);
+        // Admin preview thumbnail (js/preview-embed.js): the player laid out at
+        // its chapter, nothing downloaded or assembled. Times come from the
+        // package's timing data; the waveform is drawn from where the
+        // sentences fall rather than from the audio.
+        if (PE && PE.thumb) { still(data, plan, lp.pieces); return; }
         return renderListen(data, lp.pieces, function (f) { prepFill.style.width = Math.round(f * 100) + '%'; })
           .then(function (r) {
             if (torn) return;
@@ -3090,6 +3095,26 @@
       }).catch(fail);
     }
     retry.addEventListener('click', build);
+
+    var PE = window.PreviewEmbed || null, stillT = null;
+    // Where an admin preview asked this screen to open (?chapter=<topic>).
+    function chapterStart() {
+      var want = PE && PE.chapter, c = want && L.chapters.filter(function (x) { return x.topic === want; })[0];
+      return c ? c.start : null;
+    }
+    function still(data, plan, pieces) {
+      var sents = listenSentences(pieces, data), last = pieces[pieces.length - 1];
+      var dur = last ? last.at + (last.dur || 0) : 0, n = Math.ceil(dur * WAVE_HZ), env = '';
+      for (var k = 0; k < n; k++) {
+        var t = k / WAVE_HZ, inSent = sents.some(function (st) { return t >= st.s && t < st.e; });
+        env += inSent ? 'hijklmnopqrstu'.charAt((k * 7 + (k >> 2) * 3) % 14) : '2';
+      }
+      L = { data: data, plan: plan, pieces: pieces, dur: dur, env: env, sents: sents, chapters: listenChapters(pieces, data) };
+      prep.hidden = true;
+      var at = chapterStart();
+      stillT = at == null ? 0 : at + .05;
+      requestAnimationFrame(tick);
+    }
 
     function chapterAt(t) {
       var c = L.chapters[0];
@@ -3146,7 +3171,7 @@
     }
     function tick() {
       if (!L) return;
-      var t = audio.currentTime || 0;
+      var t = stillT != null ? stillT : (audio.currentTime || 0);
       drawEnvelope(canvas, g, L.env, t);
       setSentence(sentenceAt(t));
       words(t);
@@ -3212,8 +3237,9 @@
         setRate(rate);
       }
       audio.src = url;
-      var startAt = 0, pos = readCourse().podpos;
+      var startAt = 0, pos = readCourse().podpos, at = chapterStart();
       if (done) startAt = L.dur;
+      else if (at != null) startAt = at;
       else if (pos && pos.t != null) {
         // Pick up at the start of the sentence that was playing.
         startAt = pos.t;
@@ -3222,7 +3248,9 @@
       audio.addEventListener('loadedmetadata', function () {
         try { audio.currentTime = Math.min(startAt, L.dur); } catch (e) {}
         tick();
-        if (!done) audio.play().catch(function () { setPlaying(false); });
+        // In the admin preview's design view the big screen waits for Play.
+        var auto = !PE || PE.autoplay;
+        if (!done && auto) audio.play().catch(function () { setPlaying(false); });
       }, { once: true });
       if (done) ctx.enableNext();
     }
@@ -8201,6 +8229,18 @@
       coach: { say: '' },
       content: RECORD_CONTENT, init: recordInit }
   ];
+
+  // Admin preview (js/preview-embed.js): which listen chapters play for this
+  // learner, from the same rules the listen itself uses. Embed only.
+  if (window.PreviewEmbed) {
+    window.SharpsListenPlan = function () {
+      return loadListenData().then(function (data) {
+        return resolveListen(listenResults(), data).map(function (p) {
+          return { topic: p.topic, how: p.how, title: topicTitle(p.topic, data), chapter: (data.manifest.topics[p.topic] || {}).chapter !== false };
+        });
+      });
+    };
+  }
 
   // ==========================================================================
   //  D11: URL-prefillable launch params — role (sector), name, media (format).

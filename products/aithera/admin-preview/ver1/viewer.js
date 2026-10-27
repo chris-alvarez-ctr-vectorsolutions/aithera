@@ -34,7 +34,7 @@
      smallest change to a learner that serves a version, so a greyed screen
      still shows what that version really looks like. `opts` are the learner
      options that matter for that screen: the panel leads with them. -------- */
-  var COLS = [
+  var VIDEO_COLS = [
     { deps: [], key: 'intro', name: 'Course page', tag: ['n', 'Cover'], opts: ['lens', 'fmt'],
       about: 'The course home. It shows the sector version and the format the learner prefers.',
       vs: [{ id: 'intro', label: 'Course page' }] },
@@ -75,12 +75,54 @@
       about: 'Results reflect every answer, before and after.',
       vs: [{ id: 'record', label: 'Results' }] }
   ];
-  // Screens off the video path (Listen and Read), named for play's strip.
+
+  /* ---- Listen mode: the same opening screens, then the listen as one column
+     per audio chapter, then its questions. A chapter column's thumbnail is the
+     player opened at that chapter (id "podcast@<topic>"); which chapters play
+     comes from the module's own listen rules (window.SharpsListenPlan). Today
+     only K1 adapts: a right Question 1 skips its chapter when Skip ahead is on.
+     Titles are the audio package's chapter names (data/sharps-listen/config.json). */
+  var LISTEN_COLS = VIDEO_COLS.slice(0, 4).concat([
+    { deps: [], key: 'ch-open', name: 'Opening', tag: ['n', 'Listen'], opts: ['lens'],
+      about: 'Chapter 1 of the listen. Everyone hears it; only the sector changes it.',
+      vs: [{ id: 'podcast@open', label: 'Contain the Sharp' }] },
+    { deps: ['k1', 'test_out'], key: 'ch-k1', name: 'What counts as a sharp', tag: ['k', 'K1'], opts: ['k1', 'test_out'],
+      about: 'The K1 chapter. A right Question 1 skips it when Skip ahead is on, and its question is then not asked.',
+      vs: [{ id: 'podcast@k1', label: 'K1 chapter', force: { k1: '0' } }] },
+    { deps: [], key: 'ch-f1', name: 'The needle in the trash', tag: ['f', 'F1'], opts: ['f1'],
+      about: 'The F1 chapter. It has one version today, so every learner hears it.',
+      vs: [{ id: 'podcast@f1', label: 'F1 chapter' }] },
+    { deps: [], key: 'ch-f2', name: 'Gloves or a container', tag: ['f', 'F2'], opts: ['lens'],
+      about: 'The F2 chapter. Every learner hears it.',
+      vs: [{ id: 'podcast@f2', label: 'F2 chapter' }] },
+    { deps: [], key: 'ch-close', name: 'Closing', tag: ['n', 'Listen'], opts: ['lens'],
+      about: 'The last chapter, then the hand-back to the screen.',
+      vs: [{ id: 'podcast@close', label: 'Closing' }] },
+    { deps: ['k1', 'test_out'], key: 'podcheck', name: 'Questions', tag: ['n', 'K · F'], opts: ['k1', 'test_out', 'c1', 'f1'],
+      about: 'One question per chapter that played, after the whole listen. A skipped K1 chapter asks nothing.',
+      vs: [{ id: 'podcheck', label: 'Questions' }] },
+    { deps: [], key: 'listenreview', name: 'Review', tag: ['k', 'K1'], opts: ['c1', 'extra'],
+      about: 'Only after a missed K1 question, when Extra practice is on. Fact cards, then the same question once more.',
+      vs: [{ id: 'listenreview', label: 'After a missed question', force: { c1: '0', extra: '1', k1: '0' } }] },
+    { deps: [], key: 'listendone', name: 'Listen mode complete', tag: ['n', 'Done'], opts: [],
+      about: 'Hands the learner from the listen to the practice.',
+      vs: [{ id: 'listendone', label: 'Done' }] }
+  ], VIDEO_COLS.slice(-2));
+  var COLS = VIDEO_COLS;
+  // Screens with no column (Read, the live scenario), named for play's strip.
   var OTHER = { podcast: ['Listen mode', 'n', 'Listen'], podcheck: ['Questions', 'n', 'Check'], listenreview: ['Review', 'n', 'Review'],
     listendone: ['Listen mode complete', 'n', 'Done'], reading: ['Reading', 'n', 'Read'], readcheck: ['Questions', 'n', 'Check'],
     readreview: ['Review', 'n', 'Review'], handoff: ['Live scenario', 'd', 'D'], enact: ['Live scenario', 'd', 'D'] };
   var BY_ID = {};
-  COLS.forEach(function (c, ci) { c.vs.forEach(function (v) { BY_ID[v.id] = { col: c, ci: ci, v: v }; }); });
+  // The column set for the format being previewed. Read has no design view yet.
+  function useCols(fmt) {
+    var next = fmt === 'listen' ? LISTEN_COLS : VIDEO_COLS;
+    if (next === COLS && Object.keys(BY_ID).length) return false;
+    COLS = next; BY_ID = {};
+    COLS.forEach(function (c, ci) { c.vs.forEach(function (v) { BY_ID[v.id] = { col: c, ci: ci, v: v }; }); });
+    return true;
+  }
+  useCols(P.fmt);
   function info(id) {
     if (BY_ID[id]) { var b = BY_ID[id]; return { name: b.col.name, variant: b.col.vs.length > 1 ? b.v.label : '', tag: b.col.tag, ci: b.ci, col: b.col }; }
     var o = OTHER[id] || [id, 'n', '—'];
@@ -94,23 +136,42 @@
     lens: { label: 'Sector version', type: 'sector', effect: function () { return 'Examples, wording and the practice scenario follow the sector.'; } },
     fmt: { label: 'Format', type: 'fmt', effect: function () { return P.fmt === 'video' ? 'Each lesson is a short video with a question after it.' : FMT_LABEL[P.fmt] + ' changes the whole module. Play it to see.'; } },
     k1: { label: 'Question 1', sub: 'Safe handling steps', type: 'seg', vals: RW,
-      effect: function () { return !on('k1') ? 'Case 1 plays its base version.' : on('test_up') ? 'Case 1 plays its harder version.' : 'Harder checks is off, so Case 1 stays the base version.'; } },
+      effect: function () {
+        if (P.fmt === 'listen') return !on('k1') ? 'The K1 chapter plays.' : on('test_out') ? 'The K1 chapter is skipped, and its question isn’t asked.' : 'Skip ahead is off, so the K1 chapter still plays.';
+        return !on('k1') ? 'Case 1 plays its base version.' : on('test_up') ? 'Case 1 plays its harder version.' : 'Harder checks is off, so Case 1 stays the base version.';
+      } },
     k2: { label: 'Question 2', sub: 'Spotting hazards', type: 'seg', vals: RW,
       effect: function () { return !on('k2') ? 'Case 2 plays its base version.' : on('test_up') ? 'Case 2 plays its harder version.' : 'Harder checks is off, so Case 2 stays the base version.'; } },
     f1: { label: 'Statement 1', sub: 'Why it matters', type: 'seg', vals: AD,
-      effect: function () { return P.f1 === 'disagree' ? 'Case 3 tells the longer story.' : 'Case 3 tells the base story.'; } },
+      effect: function () {
+        if (P.fmt === 'listen') return 'The F1 chapter has one version today, so it plays either way.';
+        return P.f1 === 'disagree' ? 'Case 3 tells the longer story.' : 'Case 3 tells the base story.';
+      } },
     f3: { label: 'Statement 2', sub: 'What people really do', type: 'seg', vals: AD,
-      effect: function () { return P.f3 === 'disagree' ? 'The debrief gives it more room.' : 'The debrief plays its base version.'; } },
-    c1: { label: 'Case 1 check', sub: 'The question after Case 1', type: 'seg', vals: RW,
-      effect: function () { return on('c1') ? 'Straight on to Case 2.' : on('extra') ? 'A short review follows, then the same question again.' : 'Extra practice is off, so the course moves straight on.'; } },
+      effect: function () {
+        if (P.fmt === 'listen') return 'The listen has no debrief chapter, so this doesn’t change it.';
+        return P.f3 === 'disagree' ? 'The debrief gives it more room.' : 'The debrief plays its base version.';
+      } },
+    c1: { label: function () { return P.fmt === 'listen' ? 'K1 question' : 'Case 1 check'; },
+      sub: function () { return P.fmt === 'listen' ? 'Asked after the listen' : 'The question after Case 1'; }, type: 'seg', vals: RW,
+      effect: function () {
+        if (P.fmt === 'listen' && on('k1') && on('test_out')) return 'Not asked: the K1 chapter was skipped.';
+        return on('c1') ? (P.fmt === 'listen' ? 'No review; on to the practice.' : 'Straight on to Case 2.') : on('extra') ? 'A short review follows, then the same question again.' : 'Extra practice is off, so the course moves straight on.';
+      } },
     c2: { label: 'Case 2 check', sub: 'The question after Case 2', type: 'seg', vals: RW,
       effect: function () { return on('c2') ? 'Straight on to Engineering controls.' : on('extra') ? 'A short review follows, then the same question again.' : 'Extra practice is off, so the course moves straight on.'; } },
     test_up: { label: 'Harder checks', sub: 'From your assignment', type: 'sw',
-      effect: function () { return on('test_up') ? 'A right pre-check answer gets the harder case.' : 'Everyone gets the base cases.'; } },
+      effect: function () {
+        if (P.fmt === 'listen') return 'The listen has no harder chapters yet, so this doesn’t change it.';
+        return on('test_up') ? 'A right pre-check answer gets the harder case.' : 'Everyone gets the base cases.';
+      } },
     extra: { label: 'Extra practice', sub: 'From your assignment', type: 'sw',
       effect: function () { return on('extra') ? 'A missed check gets a short review.' : 'A missed check moves straight on.'; } },
     test_out: { label: 'Skip ahead', sub: 'From your assignment', type: 'sw',
-      effect: function () { return 'Only changes Listen in this module.'; } }
+      effect: function () {
+        if (P.fmt === 'listen') return on('test_out') ? 'A right Question 1 skips the K1 chapter.' : 'Every chapter plays.';
+        return 'Only changes Listen in this module.';
+      } }
   };
   var ALL_OPTS = ['lens', 'fmt', 'k1', 'k2', 'f1', 'f3', 'c1', 'c2', 'test_up', 'extra', 'test_out'];
 
@@ -125,7 +186,9 @@
       test_out: p.test_out, test_up: p.test_up, extra: p.extra, formats: p.formats || allowed.join(',') });
     if (MODULES) u.set('modules', MODULES);
     if (thumb) u.set('thumb', '1');
+    if (step && step.indexOf('podcast@') === 0) { u.set('chapter', step.split('@')[1]); step = 'podcast'; }
     if (step) u.set('step', step);
+    if (!thumb && mode === 'play' && step === 'podcast') u.set('autoplay', '1');
     return SHARPS + '?' + u.toString();
   }
 
@@ -145,7 +208,14 @@
         try {
           var w = probe.contentWindow;
           if (w.location.href.indexOf(want.split('?')[1]) > -1 && w.Layered && w.Layered.visiblePath) {
-            return done(w.Layered.visiblePath().map(function (s) { return s.id; }));
+            var ids = w.Layered.visiblePath().map(function (s) { return s.id; });
+            if (ids.indexOf('podcast') < 0 || !w.SharpsListenPlan) return done(ids);
+            // The listen is one screen; show it as the chapters that play.
+            return w.SharpsListenPlan().then(function (plan) {
+              var ch = plan.filter(function (p) { return p.how !== 'skip'; }).map(function (p) { return 'podcast@' + p.topic; });
+              var i = ids.indexOf('podcast');
+              done(ids.slice(0, i).concat(ch, ids.slice(i + 1)));
+            }, function () { done(ids); });
           }
         } catch (e) {}
         if (Date.now() - t0 > 10000) return done(null);
@@ -159,11 +229,11 @@
   function optHTML(k) {
     var o = OPTS[k], ctl;
     if (o.type === 'seg') {
-      ctl = '<span class="mini-seg" role="radiogroup" aria-label="' + o.label + '">' + o.vals.map(function (v) {
+      ctl = '<span class="mini-seg" role="radiogroup" aria-label="' + val(o.label) + '">' + o.vals.map(function (v) {
         var sel = P[k] === v[0];
         return '<button type="button" role="radio" aria-checked="' + sel + '"' + (sel ? ' class="on"' : '') + ' data-k="' + k + '" data-v="' + v[0] + '">' + v[1] + '</button>';
       }).join('') + '</span>';
-      return '<div class="lp-opt"><div class="lp-row"><span>' + o.label + '<small>' + o.sub + '</small></span>' + ctl + '</div>' + eff(k) + '</div>';
+      return '<div class="lp-opt"><div class="lp-row"><span>' + val(o.label) + '<small>' + val(o.sub) + '</small></span>' + ctl + '</div>' + eff(k) + '</div>';
     }
     if (o.type === 'sw') {
       return '<div class="lp-opt"><div class="lp-switch"><span>' + o.label + '<small>' + o.sub + '</small></span>' +
@@ -180,6 +250,7 @@
           (ok ? '' : ' disabled title="Not offered in this assignment"') + '><i class="fa-solid ' + FMT_ICON[f] + '"></i>' + FMT_LABEL[f] + '</button>';
       }).join('') + '</span>' + eff(k) + '</div>';
   }
+  function val(x) { return typeof x === 'function' ? x() : x; }
   function eff(k) { return '<p class="lp-effect"><i class="fa-solid fa-arrow-turn-down-right"></i>' + OPTS[k].effect() + '</p>'; }
   function presetNow() {
     return Object.keys(PRESETS).filter(function (k) { var p = PRESETS[k]; return Object.keys(p).every(function (x) { return P[x] === p[x]; }); })[0] || null;
@@ -266,6 +337,7 @@
   setInterval(function () {
     try {
       var s = new URLSearchParams(frame.contentWindow.location.search).get('step');
+      if (s === 'podcast' && sel.indexOf('podcast@') === 0) return;
       if (s && s !== sel) { sel = s; frame.dataset.src = frame.contentWindow.location.href; drawWhere(); drawPanel(); markNav(); }
     } catch (e) {}
   }, 500);
@@ -513,6 +585,7 @@
     fitMode = true;
     document.getElementById('stOff').hidden = P.fmt === 'video' || m === 'play';
     if (m === 'play' && !frame.dataset.src) loadStage();
+    else if (sel.indexOf('podcast@') === 0) loadStage();   // the listen waits in design, plays in play
     requestAnimationFrame(function () { applyZoom(true); drawLinks(); markNav(); drawStrip(); });
   }
   document.querySelectorAll('[data-mode]').forEach(function (b) { b.addEventListener('click', function () { setMode(b.dataset.mode); }); });
@@ -525,9 +598,11 @@
 
   /* ---- Update everything for the current learner ---------------------------- */
   function refresh() {
-    var off = document.getElementById('stOff'), designable = P.fmt === 'video';
-    // Listen and Read get design views of their own later. Until then design
-    // shows a card in place of the screen and the strip; play runs them.
+    var off = document.getElementById('stOff'), designable = P.fmt !== 'article';
+    // Switching between Watch and Listen swaps the strip's columns entirely.
+    if (useCols(P.fmt)) { nvBoard.innerHTML = ''; lastLit = {}; lit = {}; }
+    // Read gets a design view of its own later. Until then design shows a
+    // card in place of the screen and the strip; play runs it.
     off.hidden = designable || mode === 'play';
     document.getElementById('nav').classList.toggle('blank', !designable);
     if (!designable) {
@@ -544,7 +619,9 @@
       var changed = {}, any = Object.keys(lastLit).length > 0;
       COLS.forEach(function (c, ci) { if (any && before[ci] !== c.vs.filter(function (v) { return lit[v.id]; }).map(function (v) { return v.id; }).join()) changed[ci] = true; });
       lastLit = lit;
-      document.getElementById('pathInfo').textContent = ids ? 'This learner sees ' + path.length + ' screens' : 'Couldn’t read the path. Open this page from a web server.';
+      var chs = path.filter(function (id) { return id.indexOf('podcast@') === 0; }).length;
+      document.getElementById('pathInfo').textContent = !ids ? 'Couldn’t read the path. Open this page from a web server.'
+        : 'This learner sees ' + (path.length - chs + (chs ? 1 : 0)) + ' screens' + (chs ? ', and ' + chs + ' of ' + LISTEN_COLS.filter(function (c) { return /^ch-/.test(c.key); }).length + ' listen chapters' : '');
       // Keep the same place in the course: if the screen's version changed for this learner, show the new one.
       var b = BY_ID[sel];
       if (b && !lit[sel]) {

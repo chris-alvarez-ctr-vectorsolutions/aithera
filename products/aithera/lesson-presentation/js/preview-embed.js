@@ -22,6 +22,7 @@
      plus the assignment's settings, which become window.AdminPreview (read by
      layered-sharps.js): formats=video,listen,article  test_out  test_up  extra
      modules=m1,…,m6 (the cover lists only these; default all six).
+     chapter=<topic> opens Listen mode at that chapter; autoplay=1 lets it play.
    - The white Vector Solutions site bar is hidden; the viewer has its own.
    - thumb=1 is a quiet slide: no video download (the titled poster shows),
      no CLARA orb or hint, no motion, Demo hidden, not clickable.
@@ -80,7 +81,10 @@
     exit: function () {}
   };
   var thumb = q.get('thumb') === '1';
-  window.PreviewEmbed = { thumb: thumb };
+  // chapter: a Listen mode screen opens at that chapter (topic id).
+  // autoplay: Listen mode starts playing on its own (the viewer's Play mode);
+  // otherwise it waits for the play button.
+  window.PreviewEmbed = { thumb: thumb, chapter: q.get('chapter') || null, autoplay: q.get('autoplay') === '1' };
 
   // Every embed, large or small: no white Vector Solutions site bar. The
   // viewer has its own chrome, and the course frame sizes everything off
