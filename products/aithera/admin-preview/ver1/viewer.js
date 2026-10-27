@@ -64,10 +64,10 @@
       vs: [{ id: 'controls', label: 'Everyone' }] },
     { deps: [], key: 'case3', name: 'Case 3', tag: ['f', 'F1'], opts: ['f1'],
       about: 'Statement 1 picks the version. The same statement is asked again over it.',
-      vs: [{ id: 'case3', label: 'Base', force: { f1: 'agree' } }, { id: 'case3rf', label: 'Longer story', force: { f1: 'disagree' } }] },
+      vs: [{ id: 'case3', label: 'Base', force: { f1: 'agree' } }, { id: 'case3rf', label: 'Longer story', short: 'Longer', force: { f1: 'disagree' } }] },
     { deps: [], key: 'debrief', name: 'Debrief', tag: ['f', 'F3'], opts: ['f3'],
       about: 'Statement 2 picks the version. The same statement is asked again over it.',
-      vs: [{ id: 'debrief', label: 'Base', force: { f3: 'agree' } }, { id: 'debriefrf', label: 'More room', force: { f3: 'disagree' } }] },
+      vs: [{ id: 'debrief', label: 'Base', force: { f3: 'agree' } }, { id: 'debriefrf', label: 'More room', short: 'Longer', force: { f3: 'disagree' } }] },
     { deps: [], key: 'scene', name: 'A sharp decision', tag: ['d', 'D'], opts: ['lens'],
       about: 'The practice. Every learner gets it; only the sector changes it.',
       vs: [{ id: 'scene', label: 'Practice' }] },
@@ -395,7 +395,7 @@
     return '<span class="th-vs" role="radiogroup" aria-label="Versions">' + c.vs.map(function (v) {
       var up = /harder/i.test(v.label);
       return '<button type="button" role="radio" aria-checked="' + (v.id === id) + '" class="th-v' + (v.id === id ? ' on' : '') + (lit[v.id] ? ' path' : '') + '" data-v="' + v.id + '" title="' +
-        v.label + (lit[v.id] ? ' (this learner)' : '') + '">' + (up ? '<i class="fa-solid fa-arrow-trend-up"></i>' : '') + v.label + '</button>';
+        v.label + (lit[v.id] ? ' (this learner)' : '') + '">' + (up ? '<i class="fa-solid fa-arrow-trend-up"></i>' : '') + '<span>' + (v.short || v.label) + '</span></button>';
     }).join('') + '</span>';
   }
   // The column's shell is built once; updateCol() changes it in place from then
