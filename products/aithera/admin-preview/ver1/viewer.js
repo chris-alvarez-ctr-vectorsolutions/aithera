@@ -342,8 +342,10 @@
   }
   function wireCol(el) {
     var th = el.querySelector('.th'), fr = th.querySelector('.th-frame');
-    fr.addEventListener('click', function () { if (!nvScroll.classList.contains('dragged')) select(th.dataset.step); });
-    fr.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(th.dataset.step); } });
+    // A screen this learner skips is shown for context only: no click, no focus.
+    var off = function () { return el.classList.contains('skipped'); };
+    fr.addEventListener('click', function () { if (!off() && !nvScroll.classList.contains('dragged')) select(th.dataset.step); });
+    fr.addEventListener('keydown', function (e) { if (!off() && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); select(th.dataset.step); } });
     var cap = th.querySelector('.th-cap');
     if (cap) cap.addEventListener('click', function (e) {
       var b = e.target.closest('[data-v]');
@@ -356,6 +358,8 @@
     var shown = c.vs.some(function (v) { return lit[v.id]; }), id = viewing(c), isLit = !!lit[id], b = BY_ID[id];
     var th = el.querySelector('.th'), fr = th.querySelector('.th-frame');
     el.classList.toggle('skipped', !shown);
+    fr.tabIndex = shown ? 0 : -1;
+    if (shown) fr.removeAttribute('aria-disabled'); else fr.setAttribute('aria-disabled', 'true');
     el.classList.toggle('is-sel', id === sel);
     el.setAttribute('aria-label', c.name + (shown ? '' : ', not shown to this learner'));
     el.querySelector('.nv-num').textContent = shown ? num : '–';
@@ -543,7 +547,12 @@
       document.getElementById('pathInfo').textContent = ids ? 'This learner sees ' + path.length + ' screens' : 'Couldn’t read the path. Open this page from a web server.';
       // Keep the same place in the course: if the screen's version changed for this learner, show the new one.
       var b = BY_ID[sel];
-      if (b && !lit[sel]) { var alt = b.col.vs.filter(function (v) { return lit[v.id]; })[0]; if (alt) sel = alt.id; }
+      if (b && !lit[sel]) {
+        var alt = b.col.vs.filter(function (v) { return lit[v.id]; })[0];
+        // Same place, the version this learner gets; or, if this learner now
+        // skips the screen entirely, the next screen they do see.
+        sel = alt ? alt.id : (neighbor(1) || neighbor(-1) || sel);
+      }
       if (!b && path.indexOf(sel) < 0) sel = path[0] || 'intro';
       if (designable) drawNav(changed); else nvBoard.innerHTML = '';
       drawPanel();
