@@ -108,6 +108,29 @@
       about: 'Hands the learner from the listen to the practice.',
       vs: [{ id: 'listendone', label: 'Done' }] }
   ], VIDEO_COLS.slice(-2));
+
+  /* ---- Read: the same opening screens, then the article as one card per
+     section (id "reading@<section id>"), then its questions. The article never
+     adapts; what adapts is Questions (which case questions are asked) and
+     Review. Section names are the article's own headings
+     (experiments/sharps-riffs/08-scroll-story-v2.html). */
+  var READ_SECTIONS = [['top', 'The next pair of hands'], ['s1', 'The story'], ['s3', 'It doesn’t have to look medical'],
+    ['s4', 'The evidence'], ['s5', 'The procedure'], ['s6', 'The equipment'], ['s7', 'Work through three situations'],
+    ['s8', 'The other ending'], ['s9', 'Before your next task']];
+  var READ_COLS = VIDEO_COLS.slice(0, 4).concat(READ_SECTIONS.map(function (x, i) {
+    return { deps: [], key: 'rd-' + x[0], name: x[1], tag: x[0] === 's7' ? ['n', 'Activity'] : ['n', 'Read'], opts: i === 0 ? ['lens'] : [],
+      about: i === 0 ? 'The article, section by section. It doesn’t adapt: every learner reads all of it. It’s the Manufacturing draft for every sector for now.'
+        : x[0] === 's7' ? 'Three situations, unscored practice. In the course, the last two sections open once all three are answered; the preview opens them.'
+        : 'Every learner reads this section; the article doesn’t adapt.',
+      vs: [{ id: 'reading@' + x[0], label: x[1] }] };
+  }), [
+    { deps: ['k1', 'k2', 'f1', 'f3', 'test_up'], key: 'readcheck', name: 'Questions', tag: ['n', 'K · F'], opts: ['k1', 'k2', 'test_up', 'f1', 'f3'],
+      about: 'The deck’s question for each case, after the article, in Watch’s order. A right pre-check answer asks the harder case’s question when Harder checks is on.',
+      vs: [{ id: 'readcheck', label: 'Questions' }] },
+    { deps: ['c1', 'c2'], key: 'readreview', name: 'Review', tag: ['k', 'K'], opts: ['c1', 'c2', 'extra'],
+      about: 'Only after a missed knowledge question, when Extra practice is on: that case re-taught, then the question once more.',
+      vs: [{ id: 'readreview', label: 'After a missed question', force: { c1: '0', extra: '1' } }] }
+  ], VIDEO_COLS.slice(-2));
   var COLS = VIDEO_COLS;
   // Screens with no column (Read, the live scenario), named for play's strip.
   var OTHER = { podcast: ['Listen mode', 'n', 'Listen'], podcheck: ['Questions', 'n', 'Check'], listenreview: ['Review', 'n', 'Review'],
@@ -116,7 +139,7 @@
   var BY_ID = {};
   // The column set for the format being previewed. Read has no design view yet.
   function useCols(fmt) {
-    var next = fmt === 'listen' ? LISTEN_COLS : VIDEO_COLS;
+    var next = fmt === 'listen' ? LISTEN_COLS : fmt === 'article' ? READ_COLS : VIDEO_COLS;
     if (next === COLS && Object.keys(BY_ID).length) return false;
     COLS = next; BY_ID = {};
     COLS.forEach(function (c, ci) { c.vs.forEach(function (v) { BY_ID[v.id] = { col: c, ci: ci, v: v }; }); });
@@ -138,31 +161,39 @@
     k1: { label: 'Question 1', sub: 'Safe handling steps', type: 'seg', vals: RW,
       effect: function () {
         if (P.fmt === 'listen') return !on('k1') ? 'The K1 chapter plays.' : on('test_out') ? 'The K1 chapter is skipped, and its question isn’t asked.' : 'Skip ahead is off, so the K1 chapter still plays.';
+        if (P.fmt === 'article') return !on('k1') ? 'Questions ask Case 1’s base question.' : on('test_up') ? 'Questions ask Case 1’s harder question.' : 'Harder checks is off, so Questions ask Case 1’s base question.';
         return !on('k1') ? 'Case 1 plays its base version.' : on('test_up') ? 'Case 1 plays its harder version.' : 'Harder checks is off, so Case 1 stays the base version.';
       } },
     k2: { label: 'Question 2', sub: 'Spotting hazards', type: 'seg', vals: RW,
-      effect: function () { return !on('k2') ? 'Case 2 plays its base version.' : on('test_up') ? 'Case 2 plays its harder version.' : 'Harder checks is off, so Case 2 stays the base version.'; } },
+      effect: function () {
+        if (P.fmt === 'article') return !on('k2') ? 'Questions ask Case 2’s base question.' : on('test_up') ? 'Questions ask Case 2’s harder question.' : 'Harder checks is off, so Questions ask Case 2’s base question.';
+        return !on('k2') ? 'Case 2 plays its base version.' : on('test_up') ? 'Case 2 plays its harder version.' : 'Harder checks is off, so Case 2 stays the base version.';
+      } },
     f1: { label: 'Statement 1', sub: 'Why it matters', type: 'seg', vals: AD,
       effect: function () {
         if (P.fmt === 'listen') return 'The F1 chapter has one version today, so it plays either way.';
+        if (P.fmt === 'article') return 'The article doesn’t change; Questions ask this statement again either way.';
         return P.f1 === 'disagree' ? 'Case 3 tells the longer story.' : 'Case 3 tells the base story.';
       } },
     f3: { label: 'Statement 2', sub: 'What people really do', type: 'seg', vals: AD,
       effect: function () {
         if (P.fmt === 'listen') return 'The listen has no debrief chapter, so this doesn’t change it.';
+        if (P.fmt === 'article') return 'The article doesn’t change; Questions ask this statement again either way.';
         return P.f3 === 'disagree' ? 'The debrief gives it more room.' : 'The debrief plays its base version.';
       } },
-    c1: { label: function () { return P.fmt === 'listen' ? 'K1 question' : 'Case 1 check'; },
-      sub: function () { return P.fmt === 'listen' ? 'Asked after the listen' : 'The question after Case 1'; }, type: 'seg', vals: RW,
+    c1: { label: function () { return P.fmt === 'video' ? 'Case 1 check' : 'K1 question'; },
+      sub: function () { return P.fmt === 'listen' ? 'Asked after the listen' : P.fmt === 'article' ? 'Asked after the article' : 'The question after Case 1'; }, type: 'seg', vals: RW,
       effect: function () {
         if (P.fmt === 'listen' && on('k1') && on('test_out')) return 'Not asked: the K1 chapter was skipped.';
-        return on('c1') ? (P.fmt === 'listen' ? 'No review; on to the practice.' : 'Straight on to Case 2.') : on('extra') ? 'A short review follows, then the same question again.' : 'Extra practice is off, so the course moves straight on.';
+        return on('c1') ? (P.fmt === 'video' ? 'Straight on to Case 2.' : 'No review for it.') : on('extra') ? 'A short review follows, then the same question again.' : 'Extra practice is off, so the course moves straight on.';
       } },
-    c2: { label: 'Case 2 check', sub: 'The question after Case 2', type: 'seg', vals: RW,
-      effect: function () { return on('c2') ? 'Straight on to Engineering controls.' : on('extra') ? 'A short review follows, then the same question again.' : 'Extra practice is off, so the course moves straight on.'; } },
+    c2: { label: function () { return P.fmt === 'article' ? 'K2 question' : 'Case 2 check'; },
+      sub: function () { return P.fmt === 'article' ? 'Asked after the article' : 'The question after Case 2'; }, type: 'seg', vals: RW,
+      effect: function () { return on('c2') ? (P.fmt === 'article' ? 'No review for it.' : 'Straight on to Engineering controls.') : on('extra') ? 'A short review follows, then the same question again.' : 'Extra practice is off, so the course moves straight on.'; } },
     test_up: { label: 'Harder checks', sub: 'From your assignment', type: 'sw',
       effect: function () {
         if (P.fmt === 'listen') return 'The listen has no harder chapters yet, so this doesn’t change it.';
+        if (P.fmt === 'article') return on('test_up') ? 'A right pre-check answer asks the harder case’s question.' : 'Everyone gets the base questions.';
         return on('test_up') ? 'A right pre-check answer gets the harder case.' : 'Everyone gets the base cases.';
       } },
     extra: { label: 'Extra practice', sub: 'From your assignment', type: 'sw',
@@ -170,6 +201,7 @@
     test_out: { label: 'Skip ahead', sub: 'From your assignment', type: 'sw',
       effect: function () {
         if (P.fmt === 'listen') return on('test_out') ? 'A right Question 1 skips the K1 chapter.' : 'Every chapter plays.';
+        if (P.fmt === 'article') return 'Doesn’t change Read: every learner reads the whole article.';
         return 'Only changes Listen in this module.';
       } }
   };
@@ -187,6 +219,7 @@
     if (MODULES) u.set('modules', MODULES);
     if (thumb) u.set('thumb', '1');
     if (step && step.indexOf('podcast@') === 0) { u.set('chapter', step.split('@')[1]); step = 'podcast'; }
+    if (step && step.indexOf('reading@') === 0) { u.set('section', step.split('@')[1]); step = 'reading'; }
     if (step) u.set('step', step);
     if (!thumb && mode === 'play' && step === 'podcast') u.set('autoplay', '1');
     return SHARPS + '?' + u.toString();
@@ -209,6 +242,8 @@
           var w = probe.contentWindow;
           if (w.location.href.indexOf(want.split('?')[1]) > -1 && w.Layered && w.Layered.visiblePath) {
             var ids = w.Layered.visiblePath().map(function (s) { return s.id; });
+            var ri = ids.indexOf('reading');            // the article is one screen; show it as its sections
+            if (ri > -1) ids = ids.slice(0, ri).concat(READ_SECTIONS.map(function (x) { return 'reading@' + x[0]; }), ids.slice(ri + 1));
             if (ids.indexOf('podcast') < 0 || !w.SharpsListenPlan) return done(ids);
             // The listen is one screen; show it as the chapters that play.
             return w.SharpsListenPlan().then(function (plan) {
@@ -324,8 +359,32 @@
 
   function loadStage() {
     var want = src(profFor(sel, !!lit[sel]), sel, false);
-    if (frame.dataset.src !== want) { frame.dataset.src = want; frame.src = want; }
+    var noSec = function (u) { return (u || '').replace(/&section=[^&]*/, ''); };
+    if (sel.indexOf('reading@') === 0 && frame.dataset.src && noSec(frame.dataset.src) === noSec(want) && articleDoc()) {
+      frame.dataset.src = want; scrollArticle(sel.split('@')[1]);
+    } else if (frame.dataset.src !== want) { frame.dataset.src = want; frame.src = want; }
     drawWhere();
+  }
+  // The Read article inside the big screen, once it's loaded.
+  function articleDoc() {
+    try {
+      var d = frame.contentDocument, v = d && d.getElementById('raView'), a = v && v.contentDocument;
+      return a && a.body ? a : null;
+    } catch (e) { return null; }
+  }
+  var quietUntil = 0;
+  function scrollArticle(id) {
+    var a = articleDoc(), el = a && a.getElementById(id); if (!el) return;
+    quietUntil = Date.now() + 1200;              // let the scroll land before following it
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  // The section the article is showing: the last whose top has passed 40% of
+  // the window, or the last one at the very end (the article's own rule).
+  function articleAt(a) {
+    var w = a.defaultView, ids = READ_SECTIONS.map(function (x) { return x[0]; }), cur = ids[0];
+    if (w.scrollY + w.innerHeight >= a.documentElement.scrollHeight - 4) return ids[ids.length - 1];
+    ids.forEach(function (id) { var el = a.getElementById(id); if (el && el.offsetParent !== null && el.getBoundingClientRect().top <= w.innerHeight * .4) cur = id; });
+    return cur;
   }
   function select(id) {
     sel = id;
@@ -338,9 +397,17 @@
     try {
       var s = new URLSearchParams(frame.contentWindow.location.search).get('step');
       if (s === 'podcast' && sel.indexOf('podcast@') === 0) return;
+      if (s === 'reading') {                       // follow the article's scroll in the timeline
+        var a = articleDoc();
+        if (a && Date.now() > quietUntil) {
+          var id = 'reading@' + articleAt(a);
+          if (id !== sel) { sel = id; frame.dataset.src = src(profFor(sel, !!lit[sel]), sel, false); drawWhere(); drawPanel(); markNav(); }
+        }
+        return;
+      }
       if (s && s !== sel) { sel = s; frame.dataset.src = frame.contentWindow.location.href; drawWhere(); drawPanel(); markNav(); }
     } catch (e) {}
-  }, 500);
+  }, 300);
 
   function neighbor(dir) {
     var i = path.indexOf(sel);
@@ -365,6 +432,10 @@
 
   /* ---- Thumbnail strip (design) -------------------------------------------- */
   var nvScroll = document.getElementById('nvScroll'), nvBoard = document.getElementById('nvBoard');
+  var rlScroll = document.getElementById('rlScroll'), rlBoard = document.getElementById('rlBoard');
+  var vertical = false;                           // Read lays the same cards out as a vertical timeline
+  function board() { return vertical ? rlBoard : nvBoard; }
+  function scroller() { return vertical ? rlScroll : nvScroll; }
   var lastLit = {};
   // One thumbnail per place in the course. It shows the version being looked
   // at there: the selected one if it's in this column, else this learner's,
@@ -416,17 +487,17 @@
     var th = el.querySelector('.th'), fr = th.querySelector('.th-frame');
     // A screen this learner skips is shown for context only: no click, no focus.
     var off = function () { return el.classList.contains('skipped'); };
-    fr.addEventListener('click', function () { if (!off() && !nvScroll.classList.contains('dragged')) select(th.dataset.step); });
+    fr.addEventListener('click', function () { if (!off() && !scroller().classList.contains('dragged')) select(th.dataset.step); });
     fr.addEventListener('keydown', function (e) { if (!off() && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); select(th.dataset.step); } });
     var cap = th.querySelector('.th-cap');
     if (cap) cap.addEventListener('click', function (e) {
       var b = e.target.closest('[data-v]');
-      if (b && !nvScroll.classList.contains('dragged')) select(b.dataset.v);
+      if (b && !scroller().classList.contains('dragged')) select(b.dataset.v);
     });
-    io.observe(th); far.observe(th);
+    obs().io.observe(th); obs().far.observe(th);
   }
   function updateCol(ci, num, pulse) {
-    var c = COLS[ci], el = nvBoard.querySelector('.nv-col[data-col="' + ci + '"]'); if (!el) return;
+    var c = COLS[ci], el = board().querySelector('.nv-col[data-col="' + ci + '"]'); if (!el) return;
     var shown = c.vs.some(function (v) { return lit[v.id]; }), id = viewing(c), isLit = !!lit[id], b = BY_ID[id];
     var th = el.querySelector('.th'), fr = th.querySelector('.th-frame');
     el.classList.toggle('skipped', !shown);
@@ -444,9 +515,9 @@
     if (th.dataset.near === '1') load(th);          // in view: refresh now if its address changed
   }
   function drawNav(changedCols) {
-    if (!nvBoard.querySelector('.nv-col')) {
-      nvBoard.innerHTML = COLS.map(colHTML).join('') + '<svg class="nv-links" id="nvLinks" aria-hidden="true"></svg>';
-      nvBoard.querySelectorAll('.nv-col').forEach(wireCol);
+    if (!board().querySelector('.nv-col')) {
+      board().innerHTML = COLS.map(colHTML).join('') + (vertical ? '' : '<svg class="nv-links" id="nvLinks" aria-hidden="true"></svg>');
+      board().querySelectorAll('.nv-col').forEach(wireCol);
     }
     var n = 0;
     COLS.forEach(function (c, ci) {
@@ -461,14 +532,15 @@
     var n = 0;
     COLS.forEach(function (c, ci) {
       var shown = c.vs.some(function (v) { return lit[v.id]; }); if (shown) n++;
-      var el = nvBoard.querySelector('.nv-col[data-col="' + ci + '"]'); if (!el) return;
+      var el = board().querySelector('.nv-col[data-col="' + ci + '"]'); if (!el) return;
       var th = el.querySelector('.th');
       if (th.dataset.step !== viewing(c) || el.classList.contains('is-sel') !== (viewing(c) === sel)) updateCol(ci, shown ? n : 0, false);
     });
-    var s = nvBoard.querySelector('.th.sel');
+    var s = board().querySelector('.th.sel'), sc = scroller();
     if (s && mode === 'design') {
-      var r = s.getBoundingClientRect(), v = nvScroll.getBoundingClientRect();
-      if (r.left < v.left || r.right > v.right) nvScroll.scrollTo({ left: nvScroll.scrollLeft + r.left - v.left - v.width / 2 + r.width / 2, behavior: 'smooth' });
+      var r = s.getBoundingClientRect(), v = sc.getBoundingClientRect();
+      if (vertical) { if (r.top < v.top || r.bottom > v.bottom) sc.scrollTo({ top: sc.scrollTop + r.top - v.top - v.height / 2 + r.height / 2, behavior: 'smooth' }); }
+      else if (r.left < v.left || r.right > v.right) sc.scrollTo({ left: sc.scrollLeft + r.left - v.left - v.width / 2 + r.width / 2, behavior: 'smooth' });
     }
   }
   // The line joining this learner's screens. Neighbours join straight, side
@@ -476,7 +548,7 @@
   // shown card, dips under the skipped ones and comes back up into the next,
   // so it never runs behind a card it doesn't pass through.
   function drawLinks() {
-    var svg = document.getElementById('nvLinks'); if (!svg) return;
+    var svg = document.getElementById('nvLinks'); if (!svg || vertical) return;   // Read's timeline draws its spine in CSS
     var b = nvBoard.getBoundingClientRect(), cols = [];
     COLS.forEach(function (c, ci) {
       var r = nvBoard.querySelector('.nv-col[data-col="' + ci + '"] .th-frame').getBoundingClientRect();
@@ -502,6 +574,7 @@
     svg.innerHTML = '<path d="' + d + '"/>';
   }
   dragScroll(nvScroll, nvScroll, 'x');
+  dragScroll(rlScroll, rlScroll, 'y');
   // A mouse wheel moves the strip sideways.
   nvScroll.addEventListener('wheel', function (e) {
     if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); nvScroll.scrollLeft += e.deltaY; }
@@ -511,12 +584,18 @@
      once they're well out of it, so a long course never holds more than about
      a screenful and a half of live pages. */
   var queue = [], busy = 0;
-  var io = new IntersectionObserver(function (es) {
-    es.forEach(function (e) { e.target.dataset.near = e.isIntersecting ? '1' : ''; if (e.isIntersecting) load(e.target); });
-  }, { root: nvScroll, rootMargin: '0px 400px' });
-  var far = new IntersectionObserver(function (es) {
-    es.forEach(function (e) { if (!e.isIntersecting) unload(e.target); });
-  }, { root: nvScroll, rootMargin: '0px 900px' });
+  function observers(root, near, gone) {
+    return {
+      io: new IntersectionObserver(function (es) {
+        es.forEach(function (e) { e.target.dataset.near = e.isIntersecting ? '1' : ''; if (e.isIntersecting) load(e.target); });
+      }, { root: root, rootMargin: near }),
+      far: new IntersectionObserver(function (es) {
+        es.forEach(function (e) { if (!e.isIntersecting) unload(e.target); });
+      }, { root: root, rootMargin: gone })
+    };
+  }
+  var OBS_X = observers(nvScroll, '0px 400px', '0px 900px'), OBS_Y = observers(rlScroll, '300px 0px', '700px 0px');
+  function obs() { return vertical ? OBS_Y : OBS_X; }
   function unload(el) {
     var f = el.querySelector('iframe'), ph = el.querySelector('.ph');
     var i = queue.indexOf(el); if (i > -1) queue.splice(i, 1);
@@ -553,7 +632,8 @@
       var dx = e.clientX - sx, dy = e.clientY - sy;
       if (!moved && Math.abs(dx) + Math.abs(dy) < 5) return;
       if (!moved) { moved = true; box.classList.add('dragging'); handle.classList.add('dragging'); }
-      box.scrollLeft = l - dx; if (axis === 'both') box.scrollTop = t - dy;
+      if (axis !== 'y') box.scrollLeft = l - dx;
+      if (axis !== 'x') box.scrollTop = t - dy;
     });
     window.addEventListener('pointerup', function () {
       if (!down) return; down = false;
@@ -583,7 +663,6 @@
     });
     // Play fills the space the light chrome leaves; the screen zooms up into it.
     fitMode = true;
-    document.getElementById('stOff').hidden = P.fmt === 'video' || m === 'play';
     if (m === 'play' && !frame.dataset.src) loadStage();
     else if (sel.indexOf('podcast@') === 0) loadStage();   // the listen waits in design, plays in play
     requestAnimationFrame(function () { applyZoom(true); drawLinks(); markNav(); drawStrip(); });
@@ -598,18 +677,11 @@
 
   /* ---- Update everything for the current learner ---------------------------- */
   function refresh() {
-    var off = document.getElementById('stOff'), designable = P.fmt !== 'article';
-    // Switching between Watch and Listen swaps the strip's columns entirely.
-    if (useCols(P.fmt)) { nvBoard.innerHTML = ''; lastLit = {}; lit = {}; }
-    // Read gets a design view of its own later. Until then design shows a
-    // card in place of the screen and the strip; play runs it.
-    off.hidden = designable || mode === 'play';
-    document.getElementById('nav').classList.toggle('blank', !designable);
-    if (!designable) {
-      off.innerHTML = '<div><h2>' + FMT_LABEL[P.fmt] + ' has its own design view, coming next</h2><p>' + FMT_LABEL[P.fmt] + ' takes a different shape from Watch, so it gets a layout of its own. You can play it now as this learner.</p>' +
-        '<vaadin-button theme="primary" id="offPlay"><i class="fa-solid fa-play" style="margin-right:8px"></i>Play ' + FMT_LABEL[P.fmt] + '</vaadin-button></div>';
-      document.getElementById('offPlay').addEventListener('click', function () { setMode('play'); refresh(); });
-    }
+    // Switching format swaps the columns entirely. Read lays them out as a
+    // vertical timeline beside the article instead of a strip under it.
+    if (useCols(P.fmt)) { nvBoard.innerHTML = ''; rlBoard.innerHTML = ''; lastLit = {}; lit = {}; }
+    vertical = P.fmt === 'article';
+    document.body.classList.toggle('reading', vertical);
     document.getElementById('pathInfo').textContent = 'Working out the path…';
     return readPath().then(function (ids) {
       var before = {};
@@ -620,8 +692,11 @@
       COLS.forEach(function (c, ci) { if (any && before[ci] !== c.vs.filter(function (v) { return lit[v.id]; }).map(function (v) { return v.id; }).join()) changed[ci] = true; });
       lastLit = lit;
       var chs = path.filter(function (id) { return id.indexOf('podcast@') === 0; }).length;
+      var secs = path.filter(function (id) { return id.indexOf('reading@') === 0; }).length;
       document.getElementById('pathInfo').textContent = !ids ? 'Couldn’t read the path. Open this page from a web server.'
-        : 'This learner sees ' + (path.length - chs + (chs ? 1 : 0)) + ' screens' + (chs ? ', and ' + chs + ' of ' + LISTEN_COLS.filter(function (c) { return /^ch-/.test(c.key); }).length + ' listen chapters' : '');
+        : 'This learner sees ' + (path.length - chs - secs + (chs ? 1 : 0) + (secs ? 1 : 0)) + ' screens' +
+          (chs ? ', and ' + chs + ' of ' + LISTEN_COLS.filter(function (c) { return /^ch-/.test(c.key); }).length + ' listen chapters' : '') +
+          (secs ? ', with the article in ' + secs + ' sections' : '');
       // Keep the same place in the course: if the screen's version changed for this learner, show the new one.
       var b = BY_ID[sel];
       if (b && !lit[sel]) {
@@ -631,9 +706,9 @@
         sel = alt ? alt.id : (neighbor(1) || neighbor(-1) || sel);
       }
       if (!b && path.indexOf(sel) < 0) sel = path[0] || 'intro';
-      if (designable) drawNav(changed); else nvBoard.innerHTML = '';
+      drawNav(changed);
       drawPanel();
-      if (designable || mode === 'play') loadStage(); else { frame.src = 'about:blank'; frame.dataset.src = ''; drawWhere(); }
+      loadStage();
     });
   }
 

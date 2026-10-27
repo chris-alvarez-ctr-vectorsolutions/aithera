@@ -23,6 +23,7 @@
      layered-sharps.js): formats=video,listen,article  test_out  test_up  extra
      modules=m1,…,m6 (the cover lists only these; default all six).
      chapter=<topic> opens Listen mode at that chapter; autoplay=1 lets it play.
+     section=<id> opens the Read article at that section, with its gate open.
    - The white Vector Solutions site bar is hidden; the viewer has its own.
    - thumb=1 is a quiet slide: no video download (the titled poster shows),
      no CLARA orb or hint, no motion, Demo hidden, not clickable.
@@ -62,8 +63,10 @@
     podpath: { podcast: fmt === 'listen', results: null }
   };
   var c1 = opt('c1'), c2 = opt('c2');
-  if (c1 != null) course.k1check = { passed: c1 };
-  if (c2 != null) course.k2check = { passed: c2 };
+  // Read's review looks only at questions answered after the article.
+  var carrier = fmt === 'article' ? { carrier: 'article' } : {};
+  if (c1 != null) course.k1check = Object.assign({ passed: c1 }, carrier);
+  if (c2 != null) course.k2check = Object.assign({ passed: c2 }, carrier);
 
   var session = { 'll-lens': lens, 'll-review': '0', 'sh-course': JSON.stringify(course) };
   if (fmt !== 'listen') session['sh-modality'] = fmt;
@@ -84,7 +87,8 @@
   // chapter: a Listen mode screen opens at that chapter (topic id).
   // autoplay: Listen mode starts playing on its own (the viewer's Play mode);
   // otherwise it waits for the play button.
-  window.PreviewEmbed = { thumb: thumb, chapter: q.get('chapter') || null, autoplay: q.get('autoplay') === '1' };
+  // section: the Read article opens at that section (its element id).
+  window.PreviewEmbed = { thumb: thumb, chapter: q.get('chapter') || null, section: q.get('section') || null, autoplay: q.get('autoplay') === '1' };
 
   // Every embed, large or small: no white Vector Solutions site bar. The
   // viewer has its own chrome, and the course frame sizes everything off

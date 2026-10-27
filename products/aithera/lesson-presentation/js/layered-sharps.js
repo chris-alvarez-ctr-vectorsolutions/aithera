@@ -3755,6 +3755,17 @@
       // Opened from a double-clicked file, the browser keeps the article's
       // page to itself: no chapter walking, just Continue.
       if (!doc || !doc.body) { doc = null; ctx.enableNext(); return; }
+      // Admin preview (js/preview-embed.js): the gated last sections open
+      // without the activity, so an admin can see them, and ?section= opens
+      // the article at that section.
+      var PE = window.PreviewEmbed;
+      if (PE) {
+        var gate = doc.getElementById('afterGate');
+        if (gate) gate.hidden = false;
+        doc.body.classList.remove('locked');
+        var sec = PE.section && doc.getElementById(PE.section);
+        if (sec) sec.scrollIntoView({ behavior: 'auto', block: 'start' });
+      }
       win.addEventListener('scroll', tick, { passive: true });
       win.addEventListener('resize', tick);
       // The activity unlocking (body class) and the rest of the article
