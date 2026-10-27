@@ -22,6 +22,7 @@
      plus the assignment's settings, which become window.AdminPreview (read by
      layered-sharps.js): formats=video,listen,article  test_out  test_up  extra
      modules=m1,…,m6 (the cover lists only these; default all six).
+   - The white Vector Solutions site bar is hidden; the viewer has its own.
    - thumb=1 is a quiet slide: no video download (the titled poster shows),
      no CLARA hint, no motion, Demo hidden, not clickable.
 
@@ -80,6 +81,14 @@
   };
   var thumb = q.get('thumb') === '1';
   window.PreviewEmbed = { thumb: thumb };
+
+  // Every embed, large or small: no white Vector Solutions site bar. The
+  // viewer has its own chrome, and the course frame sizes everything off
+  // --vt-bar-h, so zero collapses it cleanly.
+  document.documentElement.classList.add('pe-embed');
+  var base = document.createElement('style');
+  base.textContent = 'html.pe-embed { --vt-bar-h: 0px !important; } html.pe-embed .vt-bar { display: none !important; }';
+  document.head.appendChild(base);
 
   if (thumb) {
     document.documentElement.classList.add('pe-thumb');
