@@ -294,32 +294,68 @@
   /* ---- Thumbnail strip (design) -------------------------------------------- */
   var nvScroll = document.getElementById('nvScroll'), nvBoard = document.getElementById('nvBoard');
   var lastLit = {};
+  // One thumbnail per place in the course. It shows the version being looked
+  // at there: the selected one if it's in this column, else this learner's,
+  // else the first. A column with more than one version carries a stacked
+  // edge and a pill per version under it; the learner's own pill has a dot,
+  // and Harder has its own arrow, so "a harder version exists" reads even
+  // while Base is lit. A pill opens that version on the big screen.
+  function viewing(c) {
+    var ids = c.vs.map(function (v) { return v.id; });
+    if (ids.indexOf(sel) > -1) return sel;
+    var l = c.vs.filter(function (v) { return lit[v.id]; })[0];
+    return (l || c.vs[0]).id;
+  }
+  function colHTML(c, ci, num, pulse) {
+    var shown = c.vs.some(function (v) { return lit[v.id]; }), id = viewing(c), isLit = !!lit[id], many = c.vs.length > 1;
+    var v0 = BY_ID[id].v;
+    return '<section class="nv-col' + (shown ? '' : ' skipped') + '" data-col="' + ci + '" aria-label="' + c.name + (shown ? '' : ', not shown to this learner') + '">' +
+      '<div class="nv-head"><span class="nv-num">' + (shown ? num : '–') + '</span><span>' + c.name + '</span></div>' +
+      '<div class="th ' + (isLit ? 'lit' : 'dim') + (many ? ' stack' : '') + (pulse && isLit ? ' changed' : '') + (id === sel ? ' sel' : '') + '" data-step="' + id + '">' +
+        '<span class="th-frame" role="button" tabindex="0" aria-label="' + c.name + (many ? ', ' + v0.label : '') + (isLit ? ', on this learner’s path' : ', not on this learner’s path') + '">' +
+          '<span class="ph"><i class="fa-solid fa-spinner fa-spin"></i></span><iframe tabindex="-1" title="" aria-hidden="true"></iframe></span>' +
+        '<span class="th-cap"><b class="kfd ' + c.tag[0] + '">' + c.tag[1] + '</b>' +
+          (many ? '<span class="th-vs" role="group" aria-label="Versions">' + c.vs.map(function (v) {
+              var up = /harder/i.test(v.label);
+              return '<button type="button" class="th-v' + (v.id === id ? ' on' : '') + (lit[v.id] ? ' path' : '') + '" data-v="' + v.id + '" title="' +
+                v.label + (lit[v.id] ? ' (this learner)' : '') + '">' + (up ? '<i class="fa-solid fa-arrow-trend-up"></i>' : '') + v.label + '</button>';
+            }).join('') + '</span>'
+            : '<b>' + (v0.force ? v0.label : c.name) + '</b>') +
+        '</span></div></section>';
+  }
+  function wireCol(el) {
+    var th = el.querySelector('.th'), id = th.dataset.step;
+    th.dataset.want = src(profFor(id, !!lit[id]), id, true);
+    var fr = th.querySelector('.th-frame');
+    fr.addEventListener('click', function () { if (!nvScroll.classList.contains('dragged')) select(id); });
+    fr.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(id); } });
+    el.querySelectorAll('[data-v]').forEach(function (b) {
+      b.addEventListener('click', function () { if (!nvScroll.classList.contains('dragged')) select(b.dataset.v); });
+    });
+    io.observe(th);
+  }
   function drawNav(changedCols) {
     var n = 0;
     nvBoard.innerHTML = COLS.map(function (c, ci) {
       var shown = c.vs.some(function (v) { return lit[v.id]; });
-      return '<section class="nv-col' + (shown ? '' : ' skipped') + '" aria-label="' + c.name + (shown ? '' : ', not shown to this learner') + '">' +
-        '<div class="nv-head"><span class="nv-num">' + (shown ? ++n : '–') + '</span><span>' + c.name + '</span></div>' +
-        c.vs.map(function (v) {
-          var isLit = !!lit[v.id];
-          return '<div class="th ' + (isLit ? 'lit' : 'dim') + (changedCols[ci] && isLit ? ' changed' : '') + '" role="button" tabindex="0" data-step="' + v.id + '"' +
-            ' aria-label="' + c.name + (c.vs.length > 1 ? ', ' + v.label : '') + (isLit ? ', on this learner’s path' : ', not on this learner’s path') + '">' +
-            '<span class="th-frame"><span class="ph"><i class="fa-solid fa-spinner fa-spin"></i></span><iframe tabindex="-1" title="" aria-hidden="true"></iframe></span>' +
-            '<span class="th-cap"><b class="kfd ' + c.tag[0] + '">' + c.tag[1] + '</b><b>' + (c.vs.length > 1 || v.force ? v.label : c.name) + '</b></span></div>';
-        }).join('') + '</section>';
+      return colHTML(c, ci, shown ? ++n : 0, changedCols[ci]);
     }).join('') + '<svg class="nv-links" id="nvLinks" aria-hidden="true"></svg>';
-    nvBoard.querySelectorAll('.th').forEach(function (el) {
-      var id = el.dataset.step;
-      el.dataset.want = src(profFor(id, !!lit[id]), id, true);
-      el.addEventListener('click', function () { if (!nvScroll.classList.contains('dragged')) select(id); });
-      el.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(id); } });
-      io.observe(el);
-    });
+    nvBoard.querySelectorAll('.nv-col').forEach(wireCol);
     markNav();
     drawLinks();
   }
+  // Selecting swaps only the columns whose thumbnail changes; the rest keep their loaded frames.
   function markNav() {
-    nvBoard.querySelectorAll('.th').forEach(function (el) { el.classList.toggle('sel', el.dataset.step === sel); });
+    COLS.forEach(function (c, ci) {
+      var el = nvBoard.querySelector('.nv-col[data-col="' + ci + '"]'); if (!el) return;
+      var th = el.querySelector('.th'), want = viewing(c);
+      if (th.dataset.step !== want) {
+        var num = el.querySelector('.nv-num').textContent;
+        el.insertAdjacentHTML('afterend', colHTML(c, ci, num, false));
+        var fresh = el.nextElementSibling; el.remove(); wireCol(fresh); th = fresh.querySelector('.th');
+      }
+      th.classList.toggle('sel', th.dataset.step === sel);
+    });
     var s = nvBoard.querySelector('.th.sel');
     if (s && mode === 'design') {
       var r = s.getBoundingClientRect(), v = nvScroll.getBoundingClientRect();
@@ -329,16 +365,16 @@
   function drawLinks() {
     var svg = document.getElementById('nvLinks'); if (!svg) return;
     var pts = [], b = nvBoard.getBoundingClientRect();
-    COLS.forEach(function (c) {
-      var v = c.vs.filter(function (x) { return lit[x.id]; })[0]; if (!v) return;
-      var r = nvBoard.querySelector('.th[data-step="' + v.id + '"]').getBoundingClientRect();
-      pts.push({ l: r.left - b.left, r: r.right - b.left, y: r.top - b.top + 45 });
+    COLS.forEach(function (c, ci) {
+      if (!c.vs.some(function (x) { return lit[x.id]; })) return;
+      var r = nvBoard.querySelector('.nv-col[data-col="' + ci + '"] .th-frame').getBoundingClientRect();
+      pts.push({ l: r.left - b.left, r: r.right - b.left, y: r.top - b.top + r.height / 2 });
     });
     svg.setAttribute('width', nvBoard.scrollWidth); svg.setAttribute('height', nvBoard.offsetHeight);
     var d = '';
     for (var i = 1; i < pts.length; i++) {
-      var a = pts[i - 1], z = pts[i], mx = (a.r + z.l) / 2;
-      d += 'M' + a.r + ' ' + a.y + ' C' + mx + ' ' + a.y + ' ' + mx + ' ' + z.y + ' ' + z.l + ' ' + z.y + ' ';
+      var a = pts[i - 1], z = pts[i];
+      d += 'M' + a.r + ' ' + a.y + ' L' + z.l + ' ' + z.y + ' ';
     }
     svg.innerHTML = '<path d="' + d + '"/>';
   }
