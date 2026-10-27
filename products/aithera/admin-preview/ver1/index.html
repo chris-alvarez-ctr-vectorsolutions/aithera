@@ -12,23 +12,27 @@
     <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
     <!-- Tokens, segmented control and switches shared with the assign flows -->
     <link rel="stylesheet" href="../../bbp-admin/ver1/admin.css?v=66" />
-    <link rel="stylesheet" href="viewer.css?v=2" />
+    <link rel="stylesheet" href="viewer.css?v=4" />
 </head>
-<body>
+<body class="designing">
 <!-- ==========================================================================
      Admin preview viewer. Opened from "Admin preview" in either assign flow
      (bbp-admin, le-launch) with the assignment's choices on the URL.
 
-     Design mode: every screen of the module as a slide, in order. Where the
-     course branches, its versions stack in a column; the ones this learner
-     gets are lit and joined, the rest are greyed. Change the learner on the
-     left and the path and the slides update. Click any slide to play it.
-     Play mode: that screen full size, live, with Back/Next along the path.
+     Laid out like Keynote's edit mode.
+     Design: the selected screen large in the middle, every screen as a
+       thumbnail in the strip along the bottom (branches stack in two rows;
+       this learner's are lit and joined), and on the left the learner options
+       that matter for the selected screen.
+     Play: the light top bar, the options and the thumbnail strip go away and
+       the screen zooms up to fill the space. The dark bars stay.
 
-     Every slide is the real module (lesson-presentation/clara/sharps.html) in
-     a frame, loaded with js/preview-embed.js's profile, so nothing here is a
-     copy that can drift from the module. Which slides light comes from the
-     module itself: a hidden frame with the same profile reports its path.
+     Every screen, large or thumbnail, is the real module
+     (lesson-presentation/clara/sharps.html) in a frame, loaded with
+     js/preview-embed.js's learner profile. Thumbnails are those live pages
+     at 1280×720, scaled down, with video and motion off. Which screens light
+     comes from the module itself: a hidden frame with the same profile
+     reports its path.
      ========================================================================== -->
 
     <header class="av-bar">
@@ -44,53 +48,49 @@
     </header>
 
     <div class="av-body">
-        <!-- Learner options: who this learner is and how they answer -->
-        <aside class="av-panel" aria-label="Learner options">
-            <h2>Try it as a learner who…</h2>
-            <p>Change any answer to see how the course responds.</p>
-            <div id="panel"></div>
-        </aside>
+        <!-- Learner options, led by the ones that matter for the selected screen -->
+        <aside class="av-panel" aria-label="Learner options"><div id="panel"></div></aside>
 
-        <main class="av-canvas" id="canvas">
-            <!-- Design mode -->
-            <div class="av-design" id="design">
-                <div class="av-scroll" id="scroll">
-                    <div class="av-sizer" id="sizer">
-                        <div class="av-board" id="board"></div>
-                        <svg class="av-links" id="links" aria-hidden="true"></svg>
+        <main class="av-main">
+            <!-- Dark bar above the screen: where you are, zoom (design), Previous/Next, Play or Back to design -->
+            <div class="st-bar">
+                <button type="button" class="pl-btn play-only" id="toDesign"><i class="fa-solid fa-table-cells-large"></i>Back to design</button>
+                <span class="st-where" id="stWhere"></span>
+                <span class="st-tools design-only" role="group" aria-label="Zoom">
+                    <button type="button" class="st-tool" id="panBtn" aria-pressed="false" title="Drag to move around"><i class="fa-solid fa-hand"></i></button>
+                    <button type="button" class="st-tool" id="zoomOut" aria-label="Zoom out"><i class="fa-solid fa-minus"></i></button>
+                    <output id="zoomPct">100%</output>
+                    <button type="button" class="st-tool" id="zoomIn" aria-label="Zoom in"><i class="fa-solid fa-plus"></i></button>
+                    <button type="button" class="st-tool fit" id="zoomFit">Fit</button>
+                </span>
+                <span class="st-nav">
+                    <button type="button" class="pl-btn" id="prevBtn"><i class="fa-solid fa-arrow-left"></i>Previous</button>
+                    <button type="button" class="pl-btn" id="nextBtn">Next<i class="fa-solid fa-arrow-right"></i></button>
+                    <button type="button" class="pl-btn pl-primary design-only" id="toPlay"><i class="fa-solid fa-play"></i>Play</button>
+                </span>
+            </div>
+
+            <!-- The selected screen, live, scaled to fit (or zoomed in, with drag to move around) -->
+            <div class="st-stage" id="stage">
+                <div class="st-scroll" id="stScroll">
+                    <div class="st-sizer" id="stSizer">
+                        <iframe class="st-frame" id="stFrame" title="Learner view"></iframe>
+                        <div class="st-pan" id="stPan" hidden></div>
                     </div>
                 </div>
-                <div class="av-empty" id="empty" hidden></div>
-                <div class="av-legend" aria-label="Key">
-                    <span><b class="kfd k">K</b>Knowledge</span>
-                    <span><b class="kfd f">F</b>Feeling</span>
-                    <span><b class="kfd d">D</b>Doing</span>
-                </div>
-                <div class="av-zoom" role="group" aria-label="Zoom">
-                    <button type="button" id="zoomOut" aria-label="Zoom out"><i class="fa-solid fa-minus"></i></button>
-                    <output id="zoomPct">100%</output>
-                    <button type="button" id="zoomIn" aria-label="Zoom in"><i class="fa-solid fa-plus"></i></button>
-                    <button type="button" class="fit" id="zoomFit">Fit</button>
-                </div>
+                <div class="st-off" id="stOff" hidden></div>
             </div>
 
-            <!-- Play mode -->
-            <div class="av-play" id="play" hidden>
-                <div class="pl-bar">
-                    <button type="button" class="pl-btn" id="toDesign"><i class="fa-solid fa-table-cells-large"></i>Back to design</button>
-                    <span class="pl-where" id="plWhere"></span>
-                    <span class="pl-nav">
-                        <button type="button" class="pl-btn" id="plPrev"><i class="fa-solid fa-arrow-left"></i>Previous</button>
-                        <button type="button" class="pl-btn" id="plNext">Next<i class="fa-solid fa-arrow-right"></i></button>
-                    </span>
-                </div>
-                <div class="pl-stage"><iframe id="plFrame" title="Learner view"></iframe><div class="pl-off" id="plOff" hidden></div></div>
-                <nav class="pl-strip" id="plStrip" aria-label="This learner’s path"></nav>
-            </div>
+            <!-- Design: every screen as a thumbnail, branches in two rows. Drag or scroll to move along it. -->
+            <nav class="nv design-only" id="nav" aria-label="All screens">
+                <div class="nv-scroll" id="nvScroll"><div class="nv-board" id="nvBoard"></div></div>
+            </nav>
+            <!-- Play: this learner's path as a strip of chips -->
+            <nav class="pl-strip play-only" id="plStrip" aria-label="This learner’s path"></nav>
         </main>
     </div>
 
-    <script src="viewer.js?v=2"></script>
+    <script src="viewer.js?v=5"></script>
 
 <!-- ── Design Toolbox: Flow Map ─────────────────────────────────────────── -->
 <script>
@@ -112,16 +112,16 @@
       canvas: { w: 1240, h: 300 },
       flows: [{ id: 'main', name: 'Admin preview', pill: 'A', color: '#c9b8f0', lane: { x: 20, y: 20, w: 1200, h: 260 }, labelXY: { x: 40, y: 40 } }],
       nodes: [
-        { id: 'design', flow: 'main', entry: true, x: 60, y: 100, step: '1', name: 'Design: new learner', state: 'design',
-          desc: 'Every screen as a slide, zoomed to fit. Base versions lit for a learner who misses both knowledge questions and agrees with both statements.' },
-        { id: 'ahead', flow: 'main', x: 360, y: 100, step: '2', name: 'Design: already knows it', state: 'ahead',
-          desc: 'Both knowledge questions right: the harder case versions light, and Your updated path appears.' },
-        { id: 'struggles', flow: 'main', x: 660, y: 100, step: '3', name: 'Design: struggles', state: 'struggles',
-          desc: 'Misses both checks and disagrees with both statements: remedial cases and the longer story and debrief light.' },
+        { id: 'design', flow: 'main', entry: true, x: 60, y: 100, step: '1', name: 'Design: course page', state: 'design',
+          desc: 'The course page large, every screen in the strip below, and the options that matter for the course page on the left (sector, format).' },
+        { id: 'precheck', flow: 'main', x: 360, y: 100, step: '2', name: 'Design: pre-check', state: 'precheck',
+          desc: 'Pre-check selected: its four answers are the quick toggles. Flip one and the strip relights; screens that changed pulse.' },
+        { id: 'case1', flow: 'main', x: 660, y: 100, step: '3', name: 'Design: Case 1', state: 'case1',
+          desc: 'A branching screen: Question 1, Harder checks, the Case 1 check and Extra practice, each saying what it does to this screen.' },
         { id: 'play', flow: 'main', x: 960, y: 100, step: '4', name: 'Play', state: 'play',
-          desc: 'One screen full size and live. Back and Next follow the lit path; the strip below jumps anywhere on it.' }
+          desc: 'The light bar, options and strip go away; the screen zooms up. Back to design, Previous/Next and the path chips stay in the dark bars.' }
       ],
-      edges: [['design', 'ahead'], ['ahead', 'struggles'], ['struggles', 'play']]
+      edges: [['design', 'precheck'], ['precheck', 'case1'], ['case1', 'play']]
     }
   };
 </script>
