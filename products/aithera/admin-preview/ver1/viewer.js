@@ -98,7 +98,7 @@
     { deps: [], key: 'ch-close', name: 'Closing', tag: ['n', 'Listen'], opts: ['lens'],
       about: 'The last chapter, then the hand-back to the screen.',
       vs: [{ id: 'podcast@close', label: 'Closing' }] },
-    { deps: ['k1', 'test_out'], key: 'podcheck', name: 'Questions', tag: ['n', 'K · F'], opts: ['k1', 'test_out', 'c1', 'f1'],
+    { deps: ['k1', 'test_out'], key: 'podcheck', name: 'Questions', tag: ['n', 'K · F'], opts: ['c1', 'extra', 'k1', 'test_out'],
       about: 'One question per chapter that played, after the whole listen. A skipped K1 chapter asks nothing.',
       vs: [{ id: 'podcheck', label: 'Questions' }] },
     { deps: [], key: 'listenreview', name: 'Review', tag: ['k', 'K1'], opts: ['c1', 'extra'],
@@ -124,8 +124,8 @@
         : 'Every learner reads this section; the article doesn’t adapt.',
       vs: [{ id: 'reading@' + x[0], label: x[1] }] };
   }), [
-    { deps: ['k1', 'k2', 'f1', 'f3', 'test_up'], key: 'readcheck', name: 'Questions', tag: ['n', 'K · F'], opts: ['k1', 'k2', 'test_up', 'f1', 'f3'],
-      about: 'The deck’s question for each case, after the article, in Watch’s order. A right pre-check answer asks the harder case’s question when Harder checks is on.',
+    { deps: ['k1', 'k2', 'f1', 'f3', 'test_up'], key: 'readcheck', name: 'Questions', tag: ['n', 'K · F'], opts: ['c1', 'c2', 'extra', 'k1', 'k2', 'test_up'],
+      about: 'The deck’s question for each case, after the article. How the learner answers the K1 and K2 questions here decides Review; their pre-check answers decide which version of each question is asked.',
       vs: [{ id: 'readcheck', label: 'Questions' }] },
     { deps: ['c1', 'c2'], key: 'readreview', name: 'Review', tag: ['k', 'K'], opts: ['c1', 'c2', 'extra'],
       about: 'Only after a missed knowledge question, when Extra practice is on: that case re-taught, then the question once more.',
@@ -158,24 +158,24 @@
   var OPTS = {
     lens: { label: 'Sector version', type: 'sector', effect: function () { return 'Examples, wording and the practice scenario follow the sector.'; } },
     fmt: { label: 'Format', type: 'fmt', effect: function () { return P.fmt === 'video' ? 'Each lesson is a short video with a question after it.' : FMT_LABEL[P.fmt] + ' changes the whole module. Play it to see.'; } },
-    k1: { label: 'Question 1', sub: 'Safe handling steps', type: 'seg', vals: RW,
+    k1: { label: 'Pre-check question 1', sub: 'Safe handling steps', type: 'seg', vals: RW,
       effect: function () {
         if (P.fmt === 'listen') return !on('k1') ? 'The K1 chapter plays.' : on('test_out') ? 'The K1 chapter is skipped, and its question isn’t asked.' : 'Skip ahead is off, so the K1 chapter still plays.';
         if (P.fmt === 'article') return !on('k1') ? 'Questions ask Case 1’s base question.' : on('test_up') ? 'Questions ask Case 1’s harder question.' : 'Harder checks is off, so Questions ask Case 1’s base question.';
         return !on('k1') ? 'Case 1 plays its base version.' : on('test_up') ? 'Case 1 plays its harder version.' : 'Harder checks is off, so Case 1 stays the base version.';
       } },
-    k2: { label: 'Question 2', sub: 'Spotting hazards', type: 'seg', vals: RW,
+    k2: { label: 'Pre-check question 2', sub: 'Spotting hazards', type: 'seg', vals: RW,
       effect: function () {
         if (P.fmt === 'article') return !on('k2') ? 'Questions ask Case 2’s base question.' : on('test_up') ? 'Questions ask Case 2’s harder question.' : 'Harder checks is off, so Questions ask Case 2’s base question.';
         return !on('k2') ? 'Case 2 plays its base version.' : on('test_up') ? 'Case 2 plays its harder version.' : 'Harder checks is off, so Case 2 stays the base version.';
       } },
-    f1: { label: 'Statement 1', sub: 'Why it matters', type: 'seg', vals: AD,
+    f1: { label: 'Pre-check statement 1', sub: 'Why it matters', type: 'seg', vals: AD,
       effect: function () {
         if (P.fmt === 'listen') return 'The F1 chapter has one version today, so it plays either way.';
         if (P.fmt === 'article') return 'The article doesn’t change; Questions ask this statement again either way.';
         return P.f1 === 'disagree' ? 'Case 3 tells the longer story.' : 'Case 3 tells the base story.';
       } },
-    f3: { label: 'Statement 2', sub: 'What people really do', type: 'seg', vals: AD,
+    f3: { label: 'Pre-check statement 2', sub: 'What people really do', type: 'seg', vals: AD,
       effect: function () {
         if (P.fmt === 'listen') return 'The listen has no debrief chapter, so this doesn’t change it.';
         if (P.fmt === 'article') return 'The article doesn’t change; Questions ask this statement again either way.';
