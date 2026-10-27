@@ -933,15 +933,13 @@
   //  choice, the walk plan…) is preserved as a frozen snapshot in
   //  experiments/sharps-riffs/00-sharps-module/.
   //
-  //  One shape for every content screen: a Watch / Read / Listen carrier of
-  //  the slide's narration, and — when the slide has one — a question laid
-  //  over it with the reinforcement layer once the carrier is finished.
-  //  Watch finishes when the clip ends, Read on the learner's own "Done
-  //  reading" (the in-flow button on the last paragraph), Listen when the
-  //  narration ends — the same rule as Watch: no learner-facing way past it,
-  //  a Skip that exists only in review mode, and a manual "Done listening"
-  //  only when there is no playable audio (so nobody is stranded, the way a
-  //  missing clip falls back to the written version).
+  //  One shape for every content screen: a Watch or Read carrier of the
+  //  slide's narration — whichever the learner chose on the format screen,
+  //  the same one on every screen (see THE STAGE) — and, when the slide has
+  //  one, a question laid over it with the reinforcement layer once the
+  //  carrier is finished. Watch finishes when the clip ends (no learner-facing
+  //  way past it; Skip exists only in review mode), Read on the learner's own
+  //  "Done reading" (the in-flow button on the last paragraph).
   // ==========================================================================
 
   // One placeholder clip for every screen until the produced videos exist.
@@ -1958,7 +1956,6 @@
   // step is ever mounted at a time — so the template needs no per-screen
   // prefixes.
   var DK_IDS = { wrap: 'dkMedia', video: 'dkVideo', note: 'dkVfall', pct: 'dkPct', skip: 'dkSkip' };
-  var DK_OFFERED = ['video', 'article', 'podcast'];
 
   // A remedial screen re-asks whichever version's question was missed (base
   // or test-up), saved under its own key so the first answer is kept.
@@ -1987,37 +1984,25 @@
 
   // ---- THE STAGE (2026-09-22) ------------------------------------------------
   // Video is the most immersive carrier, so it gets the room: a 16:9 stage
-  // sized to whatever fits between the header and the footer. Read and Listen
-  // play on the SAME stage rather than as a page of their own — one frame, one
-  // title row above it, and one progress rail along its bottom edge that every
-  // carrier drives (clip time, reading position, narration time). Switching
-  // carrier cross-fades what is inside the frame and nothing else moves,
-  // which is what keeps the switch from feeling like leaving the screen.
+  // sized to whatever fits between the header and the footer. Read plays on
+  // the SAME stage — one frame, one title row above it, and one progress rail
+  // along its bottom edge (clip time, or reading position).
   //
   //  Read   — an immersive reader: large type, one paragraph in focus at a
   //           time with the rest dimmed, text size, and paragraph stepping.
-  //  Listen — a produced-style player: the real loudness of the narration
-  //           scrolling past a playhead (SHARPS_NARRATION.env, measured from
-  //           the file), and the sentence being spoken as a large caption,
-  //           word by word.
   //
-  // The question rises over the stage itself when any carrier finishes; the
+  // ONE CARRIER PER RUN (2026-10-27). The learner picks Watching, Listening
+  // or Reading once, on "How do you prefer to learn?" after the pre-check,
+  // and every screen after it is that format. The per-screen Watch / Read /
+  // Read to me switch is gone, and with it the per-screen narration ("Read
+  // to me") — Listening is the whole-module Listen mode, not a screen's
+  // audio. Listen mode only reaches these screens for a remedial version,
+  // which plays as Watch (the episode is the base content only, 2026-09-25).
+  //
+  // The question rises over the stage itself when the carrier finishes; the
   // held content blurs behind it (the reinforcement layer).
-  var DK_MODES = [
-    { m: 'video',   label: 'Watch',  icon: 'fa-circle-play' },
-    { m: 'article', label: 'Read',   icon: 'fa-book-open' },
-    // "Read to me", not "Listen" (2026-09-29): "Listen mode" is the
-    // whole-module audio path now, and this is one screen's narration.
-    { m: 'podcast', label: 'Read to me', icon: 'fa-volume-high' }
-  ];
-  var NARRATION_DIR = '../../assets/audio/sharps/';
-  // Re-rendering the audio writes new bytes to the SAME file names, so bump
-  // this whenever tools/sharps-narration is re-run, or browsers keep playing
-  // the copy they already have. 2 = the podcast scripts (2026-09-24).
-  var NARRATION_V = '2';
-  function narrationFor(id) {
-    var all = window.SHARPS_NARRATION || {};
-    return all[LE.lensId() + '/' + id] || all['manufacturing/' + id] || null;
+  function deckCarrier() {
+    return !podcastPath() && modalityId() === 'article' ? 'article' : 'video';
   }
   function mmss(t) {
     t = Math.max(0, Math.round(t || 0));
@@ -2070,30 +2055,27 @@
   function deckContent(id) {
     return function () {
       var d = deckFor(id);
-      var nar = narrationFor(id);
       var q = deckCheck(d);
+      var m = deckCarrier();
       return '<main class="ll-object dk-object"><div class="dk-theater">' +
         '<header class="dk-head">' +
           '<div class="dk-head-t">' +
             '<h1 class="dk-title">' + esc(d.title) + '</h1>' +
           '</div>' +
-          '<div class="dk-switch" id="dkSwitch" role="group" aria-label="How do you want to take this?">' +
-            DK_MODES.map(function (x) {
-              return '<button class="dk-sw" type="button" data-m="' + x.m + '" aria-pressed="false">' +
-                '<i class="fa-solid ' + x.icon + '" aria-hidden="true"></i><span>' + x.label + '</span></button>';
-            }).join('') +
-          '</div>' +
         '</header>' +
 
         '<div class="dk-stagewrap">' +
-          '<div class="dk-stage" id="dkStage">' +
+          '<div class="dk-stage" id="dkStage" data-mode="' + m + '">' +
 
             // Watch
-            '<section class="dk-layer dk-layer--video" id="dkVideoWrap" aria-label="Video">' +
-              videoFrame({ ids: DK_IDS, src: deckVideo(id), poster: videoPoster('', d.title, '') }) +
-            '</section>' +
+            (m === 'video'
+              ? '<section class="dk-layer dk-layer--video" id="dkVideoWrap" aria-label="Video">' +
+                  videoFrame({ ids: DK_IDS, src: deckVideo(id), poster: videoPoster('', d.title, '') }) +
+                '</section>'
+              : '') +
 
             // Read
+            (m !== 'article' ? '' :
             '<section class="dk-layer dk-layer--read" id="dkRead" aria-label="Reading view" data-size="' + readSize() + '">' +
               '<div class="dk-read-scroll" id="dkReadScroll"><article class="dk-read-col">' +
                 // The article (default) or the podcast transcript, per the
@@ -2124,30 +2106,7 @@
                 '<button class="dk-tool" type="button" id="dkSizeDown" aria-label="Smaller text"><span class="dk-a sm">A</span></button>' +
                 '<button class="dk-tool" type="button" id="dkSizeUp" aria-label="Larger text"><span class="dk-a lg">A</span></button>' +
               '</div>' +
-            '</section>' +
-
-            // Listen
-            '<section class="dk-layer dk-layer--listen" id="dkListen" aria-label="Audio">' +
-              (nar
-                ? '<audio id="dkAudio" preload="auto" src="' + esc(NARRATION_DIR + nar.src + '?v=' + NARRATION_V) + '"></audio>' +
-                  '<div class="dk-wave-wrap"><canvas class="dk-wave" id="dkWave" aria-hidden="true"></canvas>' +
-                    '<span class="dk-playhead" aria-hidden="true"></span></div>' +
-                  '<div class="dk-caps" aria-live="off">' +
-                    '<p class="dk-cap-who" id="dkCapWho"></p>' +
-                    '<p class="dk-cap-now" id="dkCapNow"></p>' +
-                  '</div>' +
-                  // Three columns: voice label in the left corner, play in the
-                  // centre, time (and the review-only Skip) in the right corner.
-                  '<div class="dk-player">' +
-                    '<span class="dk-voice-note">Placeholder voice</span>' +
-                    '<button class="dk-play" type="button" id="dkPlay" aria-label="Play narration"><i class="fa-solid fa-play" aria-hidden="true"></i></button>' +
-                    '<span class="dk-player-end">' +
-                      '<button class="dk-skip" id="dkLSkip" type="button" hidden aria-label="Skip narration">Skip <i class="fa-solid fa-forward" aria-hidden="true"></i></button>' +
-                      '<span class="dk-time" id="dkTime">0:00 / ' + mmss(nar.dur) + '</span>' +
-                    '</span>' +
-                  '</div>'
-                : '<p class="dk-cap-now">' + esc(podcastTurns(id).map(function (l) { return l[1]; }).join(' ')) + '</p>') +
-            '</section>' +
+            '</section>') +
 
             // The rail every carrier drives.
             '<div class="dk-rail" aria-hidden="true"><span class="dk-rail-fill" id="dkRail"></span></div>' +
@@ -2162,69 +2121,19 @@
     return function (ctx) {
       var d = deckFor(id);
       var q = deckCheck(d);
-      var nar = narrationFor(id);
       var stage = document.getElementById('dkStage');
-      var sw = document.getElementById('dkSwitch');
       var rail = document.getElementById('dkRail');
       var video = document.getElementById(DK_IDS.video);
-      var audio = document.getElementById('dkAudio');
-      var videoMounted = false, showing = null, handed = false;
-      // The podcast path (see THE PODCAST PATH below) only ever reaches the
-      // remedial screens — its chapters were heard in the episode and their
-      // questions asked in the stack after it. Those still teach, but on
-      // screen: Watch or Read, never Listen (2026-09-25 review — the episode
-      // is the base content only).
-      var onPodcast = podcastPath();
-      var offered = onPodcast ? ['video', 'article'] : DK_OFFERED;
-      if (onPodcast) [].forEach.call(sw.querySelectorAll('.dk-sw'), function (b) {
-        if (offered.indexOf(b.dataset.m) < 0) b.hidden = true;
-      });
+      var showing = stage.dataset.mode, handed = false;
       ctx.setCoachSay('');
       ctx.floatClose();
 
       function setRail(f) { rail.style.transform = 'scaleX(' + Math.max(0, Math.min(1, f || 0)) + ')'; }
 
-      // One carrier at a time, on the same stage. Leaving a carrier pauses it
-      // and withdraws whatever it borrowed from the footer, so a stale "Done
-      // reading" can never fire after the learner has moved on.
-      function show(m) {
-        if (showing === m) return;
-        if (!handed && (showing === 'article' || showing === 'podcast')) ctx.cancelNextAction();
-        if (showing === 'video' && video) try { video.pause(); } catch (e) {}
-        if (showing === 'podcast' && audio) audio.pause();
-        showing = m;
-        stage.dataset.mode = m;
-        [].forEach.call(sw.querySelectorAll('.dk-sw'), function (b) {
-          b.setAttribute('aria-pressed', b.dataset.m === m ? 'true' : 'false');
-        });
-
-        if (m === 'video') {
-          if (!videoMounted) {
-            videoMounted = true;
-            // mountVideo unlocks Continue on 'ended' by itself; finished()
-            // shuts it again on a screen whose question is still to come.
-            mountVideo(ctx, { ids: DK_IDS, src: deckVideo(id), onFallback: finished, onEnded: finished });
-            video.addEventListener('timeupdate', function () {
-              if (showing === 'video' && video.duration) setRail(video.currentTime / video.duration);
-            });
-          }
-          setRail(video && video.duration ? video.currentTime / video.duration : 0);
-        } else if (m === 'podcast') {
-          listen.enter();
-          // Only offered when the narration can't play — otherwise Listen
-          // finishes on the audio's own 'ended', like a clip.
-          if (!handed && listen.manual()) ctx.setNextAction('Done listening', finished);
-        } else {
-          // No footer "Done reading": the in-flow Next button walks the text
-          // and becomes "Done reading" on the last paragraph, and a second
-          // copy of it in the footer only doubled up at the end.
-          read.enter();
-        }
-      }
-
       // ---- Read: the immersive reader --------------------------------------
       var read = (function () {
         var box = document.getElementById('dkRead');
+        if (!box) return { enter: function () {}, sync: function () {} };
         var scroller = document.getElementById('dkReadScroll');
         var paras = [].slice.call(box.querySelectorAll('.dk-para'));
         var nEl = document.getElementById('dkParaN');
@@ -2263,7 +2172,7 @@
           nEl.textContent = (at + 1) + ' / ' + paras.length;
           document.getElementById('dkParaPrev').disabled = at === 0;
           document.getElementById('dkParaNext').disabled = at === paras.length - 1;
-          if (showing === 'article') setRail((at + 1) / paras.length);
+          setRail((at + 1) / paras.length);
         }
         // Light a paragraph and bring it (with its button) to the middle.
         var auto = false, autoT = 0;
@@ -2292,7 +2201,7 @@
         // ends are pinned so the first and last paragraphs are always reachable
         // (the last one carries "Done reading").
         scroller.addEventListener('scroll', function () {
-          if (auto || showing !== 'article') return;
+          if (auto) return;
           var y = scroller.scrollTop, max = scroller.scrollHeight - scroller.clientHeight;
           var pick;
           if (y >= max - 2) pick = paras.length - 1;
@@ -2330,130 +2239,6 @@
         };
       })();
 
-      // ---- Listen: waveform + live captions --------------------------------
-      var listen = (function () {
-        if (!audio || !nar) return { enter: function () { setRail(0); }, manual: function () { return true; } };
-        var broken = false;
-        // Couldn't load or play: say so, and fall back to the manual finish.
-        audio.addEventListener('error', function () {
-          broken = true;
-          var note = document.querySelector('.dk-voice-note');
-          if (note) note.textContent = 'Audio unavailable';
-          if (showing === 'podcast' && !handed) ctx.setNextAction('Done listening', finished);
-        });
-        // Review-mode skip, same rule as the clip's: jump to the end and count
-        // it as heard. Never shown to a learner.
-        var lskip = document.getElementById('dkLSkip');
-        if (lskip) {
-          lskip.hidden = !LE.reviewMode();
-          lskip.addEventListener('click', function () {
-            audio.pause();
-            try { audio.currentTime = nar.dur; } catch (e) {}
-            if (!handed) finished();
-          });
-        }
-        var canvas = document.getElementById('dkWave');
-        var g = canvas.getContext('2d');
-        var play = document.getElementById('dkPlay');
-        var timeEl = document.getElementById('dkTime');
-        var capNow = document.getElementById('dkCapNow');
-        var capWho = document.getElementById('dkCapWho');
-        var env = nar.env;
-        var raf = 0, lastSent = -1, spans = [];
-
-        // The caption: the current sentence, word by word (words are timed by
-        // their share of the sentence's characters — close enough to track a
-        // steady read). Only the current sentence: the previous one used to
-        // fade out above it, and under a new speaker's name it read as that
-        // speaker's line (2026-09-24). A mono voiceover has no `w`, so the
-        // speaker label stays empty there.
-        function setSentence(i) {
-          if (i === lastSent) return;
-          lastSent = i;
-          var st = nar.sents[i];
-          // Who is speaking, above their line (the podcast has two hosts and
-          // an interviewee; sentences carry it as `w`).
-          if (capWho) {
-            capWho.textContent = st && st.w ? (PODCAST_WHO[st.w] || st.w) : '';
-            capWho.dataset.who = st && st.w ? st.w.toLowerCase() : '';
-          }
-          capNow.innerHTML = st ? st.t.split(' ').map(function (w) { return '<span>' + esc(w) + '</span>'; }).join(' ') : '';
-          spans = [].slice.call(capNow.children);
-          capNow.classList.remove('is-in'); void capNow.offsetWidth; capNow.classList.add('is-in');
-        }
-        function words(t) {
-          var st = nar.sents[lastSent];
-          if (!st) return;
-          var f = (t - st.s) / Math.max(.01, st.e - st.s), total = st.t.length, acc = 0;
-          spans.forEach(function (sp) {
-            var mid = (acc + sp.textContent.length / 2) / total;
-            acc += sp.textContent.length + 1;
-            sp.classList.toggle('is-said', mid <= f);
-          });
-        }
-        function sentenceAt(t) {
-          for (var i = nar.sents.length - 1; i >= 0; i--) if (t >= nar.sents[i].s) return i;
-          return 0;
-        }
-
-        function fit() {
-          var r = canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
-          canvas.width = Math.max(1, Math.round(r.width * dpr));
-          canvas.height = Math.max(1, Math.round(r.height * dpr));
-          g.setTransform(dpr, 0, 0, dpr, 0, 0);
-        }
-        // The real loudness of the track, scrolling right-to-left past a fixed
-        // playhead: what has been said is lit, what is coming is dim. Mirrored
-        // round-capped bars, one per envelope sample.
-        function draw(t) { drawEnvelope(canvas, g, env, t); }
-        function tick() {
-          var t = audio.currentTime;
-          draw(t);
-          setSentence(sentenceAt(t));
-          words(t);
-          timeEl.textContent = mmss(t) + ' / ' + mmss(nar.dur);
-          if (showing === 'podcast') setRail(t / nar.dur);
-          if (!audio.paused) raf = requestAnimationFrame(tick);
-        }
-        function setPlaying(on) {
-          play.innerHTML = '<i class="fa-solid ' + (on ? 'fa-pause' : audio.ended ? 'fa-rotate-left' : 'fa-play') + '" aria-hidden="true"></i>';
-          play.setAttribute('aria-label', on ? 'Pause narration' : 'Play narration');
-          stage.classList.toggle('is-playing', on);
-        }
-        play.addEventListener('click', function () {
-          if (audio.paused) { audio.play().catch(function () {}); } else audio.pause();
-        });
-        audio.addEventListener('play', function () { setPlaying(true); cancelAnimationFrame(raf); raf = requestAnimationFrame(tick); });
-        audio.addEventListener('pause', function () { setPlaying(false); tick(); });
-        audio.addEventListener('ended', function () {
-          setPlaying(false);
-          // Heard to the end counts as finished, same as a clip that ends.
-          if (showing === 'podcast' && !handed) { ctx.cancelNextAction(); finished(); }
-        });
-        // Click / drag the waveform to scrub.
-        canvas.parentNode.addEventListener('click', function (e) {
-          var r = canvas.getBoundingClientRect();
-          var dt = (e.clientX - (r.left + r.width / 2)) / (WAVE_BAR + WAVE_GAP) / WAVE_HZ;
-          audio.currentTime = Math.max(0, Math.min(nar.dur, audio.currentTime + dt));
-          tick();
-        });
-        window.addEventListener('resize', function () { if (canvas.isConnected) { fit(); tick(); } });
-        // Stop talking when the screen is torn down (no per-step teardown hook).
-        var stageEl = document.querySelector('.ll-stage');
-        if (stageEl && window.MutationObserver) {
-          var mo = new MutationObserver(function () {
-            if (document.body.contains(audio)) return;
-            mo.disconnect(); audio.pause(); cancelAnimationFrame(raf);
-          });
-          mo.observe(stageEl, { childList: true });
-        }
-        setSentence(0);
-        return {
-          enter: function () { requestAnimationFrame(function () { fit(); tick(); }); },
-          manual: function () { return broken; }
-        };
-      })();
-
       // The carrier is done. With no question, Continue opens. With one, the
       // question rises over the stage and Continue stays shut until it is
       // answered.
@@ -2463,7 +2248,6 @@
         if (!q) { ctx.enableNext(); return; }
         ctx.disableNext();
         if (video) try { video.pause(); } catch (e) {}
-        if (audio) audio.pause();
         var el = document.getElementById('dkCheck');
         reinforce(ctx, el, 1, 1);
         // Over the whole page: lifted out of the stage onto <body> (a fixed
@@ -2544,16 +2328,20 @@
         });
       }
 
-      [].forEach.call(sw.querySelectorAll('.dk-sw'), function (b) {
-        b.addEventListener('click', function () { show(b.dataset.m); });
-      });
-      // Per screen (2026-09-29): every screen opens on Watch and the learner
-      // switches it there; a switch no longer carries to the next screen.
-      // The Demo menu's Read view is the one exception — a one-shot, so a
-      // reviewer lands in the reader it just changed.
-      var demo = null;
-      try { demo = sessionStorage.getItem('sh-demo-carrier'); sessionStorage.removeItem('sh-demo-carrier'); } catch (e) {}
-      show(offered.indexOf(demo) > -1 ? demo : 'video');
+      // The run's one carrier (deckCarrier), chosen on the offer screen.
+      if (showing === 'video') {
+        // mountVideo unlocks Continue on 'ended' by itself; finished()
+        // shuts it again on a screen whose question is still to come.
+        mountVideo(ctx, { ids: DK_IDS, src: deckVideo(id), onFallback: finished, onEnded: finished });
+        video.addEventListener('timeupdate', function () {
+          if (video.duration) setRail(video.currentTime / video.duration);
+        });
+        setRail(0);
+      } else {
+        // No footer "Done reading": the in-flow Next button walks the text
+        // and becomes "Done reading" on the last paragraph.
+        read.enter();
+      }
       // Warm the next screen's video, but not while this one is still
       // loading — they'd split the bandwidth.
       if (video && showing === 'video') {
@@ -8040,7 +7828,7 @@
     // when its pre-check question was answered correctly. A miss on either
     // version's question serves that case's remedial video next.
     deckStep('c1base', { when: function () { return !k1TestUp(); },
-      caption: { title: 'LEARN · Case 1, base (K1) — deck slides 5–6', note: 'Served unless pre-check question 1 was answered correctly. Watch / Read / Read to me carrier of the slide 5 narration; when it finishes, the slide 6 mastery check rises over it on the reinforcement layer. A miss serves the remedial video (slide 7) next.' } }),
+      caption: { title: 'LEARN · Case 1, base (K1) — deck slides 5–6', note: 'Served unless pre-check question 1 was answered correctly. The slide 5 narration as a video or an article, whichever the learner chose on the format screen; when it finishes, the slide 6 mastery check rises over it on the reinforcement layer. A miss serves the remedial video (slide 7) next.' } }),
     deckStep('c1up', { adaptive: true, variant: 'Mastery version', when: function () { return k1TestUp(); },
       caption: { title: 'LEARN · Case 1, test-up (K1) — deck slides 8–9', note: 'Served INSTEAD of the base case when pre-check question 1 was answered correctly. The harder version of the same procedure, then the slide 9 mastery check over it. A miss serves the remedial video (slide 7), same as the base case.' } }),
     deckStep('c1rem', { adaptive: true, variant: 'Remedial version',
@@ -8372,14 +8160,16 @@
       // the same chapters either way; see ARTICLE / PODCAST.
       id: 'shReadStyleBtn', icon: 'fa-book-open', name: 'Read view',
       note: 'Plain article, or the audio script as a transcript with speaker names',
-      visibleOn: function (step) { return !!DECK[step.id]; },
+      // Only on a Reading run — there is no per-screen switch to land in the
+      // reader any more (2026-10-27).
+      visibleOn: function (step) { return !!DECK[step.id] && deckCarrier() === 'article'; },
       type: 'select', value: readStyle,
       options: [
         { value: 'article', label: 'Article' },
         { value: 'podcast', label: 'Audio script' }
       ],
       onChange: function (v, api) {
-        try { sessionStorage.setItem('sh-read-style', v); sessionStorage.setItem('sh-demo-carrier', 'article'); } catch (e) {}
+        try { sessionStorage.setItem('sh-read-style', v); } catch (e) {}
         api.replay();
       }
     }, {
