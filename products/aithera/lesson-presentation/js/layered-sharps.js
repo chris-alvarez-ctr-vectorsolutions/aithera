@@ -1199,7 +1199,7 @@
   // The Demo menu can force either side of a routing decision (sh-battery for
   // the two knowledge questions, sh-feel for the two agreement statements);
   // otherwise the pre-check's own record decides.
-  // Admin preview (js/admin-preview.js): the assignment's own settings. Off
+  // Admin preview (js/preview-embed.js): the assignment's own settings. Off
   // for a learner, where every rule below runs as authored.
   var AP = window.AdminPreview || null;
   function testUpOn() { return !AP || AP.testUp; }
@@ -4639,6 +4639,9 @@
     }
 
     if (!v) { toText('Showing the written version.'); return; }
+    // A small slide in the admin preview viewer (js/preview-embed.js): the
+    // titled poster stands in, and nothing downloads.
+    if (window.PreviewEmbed && window.PreviewEmbed.thumb) { ready(); return; }
 
     var pct = document.getElementById(o.ids.pct);
     var url = v.dataset.src;
@@ -8223,7 +8226,7 @@
     // ?sim=1 / ?sim=0 — the Demo menu's "Full scenario simulator" switch as a
     // link, since that row only shows on the Perform screen itself. With
     // ?step=handoff it lands a reviewer straight on the hero bridge screen.
-    // Admin preview (js/admin-preview.js): one allowed Watch/Read format is
+    // Admin preview (js/preview-embed.js): one allowed Watch/Read format is
     // the carrier from the start, since the format screen is skipped. Just
     // Contain the Sharp assigned: skip the cover and open the module itself.
     if (AP) {
@@ -8273,7 +8276,7 @@
     // is WAITING on the learner and they have not touched anything, that line
     // comes up by itself as a hint. Once per screen, never after the learner
     // has dismissed it, and never on a screen with nothing pending.
-    coachHint: { delay: 7000 },
+    coachHint: window.PreviewEmbed && window.PreviewEmbed.thumb ? null : { delay: 7000 },
     // The S-key skip and the Demo menu's Review mode toggle are opt-in per
     // course — see CFG.reviewGate in the engine. Sharps asks for both; the
     // video Skip pill (this file's own videoFrame/mountVideo) reads
