@@ -395,20 +395,34 @@
       if (r.left < v.left || r.right > v.right) nvScroll.scrollTo({ left: nvScroll.scrollLeft + r.left - v.left - v.width / 2 + r.width / 2, behavior: 'smooth' });
     }
   }
+  // The line joining this learner's screens. Neighbours join straight, side
+  // to side. Across screens this learner skips, it leaves the side of the last
+  // shown card, dips under the skipped ones and comes back up into the next,
+  // so it never runs behind a card it doesn't pass through.
   function drawLinks() {
     var svg = document.getElementById('nvLinks'); if (!svg) return;
-    var pts = [], b = nvBoard.getBoundingClientRect();
+    var b = nvBoard.getBoundingClientRect(), cols = [];
     COLS.forEach(function (c, ci) {
-      if (!c.vs.some(function (x) { return lit[x.id]; })) return;
       var r = nvBoard.querySelector('.nv-col[data-col="' + ci + '"] .th-frame').getBoundingClientRect();
-      pts.push({ l: r.left - b.left, r: r.right - b.left, y: r.top - b.top + r.height / 2 });
+      cols.push({ shown: c.vs.some(function (x) { return lit[x.id]; }), l: r.left - b.left, r: r.right - b.left, y: r.top - b.top + r.height / 2, bottom: r.bottom - b.top });
+    });
+    var d = '', prev = null, low = 0;
+    cols.forEach(function (c) {
+      if (!c.shown) { if (prev) low = Math.max(low, c.bottom); return; }
+      if (prev) {
+        if (!low) d += 'M' + prev.r + ' ' + prev.y + ' L' + c.l + ' ' + c.y + ' ';
+        else {
+          var y = low + 12, r = 14;            // under the skipped cards, with rounded corners
+          d += 'M' + prev.r + ' ' + prev.y + ' H' + (prev.r + 8 - r + r) +
+            ' Q' + (prev.r + 8 + r) + ' ' + prev.y + ' ' + (prev.r + 8 + r) + ' ' + (prev.y + r) +
+            ' V' + (y - r) + ' Q' + (prev.r + 8 + r) + ' ' + y + ' ' + (prev.r + 8 + 2 * r) + ' ' + y +
+            ' H' + (c.l - 8 - 2 * r) + ' Q' + (c.l - 8 - r) + ' ' + y + ' ' + (c.l - 8 - r) + ' ' + (y - r) +
+            ' V' + (c.y + r) + ' Q' + (c.l - 8 - r) + ' ' + c.y + ' ' + (c.l - 8) + ' ' + c.y + ' H' + c.l + ' ';
+        }
+      }
+      prev = c; low = 0;
     });
     svg.setAttribute('width', nvBoard.scrollWidth); svg.setAttribute('height', nvBoard.offsetHeight);
-    var d = '';
-    for (var i = 1; i < pts.length; i++) {
-      var a = pts[i - 1], z = pts[i];
-      d += 'M' + a.r + ' ' + a.y + ' L' + z.l + ' ' + z.y + ' ';
-    }
     svg.innerHTML = '<path d="' + d + '"/>';
   }
   dragScroll(nvScroll, nvScroll, 'x');
