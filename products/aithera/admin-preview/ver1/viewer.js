@@ -35,43 +35,43 @@
      still shows what that version really looks like. `opts` are the learner
      options that matter for that screen: the panel leads with them. -------- */
   var COLS = [
-    { key: 'intro', name: 'Course page', tag: ['n', 'Cover'], opts: ['lens', 'fmt'],
+    { deps: [], key: 'intro', name: 'Course page', tag: ['n', 'Cover'], opts: ['lens', 'fmt'],
       about: 'The course home. It shows the sector version and the format the learner prefers.',
       vs: [{ id: 'intro', label: 'Course page' }] },
-    { key: 'battery', name: 'Pre-check', tag: ['n', 'K · F'], opts: ['k1', 'k2', 'f1', 'f3'],
+    { deps: [], key: 'battery', name: 'Pre-check', tag: ['n', 'K · F'], opts: ['k1', 'k2', 'f1', 'f3'],
       about: 'Four questions before the lessons. Their answers decide which versions play next. Flip one to see the strip change.',
       vs: [{ id: 'battery', label: 'Four questions' }] },
-    { key: 'adjust', name: 'Your updated path', tag: ['n', 'Path'], opts: ['k1', 'k2', 'test_up'],
+    { deps: ['k1', 'k2', 'f1', 'f3', 'test_up'], key: 'adjust', name: 'Your updated path', tag: ['n', 'Path'], opts: ['k1', 'k2', 'test_up'],
       about: 'Shows only when a pre-check answer moved the path, and lists what moved.',
       vs: [{ id: 'adjust', label: 'When an answer moves the path', force: { k1: '1', test_up: '1' } }] },
-    { key: 'podoffer', name: 'Choose a format', tag: ['n', 'Format'], opts: ['fmt'],
+    { deps: [], key: 'podoffer', name: 'Choose a format', tag: ['n', 'Format'], opts: ['fmt'],
       about: 'Where the learner picks Watch, Listen or Read. Skipped when the assignment offers only one.',
       vs: [{ id: 'podoffer', label: 'Watch, Listen or Read', force: { formats: FORMATS.join(',') } }] },
-    { key: 'c1', name: 'Case 1', tag: ['k', 'K1'], opts: ['k1', 'test_up', 'c1', 'extra'],
+    { deps: ['k1'], key: 'c1', name: 'Case 1', tag: ['k', 'K1'], opts: ['k1', 'test_up', 'c1', 'extra'],
       about: 'The first case. Question 1 picks the version; the check at the end can add a review.',
       vs: [{ id: 'c1base', label: 'Base', force: { k1: '0' } }, { id: 'c1up', label: 'Harder', force: { k1: '1', test_up: '1' } }] },
-    { key: 'c1rem', name: 'Case 1 review', tag: ['k', 'K1'], opts: ['c1', 'extra'],
+    { deps: ['k1'], key: 'c1rem', name: 'Case 1 review', tag: ['k', 'K1'], opts: ['c1', 'extra'],
       about: 'Only after a missed Case 1 check, when Extra practice is on. Re-teaches, then asks the question again.',
       vs: [{ id: 'c1rem', label: 'After a missed check', force: { c1: '0', extra: '1' } }] },
-    { key: 'c2', name: 'Case 2', tag: ['k', 'K2'], opts: ['k2', 'test_up', 'c2', 'extra'],
+    { deps: ['k2'], key: 'c2', name: 'Case 2', tag: ['k', 'K2'], opts: ['k2', 'test_up', 'c2', 'extra'],
       about: 'The second case. Question 2 picks the version; the check at the end can add a review.',
       vs: [{ id: 'c2base', label: 'Base', force: { k2: '0' } }, { id: 'c2up', label: 'Harder', force: { k2: '1', test_up: '1' } }] },
-    { key: 'c2rem', name: 'Case 2 review', tag: ['k', 'K2'], opts: ['c2', 'extra'],
+    { deps: ['k2'], key: 'c2rem', name: 'Case 2 review', tag: ['k', 'K2'], opts: ['c2', 'extra'],
       about: 'Only after a missed Case 2 check, when Extra practice is on. Re-teaches, then asks the question again.',
       vs: [{ id: 'c2rem', label: 'After a missed check', force: { c2: '0', extra: '1' } }] },
-    { key: 'controls', name: 'Engineering controls', tag: ['f', 'F2'], opts: ['lens'],
+    { deps: [], key: 'controls', name: 'Engineering controls', tag: ['f', 'F2'], opts: ['lens'],
       about: 'Every learner sees this. Only the sector changes it.',
       vs: [{ id: 'controls', label: 'Everyone' }] },
-    { key: 'case3', name: 'Case 3', tag: ['f', 'F1'], opts: ['f1'],
+    { deps: [], key: 'case3', name: 'Case 3', tag: ['f', 'F1'], opts: ['f1'],
       about: 'Statement 1 picks the version. The same statement is asked again over it.',
       vs: [{ id: 'case3', label: 'Base', force: { f1: 'agree' } }, { id: 'case3rf', label: 'Longer story', force: { f1: 'disagree' } }] },
-    { key: 'debrief', name: 'Debrief', tag: ['f', 'F3'], opts: ['f3'],
+    { deps: [], key: 'debrief', name: 'Debrief', tag: ['f', 'F3'], opts: ['f3'],
       about: 'Statement 2 picks the version. The same statement is asked again over it.',
       vs: [{ id: 'debrief', label: 'Base', force: { f3: 'agree' } }, { id: 'debriefrf', label: 'More room', force: { f3: 'disagree' } }] },
-    { key: 'scene', name: 'A sharp decision', tag: ['d', 'D'], opts: ['lens'],
+    { deps: [], key: 'scene', name: 'A sharp decision', tag: ['d', 'D'], opts: ['lens'],
       about: 'The practice. Every learner gets it; only the sector changes it.',
       vs: [{ id: 'scene', label: 'Practice' }] },
-    { key: 'record', name: 'Your results', tag: ['n', 'Results'], opts: ['k1', 'k2', 'c1', 'c2', 'f1', 'f3'],
+    { deps: 'all', key: 'record', name: 'Your results', tag: ['n', 'Results'], opts: ['k1', 'k2', 'c1', 'c2', 'f1', 'f3'],
       about: 'Results reflect every answer, before and after.',
       vs: [{ id: 'record', label: 'Results' }] }
   ];
@@ -306,56 +306,88 @@
     var l = c.vs.filter(function (v) { return lit[v.id]; })[0];
     return (l || c.vs[0]).id;
   }
-  function colHTML(c, ci, num, pulse) {
-    var shown = c.vs.some(function (v) { return lit[v.id]; }), id = viewing(c), isLit = !!lit[id], many = c.vs.length > 1;
-    var v0 = BY_ID[id].v;
-    return '<section class="nv-col' + (shown ? '' : ' skipped') + (id === sel ? ' is-sel' : '') + '" data-col="' + ci + '" aria-label="' + c.name + (shown ? '' : ', not shown to this learner') + '">' +
-      '<div class="nv-head"><span class="nv-num">' + (shown ? num : '–') + '</span><span class="nv-name">' + c.name + '</span></div>' +
-      '<div class="th ' + (isLit ? 'lit' : 'dim') + (many ? ' stack' : '') + (pulse && isLit ? ' changed' : '') + (id === sel ? ' sel' : '') + '" data-step="' + id + '">' +
-        '<span class="th-frame" role="button" tabindex="0" aria-label="' + c.name + (many ? ', ' + v0.label : '') + (isLit ? ', on this learner’s path' : ', not on this learner’s path') + '">' +
+  /* A thumbnail's address carries only what that screen depends on: a fixed
+     neutral learner, plus the options its column lists in `deps` (sector and
+     format for every screen), plus the version's own `force`. So flipping
+     Question 1 changes the address of Case 1 and "Your updated path" only,
+     and only those reload; every other thumbnail keeps its loaded page. The
+     big screen still gets the whole learner. */
+  var NEUTRAL = { k1: '0', k2: '0', f1: 'agree', f3: 'agree', c1: '1', c2: '1', test_out: '1', test_up: '1', extra: '1' };
+  var ALWAYS = ['lens', 'fmt'];
+  function thumbProf(c, v) {
+    var p = Object.assign({}, NEUTRAL, { formats: allowed.join(',') });
+    (c.deps === 'all' ? Object.keys(P) : ALWAYS.concat(c.deps || [])).forEach(function (k) { p[k] = P[k]; });
+    return Object.assign(p, v.force || {});
+  }
+  function pillsHTML(c, id) {
+    return '<span class="th-vs" role="radiogroup" aria-label="Versions">' + c.vs.map(function (v) {
+      var up = /harder/i.test(v.label);
+      return '<button type="button" role="radio" aria-checked="' + (v.id === id) + '" class="th-v' + (v.id === id ? ' on' : '') + (lit[v.id] ? ' path' : '') + '" data-v="' + v.id + '" title="' +
+        v.label + (lit[v.id] ? ' (this learner)' : '') + '">' + (up ? '<i class="fa-solid fa-arrow-trend-up"></i>' : '') + v.label + '</button>';
+    }).join('') + '</span>';
+  }
+  // The column's shell is built once; updateCol() changes it in place from then
+  // on. Rebuilding would mean new frames, and a new frame always reloads.
+  function colHTML(c, ci) {
+    var many = c.vs.length > 1;
+    return '<section class="nv-col" data-col="' + ci + '">' +
+      '<div class="nv-head"><span class="nv-num"></span><span class="nv-name">' + c.name + '</span></div>' +
+      '<div class="th' + (many ? ' stack' : '') + '">' +
+        '<span class="th-frame" role="button" tabindex="0">' +
           '<span class="ph"><i class="fa-solid fa-spinner fa-spin"></i></span><iframe tabindex="-1" title="" aria-hidden="true"></iframe>' +
           // The K/F/D tag sits on the thumbnail's top corner, so under it only the version pills remain.
           '<b class="kfd th-tag ' + c.tag[0] + '" title="' + ({ k: 'Knowledge', f: 'Feeling', d: 'Doing' }[c.tag[0]] || c.tag[1]) + '">' + c.tag[1] + '</b></span>' +
-        (many ? '<span class="th-cap"><span class="th-vs" role="radiogroup" aria-label="Versions">' + c.vs.map(function (v) {
-              var up = /harder/i.test(v.label);
-              return '<button type="button" role="radio" aria-checked="' + (v.id === id) + '" class="th-v' + (v.id === id ? ' on' : '') + (lit[v.id] ? ' path' : '') + '" data-v="' + v.id + '" title="' +
-                v.label + (lit[v.id] ? ' (this learner)' : '') + '">' + (up ? '<i class="fa-solid fa-arrow-trend-up"></i>' : '') + v.label + '</button>';
-            }).join('') + '</span></span>' : '') +
-        '</div></section>';
+        (many ? '<span class="th-cap"></span>' : '') +
+      '</div></section>';
   }
   function wireCol(el) {
-    var th = el.querySelector('.th'), id = th.dataset.step;
-    th.dataset.want = src(profFor(id, !!lit[id]), id, true);
-    var fr = th.querySelector('.th-frame');
-    fr.addEventListener('click', function () { if (!nvScroll.classList.contains('dragged')) select(id); });
-    fr.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(id); } });
-    el.querySelectorAll('[data-v]').forEach(function (b) {
-      b.addEventListener('click', function () { if (!nvScroll.classList.contains('dragged')) select(b.dataset.v); });
+    var th = el.querySelector('.th'), fr = th.querySelector('.th-frame');
+    fr.addEventListener('click', function () { if (!nvScroll.classList.contains('dragged')) select(th.dataset.step); });
+    fr.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(th.dataset.step); } });
+    var cap = th.querySelector('.th-cap');
+    if (cap) cap.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-v]');
+      if (b && !nvScroll.classList.contains('dragged')) select(b.dataset.v);
     });
-    io.observe(th);
+    io.observe(th); far.observe(th);
+  }
+  function updateCol(ci, num, pulse) {
+    var c = COLS[ci], el = nvBoard.querySelector('.nv-col[data-col="' + ci + '"]'); if (!el) return;
+    var shown = c.vs.some(function (v) { return lit[v.id]; }), id = viewing(c), isLit = !!lit[id], b = BY_ID[id];
+    var th = el.querySelector('.th'), fr = th.querySelector('.th-frame');
+    el.classList.toggle('skipped', !shown);
+    el.classList.toggle('is-sel', id === sel);
+    el.setAttribute('aria-label', c.name + (shown ? '' : ', not shown to this learner'));
+    el.querySelector('.nv-num').textContent = shown ? num : '–';
+    th.dataset.step = id;
+    th.classList.toggle('lit', isLit); th.classList.toggle('dim', !isLit); th.classList.toggle('sel', id === sel);
+    if (pulse && isLit) { th.classList.remove('changed'); void th.offsetWidth; th.classList.add('changed'); }
+    fr.setAttribute('aria-label', c.name + (c.vs.length > 1 ? ', ' + b.v.label : '') + (isLit ? ', on this learner’s path' : ', not on this learner’s path'));
+    var cap = th.querySelector('.th-cap'); if (cap) cap.innerHTML = pillsHTML(c, id);
+    th.dataset.want = src(thumbProf(c, b.v), id, true);
+    if (th.dataset.near === '1') load(th);          // in view: refresh now if its address changed
   }
   function drawNav(changedCols) {
+    if (!nvBoard.querySelector('.nv-col')) {
+      nvBoard.innerHTML = COLS.map(colHTML).join('') + '<svg class="nv-links" id="nvLinks" aria-hidden="true"></svg>';
+      nvBoard.querySelectorAll('.nv-col').forEach(wireCol);
+    }
     var n = 0;
-    nvBoard.innerHTML = COLS.map(function (c, ci) {
+    COLS.forEach(function (c, ci) {
       var shown = c.vs.some(function (v) { return lit[v.id]; });
-      return colHTML(c, ci, shown ? ++n : 0, changedCols[ci]);
-    }).join('') + '<svg class="nv-links" id="nvLinks" aria-hidden="true"></svg>';
-    nvBoard.querySelectorAll('.nv-col').forEach(wireCol);
+      updateCol(ci, shown ? ++n : 0, changedCols[ci]);
+    });
     markNav();
     drawLinks();
   }
-  // Selecting swaps only the columns whose thumbnail changes; the rest keep their loaded frames.
+  // Selecting updates only the columns whose thumbnail changes.
   function markNav() {
+    var n = 0;
     COLS.forEach(function (c, ci) {
+      var shown = c.vs.some(function (v) { return lit[v.id]; }); if (shown) n++;
       var el = nvBoard.querySelector('.nv-col[data-col="' + ci + '"]'); if (!el) return;
-      var th = el.querySelector('.th'), want = viewing(c);
-      if (th.dataset.step !== want) {
-        var num = el.querySelector('.nv-num').textContent;
-        el.insertAdjacentHTML('afterend', colHTML(c, ci, num, false));
-        var fresh = el.nextElementSibling; el.remove(); wireCol(fresh); th = fresh.querySelector('.th');
-      }
-      th.classList.toggle('sel', th.dataset.step === sel);
-      el.classList.toggle('is-sel', th.dataset.step === sel);
+      var th = el.querySelector('.th');
+      if (th.dataset.step !== viewing(c) || el.classList.contains('is-sel') !== (viewing(c) === sel)) updateCol(ci, shown ? n : 0, false);
     });
     var s = nvBoard.querySelector('.th.sel');
     if (s && mode === 'design') {
@@ -385,11 +417,23 @@
     if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); nvScroll.scrollLeft += e.deltaY; }
   }, { passive: false });
 
-  /* Thumbnails load as they come into view, a few at a time. */
+  /* Thumbnails load as they come near the view, a few at a time, and unload
+     once they're well out of it, so a long course never holds more than about
+     a screenful and a half of live pages. */
   var queue = [], busy = 0;
   var io = new IntersectionObserver(function (es) {
-    es.forEach(function (e) { if (e.isIntersecting) load(e.target); });
+    es.forEach(function (e) { e.target.dataset.near = e.isIntersecting ? '1' : ''; if (e.isIntersecting) load(e.target); });
   }, { root: nvScroll, rootMargin: '0px 400px' });
+  var far = new IntersectionObserver(function (es) {
+    es.forEach(function (e) { if (!e.isIntersecting) unload(e.target); });
+  }, { root: nvScroll, rootMargin: '0px 900px' });
+  function unload(el) {
+    var f = el.querySelector('iframe'), ph = el.querySelector('.ph');
+    var i = queue.indexOf(el); if (i > -1) queue.splice(i, 1);
+    if (!f.dataset.src) return;
+    f.src = 'about:blank'; f.dataset.src = '';
+    if (ph) ph.hidden = false;
+  }
   function load(el) { if (queue.indexOf(el) < 0) queue.push(el); pump(); }
   function pump() {
     while (busy < 3 && queue.length) {

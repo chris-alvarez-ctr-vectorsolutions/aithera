@@ -24,7 +24,7 @@
      modules=m1,…,m6 (the cover lists only these; default all six).
    - The white Vector Solutions site bar is hidden; the viewer has its own.
    - thumb=1 is a quiet slide: no video download (the titled poster shows),
-     no CLARA hint, no motion, Demo hidden, not clickable.
+     no CLARA orb or hint, no motion, Demo hidden, not clickable.
 
    Load BEFORE layered-engine.js and layered-sharps.js.
    ========================================================================== */
@@ -98,7 +98,12 @@
       'html.pe-thumb body { pointer-events: none; overflow: hidden; }' +
       'html.pe-thumb #llDemoBtn, html.pe-thumb .ll-variant-tag, html.pe-thumb .ll-demo-menu { visibility: hidden !important; }';
     document.head.appendChild(css);
-    // The orb and any other loop draw a few frames, then hold still: twenty
+    // No CLARA orb at all: each one opens a WebGL context, and Chrome keeps
+    // only ~16 per page, dropping the oldest past that (the big screen's,
+    // say). The engine skips the orb when window.MobiusOrb is missing, so
+    // mobius-orb.js's assignment is swallowed here and it never starts.
+    try { Object.defineProperty(window, 'MobiusOrb', { configurable: true, get: function () { return undefined; }, set: function () {} }); } catch (e) {}
+    // Any other loop draws a few frames, then holds still: twenty
     // live slides each spinning a WebGL orb would bring the viewer to a crawl.
     var raf = window.requestAnimationFrame.bind(window);
     var until = Date.now() + 1500;
