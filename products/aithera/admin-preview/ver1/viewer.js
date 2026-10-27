@@ -309,19 +309,19 @@
   function colHTML(c, ci, num, pulse) {
     var shown = c.vs.some(function (v) { return lit[v.id]; }), id = viewing(c), isLit = !!lit[id], many = c.vs.length > 1;
     var v0 = BY_ID[id].v;
-    return '<section class="nv-col' + (shown ? '' : ' skipped') + '" data-col="' + ci + '" aria-label="' + c.name + (shown ? '' : ', not shown to this learner') + '">' +
-      '<div class="nv-head"><span class="nv-num">' + (shown ? num : '–') + '</span><span>' + c.name + '</span></div>' +
+    return '<section class="nv-col' + (shown ? '' : ' skipped') + (id === sel ? ' is-sel' : '') + '" data-col="' + ci + '" aria-label="' + c.name + (shown ? '' : ', not shown to this learner') + '">' +
+      '<div class="nv-head"><span class="nv-num">' + (shown ? num : '–') + '</span><span class="nv-name">' + c.name + '</span></div>' +
       '<div class="th ' + (isLit ? 'lit' : 'dim') + (many ? ' stack' : '') + (pulse && isLit ? ' changed' : '') + (id === sel ? ' sel' : '') + '" data-step="' + id + '">' +
         '<span class="th-frame" role="button" tabindex="0" aria-label="' + c.name + (many ? ', ' + v0.label : '') + (isLit ? ', on this learner’s path' : ', not on this learner’s path') + '">' +
-          '<span class="ph"><i class="fa-solid fa-spinner fa-spin"></i></span><iframe tabindex="-1" title="" aria-hidden="true"></iframe></span>' +
-        '<span class="th-cap"><b class="kfd ' + c.tag[0] + '">' + c.tag[1] + '</b>' +
-          (many ? '<span class="th-vs" role="group" aria-label="Versions">' + c.vs.map(function (v) {
+          '<span class="ph"><i class="fa-solid fa-spinner fa-spin"></i></span><iframe tabindex="-1" title="" aria-hidden="true"></iframe>' +
+          // The K/F/D tag sits on the thumbnail's top corner, so under it only the version pills remain.
+          '<b class="kfd th-tag ' + c.tag[0] + '" title="' + ({ k: 'Knowledge', f: 'Feeling', d: 'Doing' }[c.tag[0]] || c.tag[1]) + '">' + c.tag[1] + '</b></span>' +
+        (many ? '<span class="th-cap"><span class="th-vs" role="group" aria-label="Versions">' + c.vs.map(function (v) {
               var up = /harder/i.test(v.label);
               return '<button type="button" class="th-v' + (v.id === id ? ' on' : '') + (lit[v.id] ? ' path' : '') + '" data-v="' + v.id + '" title="' +
                 v.label + (lit[v.id] ? ' (this learner)' : '') + '">' + (up ? '<i class="fa-solid fa-arrow-trend-up"></i>' : '') + v.label + '</button>';
-            }).join('') + '</span>'
-            : '<b>' + (v0.force ? v0.label : c.name) + '</b>') +
-        '</span></div></section>';
+            }).join('') + '</span></span>' : '') +
+        '</div></section>';
   }
   function wireCol(el) {
     var th = el.querySelector('.th'), id = th.dataset.step;
@@ -355,6 +355,7 @@
         var fresh = el.nextElementSibling; el.remove(); wireCol(fresh); th = fresh.querySelector('.th');
       }
       th.classList.toggle('sel', th.dataset.step === sel);
+      el.classList.toggle('is-sel', th.dataset.step === sel);
     });
     var s = nvBoard.querySelector('.th.sel');
     if (s && mode === 'design') {
