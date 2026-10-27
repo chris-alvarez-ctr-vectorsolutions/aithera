@@ -3692,7 +3692,7 @@
       '<iframe class="ra-view" id="raView" title="Article: The next pair of hands" src="' + READ_ARTICLE + '?embed=1"></iframe>' +
     '</main>';
   }
-  // The module's footer walks the article: Continue borrows "Next section"
+  // The module's footer walks the article: Continue borrows "Next chapter"
   // until the last chapter, Back steps up a chapter until the first. While
   // the activity is still locked, Next waits on it, the way the article's
   // own gate does. A run that already finished the article (Back from the
@@ -3734,7 +3734,7 @@
       if (state === 'done') { ctx.cancelNextAction(); ctx.enableNext(); return; }
       // The press reverts the button, so put it back straight away rather
       // than on the next frame (a background tab can hold frames back).
-      ctx.setNextAction('Next section', function () { shown = ''; go(1); refresh(); });
+      ctx.setNextAction('Next chapter', function () { shown = ''; go(1); refresh(); });
       if (state === 'wait') ctx.els.next.disabled = true;
     }
     // A short timer rather than an animation frame: frames stall in a
