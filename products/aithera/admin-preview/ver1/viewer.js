@@ -316,9 +316,9 @@
           '<span class="ph"><i class="fa-solid fa-spinner fa-spin"></i></span><iframe tabindex="-1" title="" aria-hidden="true"></iframe>' +
           // The K/F/D tag sits on the thumbnail's top corner, so under it only the version pills remain.
           '<b class="kfd th-tag ' + c.tag[0] + '" title="' + ({ k: 'Knowledge', f: 'Feeling', d: 'Doing' }[c.tag[0]] || c.tag[1]) + '">' + c.tag[1] + '</b></span>' +
-        (many ? '<span class="th-cap"><span class="th-vs" role="group" aria-label="Versions">' + c.vs.map(function (v) {
+        (many ? '<span class="th-cap"><span class="th-vs" role="radiogroup" aria-label="Versions">' + c.vs.map(function (v) {
               var up = /harder/i.test(v.label);
-              return '<button type="button" class="th-v' + (v.id === id ? ' on' : '') + (lit[v.id] ? ' path' : '') + '" data-v="' + v.id + '" title="' +
+              return '<button type="button" role="radio" aria-checked="' + (v.id === id) + '" class="th-v' + (v.id === id ? ' on' : '') + (lit[v.id] ? ' path' : '') + '" data-v="' + v.id + '" title="' +
                 v.label + (lit[v.id] ? ' (this learner)' : '') + '">' + (up ? '<i class="fa-solid fa-arrow-trend-up"></i>' : '') + v.label + '</button>';
             }).join('') + '</span></span>' : '') +
         '</div></section>';
