@@ -207,6 +207,111 @@
   };
   var ALL_OPTS = ['lens', 'fmt', 'k1', 'k2', 'f1', 'f3', 'c1', 'c2', 'test_up', 'extra', 'test_out'];
 
+  /* ---- Another course: Hazing (course=hazing) -------------------------------
+     The Hazing Module 5 prototype (lesson-presentation/clara/hazing.html) runs
+     on the same player, so the viewer only swaps what it knows about the
+     module: its screens, its learner options and its two audiences. The
+     learner profile keeps the same names (k1 = the 5.1 question, f1 = both 5.3
+     statements, c1 = the 5.1 check), so the module reads it unchanged. Read
+     there is the chapter screens, read instead of watched, so Read uses the
+     Watch columns. */
+  var COURSE_KEY = q.get('course') === 'hazing' ? 'hazing' : 'sharps';
+  var LENS_ITEMS = [{ label: 'Manufacturing', value: 'manufacturing' }, { label: 'Law enforcement', value: 'public' }];
+  var COURSE_TITLE = 'Bloodborne Pathogens · Contain the Sharp';
+  if (COURSE_KEY === 'hazing') {
+    SHARPS = '../../lesson-presentation/clara/hazing.html';
+    COURSE_TITLE = 'Hazing Awareness and Prevention · Report Hazing Through Appropriate Channels';
+    LENS_ITEMS = [{ label: 'Athletes', value: 'athletes' }, { label: 'Greek Life', value: 'greek' }];
+    P.lens = q.get('role') === 'greek' ? 'greek' : 'athletes';
+    PRESETS = {
+      new:       { k1: '0', f1: 'agree', c1: '1' },
+      ahead:     { k1: '1', f1: 'agree', c1: '1' },
+      struggles: { k1: '0', f1: 'disagree', c1: '0' }
+    };
+    Object.assign(P, PRESETS.new);
+    VIDEO_COLS = [
+      { deps: [], key: 'intro', name: 'Course page', tag: ['n', 'Cover'], opts: ['lens', 'fmt'],
+        about: 'The course home. It shows the audience and the format the learner prefers.',
+        vs: [{ id: 'intro', label: 'Course page' }] },
+      { deps: [], key: 'battery', name: 'Pre-check', tag: ['n', 'K · F'], opts: ['k1', 'f1'],
+        about: 'Three questions before the chapters: the 5.1 channel question and the two 5.3 statements. Their answers decide which chapters play.',
+        vs: [{ id: 'battery', label: 'Three questions' }] },
+      { deps: ['k1', 'f1', 'test_out', 'test_up'], key: 'adjust', name: 'Your updated path', tag: ['n', 'Path'], opts: ['k1', 'f1', 'test_out'],
+        about: 'Shows only when a pre-check answer moved the path.',
+        vs: [{ id: 'adjust', label: 'When an answer moves the path', force: { k1: '1' } }] },
+      { deps: [], key: 'podoffer', name: 'Choose a format', tag: ['n', 'Format'], opts: ['fmt'],
+        about: 'Where the learner picks Watch, Listen or Read. Skipped when the assignment offers only one.',
+        vs: [{ id: 'podoffer', label: 'Watch, Listen or Read', force: { formats: FORMATS.join(',') } }] },
+      { deps: ['k1', 'test_out', 'test_up'], key: 'k1', name: 'Where to report (5.1)', tag: ['k', 'K1'], opts: ['k1', 'test_out', 'test_up', 'c1', 'extra'],
+        about: 'M5-01A, with its check. A right pre-check answer skips it (Skip ahead on) or serves the test-up, M5-01B, with no check (Skip ahead off).',
+        vs: [{ id: 'm501a', label: 'Base', force: { k1: '0' } }, { id: 'm501b', label: 'Test-up', force: { k1: '1', test_out: '0', test_up: '1' } }] },
+      { deps: ['k1'], key: 'k1rem', name: '5.1 remedial', tag: ['k', 'K1'], opts: ['c1', 'extra'],
+        about: 'M5-01R, only after a missed 5.1 check when Extra practice is on. A new scene, slower, then the question once more.',
+        vs: [{ id: 'm501r', label: 'After a missed check', force: { k1: '0', c1: '0', extra: '1' } }] },
+      { deps: [], key: 'k2', name: 'Consequences (5.2)', tag: ['k', 'K2'], opts: ['lens'],
+        about: 'M5-02A. Every learner gets it (ask policy): no pre-check item, no remedial.',
+        vs: [{ id: 'm502a', label: 'Everyone' }] },
+      { deps: [], key: 'f1', name: 'Reporting is right (5.3)', tag: ['f', 'F1'], opts: ['f1'],
+        about: 'The pre-check statements pick the version. Statement 1 is asked again over it.',
+        vs: [{ id: 'm503a', label: 'Base', force: { f1: 'agree' } }, { id: 'm503r', label: 'Remedial', short: 'Longer', force: { f1: 'disagree' } }] },
+      { deps: 'all', key: 'record', name: 'Your results', tag: ['n', 'Results'], opts: ['k1', 'c1', 'f1'],
+        about: 'The 5.1 and 5.2 checks scored; the 5.3 statements shown as views.',
+        vs: [{ id: 'record', label: 'Results' }] }
+    ];
+    LISTEN_COLS = VIDEO_COLS.slice(0, 4).concat([
+      { deps: [], key: 'ch-open', name: 'Opening', tag: ['n', 'Listen'], opts: ['lens'],
+        about: 'Chapter 1 of the listen. Placeholder audio for now.',
+        vs: [{ id: 'podcast@open', label: 'Opening' }] },
+      { deps: ['k1', 'test_out', 'test_up'], key: 'ch-k1', name: 'Where to report (5.1)', tag: ['k', 'K1'], opts: ['k1', 'test_out', 'test_up'],
+        about: 'The 5.1 chapter. A right Question 1 skips it (Skip ahead on) or plays the test-up (Skip ahead off).',
+        vs: [{ id: 'podcast@k1', label: '5.1 chapter', force: { k1: '0' } }] },
+      { deps: [], key: 'ch-k2', name: 'Consequences (5.2)', tag: ['k', 'K2'], opts: ['lens'],
+        about: 'The 5.2 chapter. Every learner hears it.',
+        vs: [{ id: 'podcast@k2', label: '5.2 chapter' }] },
+      { deps: ['f1'], key: 'ch-f1', name: 'Reporting is right (5.3)', tag: ['f', 'F1'], opts: ['f1'],
+        about: 'The 5.3 chapter: its remedial version on low agreement.',
+        vs: [{ id: 'podcast@f1', label: '5.3 chapter' }] },
+      { deps: [], key: 'ch-close', name: 'Closing', tag: ['n', 'Listen'], opts: ['lens'],
+        about: 'The last chapter, then the hand-back to the screen.',
+        vs: [{ id: 'podcast@close', label: 'Closing' }] },
+      { deps: ['k1', 'test_out'], key: 'podcheck', name: 'Questions', tag: ['n', 'K · F'], opts: ['c1', 'extra', 'k1', 'test_out'],
+        about: 'One question per chapter that played, after the whole listen. A skipped 5.1 chapter, or its test-up, asks nothing.',
+        vs: [{ id: 'podcheck', label: 'Questions' }] },
+      { deps: [], key: 'listenreview', name: 'Review', tag: ['k', 'K1'], opts: ['c1', 'extra'],
+        about: 'Only after a missed 5.1 question, when Extra practice is on: the M5-01R narration as cards, then the question once more.',
+        vs: [{ id: 'listenreview', label: 'After a missed question', force: { c1: '0', extra: '1', k1: '0' } }] },
+      { deps: [], key: 'listendone', name: 'Listen mode complete', tag: ['n', 'Done'], opts: [],
+        about: 'Hands the learner from the listen to the results.',
+        vs: [{ id: 'listendone', label: 'Done' }] }
+    ], VIDEO_COLS.slice(-1));
+    READ_SECTIONS = [];
+    READ_COLS = VIDEO_COLS;
+    OPTS.lens = { label: 'Audience', type: 'sector', effect: function () { return 'Each audience has its own storyline: the swim team or the sorority.'; } };
+    OPTS.fmt.effect = function () { return P.fmt === 'listen' ? 'Listen changes the whole module. Play it to see.' : P.fmt === 'article' ? 'Each chapter is read, with a question after it.' : 'Each chapter is a short video with a question after it.'; };
+    OPTS.k1 = { label: 'Pre-check question 1', sub: 'Where to report', type: 'seg', vals: RW,
+      effect: function () {
+        if (!on('k1')) return '5.1 plays its base chapter, with its check.';
+        if (on('test_out')) return '5.1 is skipped.';
+        return on('test_up') ? 'Skip ahead is off, so 5.1 plays its test-up, with no check.' : 'Skip ahead and Harder checks are off, so 5.1 plays its base chapter.';
+      } };
+    OPTS.f1 = { label: 'Pre-check statements', sub: 'Reporting is right', type: 'seg', vals: AD,
+      effect: function () { return P.f1 === 'disagree' ? '5.3 plays its remedial chapter, with a second incident.' : '5.3 plays its base chapter.'; } };
+    OPTS.c1 = { label: '5.1 check', sub: function () { return P.fmt === 'listen' ? 'Asked after the listen' : 'The question after the 5.1 chapter'; }, type: 'seg', vals: RW,
+      effect: function () {
+        if (on('k1') && (on('test_out') || on('test_up'))) return 'Not asked: the learner skipped 5.1 or got its test-up.';
+        return on('c1') ? 'Straight on to 5.2.' : on('extra') ? 'The 5.1 remedial follows, then the same question again.' : 'Extra practice is off, so the course moves straight on.';
+      } };
+    OPTS.test_up.effect = function () { return on('test_up') ? 'With Skip ahead off, a right 5.1 answer gets the test-up chapter.' : 'Nobody gets the 5.1 test-up.'; };
+    OPTS.test_out.effect = function () { return on('test_out') ? 'A right 5.1 answer skips the 5.1 chapter.' : 'Every learner gets a 5.1 chapter.'; };
+    ALL_OPTS = ['lens', 'fmt', 'k1', 'f1', 'c1', 'test_out', 'test_up', 'extra'];
+    useCols(P.fmt);
+  }
+  (function () {
+    var t = document.querySelector('.av-title b');
+    if (t) t.textContent = COURSE_TITLE;
+    document.title = 'Admin preview — ' + COURSE_TITLE.split(' · ')[0];
+  })();
+
   /* ---- Frame URLs -------------------------------------------------------- */
   function profFor(id, isLit) {
     var b = BY_ID[id], p = Object.assign({}, P);
@@ -276,7 +381,7 @@
     }
     if (o.type === 'sector') {
       return '<div class="lp-opt"><div class="lp-row" style="grid-template-columns:1fr"><span>' + o.label + '</span></div>' +
-        '<vaadin-select theme="outlined" class="lp-sector" data-sector aria-label="Sector version"></vaadin-select>' + eff(k) + '</div>';
+        '<vaadin-select theme="outlined" class="lp-sector" data-sector aria-label="' + OPTS.lens.label + '"></vaadin-select>' + eff(k) + '</div>';
     }
     return '<div class="lp-opt"><div class="lp-row" style="grid-template-columns:1fr"><span>' + o.label + '</span></div>' +
       '<span class="mini-seg lp-fmt" role="radiogroup" aria-label="Format">' + FORMATS.map(function (f) {
@@ -305,7 +410,7 @@
         rest.map(optHTML).join('') + '<p class="lp-note">Assignment settings come from your assignment. Changes here are for this preview only.</p></vaadin-details>';
 
     panel.querySelectorAll('[data-sector]').forEach(function (s) {
-      s.items = [{ label: 'Manufacturing', value: 'manufacturing' }, { label: 'Law enforcement', value: 'public' }];
+      s.items = LENS_ITEMS;
       s.value = P.lens;
       s.addEventListener('change', function () { if (s.value && s.value !== P.lens) set({ lens: s.value }); });
     });

@@ -14,14 +14,16 @@
      (frames on one site otherwise share a tab's sessionStorage), and nothing
      an admin clicks lands in a real learner's record.
    - The profile is the learner's answers:
-       lens=manufacturing|public       sector version
+       lens=manufacturing|public       sector version (Hazing: athletes|greek)
        fmt=video|listen|article        the format they took
        k1=1|0  k2=1|0                  pre-check knowledge questions right/wrong
-       f1=agree|disagree  f3=…         pre-check belief statements
+       f1=agree|disagree  f3=…         pre-check belief statements (Hazing: f1 sets both 5.3 statements)
        c1=1|0  c2=1|0                  case 1 / case 2 mastery check right/wrong
      plus the assignment's settings, which become window.AdminPreview (read by
      layered-sharps.js): formats=video,listen,article  test_out  test_up  extra
      modules=m1,…,m6 (the cover lists only these; default all six).
+     Hazing (clara/hazing.html) reads the same profile: k1 is its 5.1
+     question, c1 its 5.1 check, and it keeps its run under hz-course.
      chapter=<topic> opens Listen mode at that chapter; autoplay=1 lets it play.
      section=<id> opens the Read article at that section, with its gate open.
    - The white Vector Solutions site bar is hidden; the viewer has its own.
@@ -59,7 +61,7 @@
   var score = function (k) { var v = q.get(k); return v === 'disagree' ? 2 : v === 'agree' ? 5 : null; };
 
   var course = {
-    battery: { k1up: yes('k1', false), k2up: yes('k2', false), f1: score('f1'), f3: score('f3') },
+    battery: { k1up: yes('k1', false), k2up: yes('k2', false), f1: score('f1'), f3: score('f3'), f1b: score('f1') },
     podpath: { podcast: fmt === 'listen', results: null }
   };
   var c1 = opt('c1'), c2 = opt('c2');
@@ -68,8 +70,8 @@
   if (c1 != null) course.k1check = Object.assign({ passed: c1 }, carrier);
   if (c2 != null) course.k2check = Object.assign({ passed: c2 }, carrier);
 
-  var session = { 'll-lens': lens, 'll-review': '0', 'sh-course': JSON.stringify(course) };
-  if (fmt !== 'listen') session['sh-modality'] = fmt;
+  var session = { 'll-lens': lens, 'll-review': '0', 'sh-course': JSON.stringify(course), 'hz-course': JSON.stringify(course) };
+  if (fmt !== 'listen') { session['sh-modality'] = fmt; session['hz-modality'] = fmt; }
   try { Object.defineProperty(window, 'sessionStorage', { value: memStore(session), configurable: true }); } catch (e) {}
   try { Object.defineProperty(window, 'localStorage', { value: memStore({}), configurable: true }); } catch (e) {}
 

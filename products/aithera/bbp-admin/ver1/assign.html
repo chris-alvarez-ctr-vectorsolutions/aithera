@@ -67,7 +67,9 @@
         var COURSES = [
           { id: 'bbp',  name: 'Bloodborne Pathogens', icon: 'fa-droplet', cls: 'ci-blue', adaptive: true, desc: 'Adaptive · about 25 min · 8 learning goals' },
           { id: 'hazcom', name: 'Hazard Communication', icon: 'fa-triangle-exclamation', cls: 'ci-amber', adaptive: true, desc: 'Adaptive · about 20 min' },
-          { id: 'loto', name: 'Lockout/Tagout', icon: 'fa-bolt', cls: 'ci-violet', adaptive: false, desc: 'Standard · 30 min · everyone takes the same course' }
+          { id: 'loto', name: 'Lockout/Tagout', icon: 'fa-bolt', cls: 'ci-violet', adaptive: false, desc: 'Standard · 30 min · everyone takes the same course' },
+          // Higher Ed design prototype (lesson-presentation/clara/hazing.html). Only Module 5 is built.
+          { id: 'hazing', name: 'Hazing Awareness and Prevention', icon: 'fa-bullhorn', cls: 'ci-amber', adaptive: true, desc: 'Adaptive · Higher Ed · design prototype, Module 5 built' }
         ];
         // Bloodborne Pathogens (RVCT-303B) has six modules, one per behavior (names from the recomposition plan).
         // Only "Contain the Sharp" is built in the engine prototype today; the rest are here to show the choice.
@@ -80,6 +82,16 @@
           { id: 'm6', name: 'Act on Exposure',    what: 'Clean the site, report it, and get a medical evaluation within 24–48 hours.' }
         ];
         COURSES[0].modules = BBP_MODULES;
+        // Hazing's earlier modules aren't named in the course map yet.
+        COURSES[3].modules = [
+          { id: 'm1', name: 'Module 1', what: 'Not built yet.' },
+          { id: 'm2', name: 'Module 2', what: 'Not built yet.' },
+          { id: 'm3', name: 'Module 3', what: 'Not built yet.' },
+          { id: 'm4', name: 'Module 4', what: 'Not built yet.' },
+          { id: 'm5', name: 'Report Hazing Through Appropriate Channels', what: 'Call 911 in an emergency; otherwise report through the hotline, anonymous reporting, counseling, or the dean of students.' }
+        ];
+        // The courses Admin preview can show: the ones with a design prototype behind them.
+        var PREVIEWS = { bbp: 'sharps', hazing: 'hazing' };
         var FORMATS = [{ id: 'video', label: 'Watch', icon: 'fa-circle-play' }, { id: 'audio', label: 'Listen', icon: 'fa-headphones' }, { id: 'text', label: 'Read', icon: 'fa-book-open' }];
         // Representative examples of what an admin might add. "Add" cycles through these.
         var EXAMPLES = {
@@ -429,7 +441,7 @@
         }
         // Assign course waits for every step, like le-launch's Start course. Admin preview doesn't.
         function actionsHTML() {
-          var ready = allDone(), bbp = st.course === 'bbp', pv = canPreview();
+          var ready = allDone(), bbp = !!PREVIEWS[st.course], pv = canPreview();
           return '<div class="rail-actions"><vaadin-button theme="primary" id="assignBtn"' + (ready ? '' : ' disabled') + '><i class="fa-solid fa-paper-plane" style="margin-right:8px"></i>Assign course</vaadin-button>' +
             (bbp ? '<vaadin-button theme="secondary" id="adminPreview"' + (pv ? '' : ' disabled') + '><i class="fa-solid fa-eye" style="margin-right:8px"></i>Admin preview</vaadin-button>' : '') + '</div>' +
             '<p class="rail-note">' + (ready ? '<i class="fa-solid fa-circle-check"></i>Assigning notifies ' + count() + ' people now.' : 'Finish each step to assign.') +
@@ -441,11 +453,12 @@
            Contain the Sharp prototype, the one module built, with this assignment's
            modules, formats and adaptations on its URL. Its "Exit admin preview"
            button comes back here; the page is saved first so it
-           reopens with the same step open and nothing lost. Bloodborne Pathogens only. */
+           reopens with the same step open and nothing lost. Bloodborne Pathogens
+           (Contain the Sharp) and Hazing (its Module 5) only: see PREVIEWS. */
         var DRAFT = 'bbp.assign.draft';
         var VIEWER = '../../admin-preview/ver1/index.html';     // design and play views of the module
         var FMT_KEY = { video: 'video', audio: 'listen', text: 'article' };   // admin format -> module format
-        function canPreview() { return st.course === 'bbp' && !(st.scope === 'pick' && !pickedMods().length); }
+        function canPreview() { return !!PREVIEWS[st.course] && !(st.scope === 'pick' && !pickedMods().length); }
         // The value a learner in this assignment gets: this assignment's change,
         // else the first chosen group's setting, else the organization's.
         function previewVal(key) {
@@ -459,11 +472,13 @@
           var back = new URL(location.href); back.hash = ''; back.searchParams.set('draft', '1');
           var mods = st.scope === 'full' ? cur().modules : pickedMods();
           var q = new URLSearchParams({
-            adminPreview: '1', return: back.href, role: S.key === 'le' ? 'public' : 'manufacturing',
+            // Hazing's audience isn't an org setting here, so it previews Athletes.
+            adminPreview: '1', return: back.href, role: st.course === 'hazing' ? 'athletes' : S.key === 'le' ? 'public' : 'manufacturing',
             formats: FORMATS.filter(function (f) { return st.formats[f.id]; }).map(function (f) { return FMT_KEY[f.id]; }).join(','),
             test_out: previewVal('skip') ? '1' : '0', test_up: previewVal('harder') ? '1' : '0', extra: previewVal('extra') ? '1' : '0',
             modules: mods.map(function (m) { return m.id; }).join(',')
           });
+          if (PREVIEWS[st.course] !== 'sharps') q.set('course', PREVIEWS[st.course]);
           location.href = VIEWER + '?' + q.toString();
         }
         function draw() {

@@ -183,6 +183,20 @@ var SNAPSHOT = [
       languages: ['en', 'es'], modalities: ['video', 'audio', 'text'] }, has_active: false }
 ];
 
+/* Courses the design team has built as prototypes and the engine doesn't have yet.
+   They're always in the list (after the engine's own), can't be started on the
+   engine, and open in Admin preview instead. `prototype` is the admin preview's
+   course key. Audience rides the Role field, under Education › Higher Ed. */
+var DESIGN_ONLY = [
+  { composite_id: 'design-hazing', title: 'Hazing Awareness and Prevention', designOnly: true, prototype: 'hazing',
+    description: 'Higher Ed. Module 5, Report Hazing Through Appropriate Channels, only. Design prototype with placeholder video and audio.',
+    modules: [{ module_id: 'm5', title: 'Report Hazing Through Appropriate Channels' }],
+    vocabulary: { sectors: ['Education'], subsectors: ['Higher Ed'], subsectors_by_sector: { Education: ['Higher Ed'] },
+      roles: ['Athletes', 'Greek Life'], roles_by_sector: { Education: ['Athletes', 'Greek Life'] },
+      roles_by_subsector: { 'Higher Ed': ['Athletes', 'Greek Life'] }, languages: ['en'], modalities: ['video', 'audio', 'text'] },
+    has_active: false }
+];
+
 // The engine's two coordinator presets (keys and contact details as the engine defines them).
 var COORDINATORS = {
   default:  { name: 'Course Coordinator', title: null, email: 'coordinator@example.com' },
@@ -207,8 +221,11 @@ function newIdentity() {
   return 'tester-' + s;
 }
 function isBbp(c) { return /bloodborne/i.test(c.title); }
-// Bloodborne Pathogens gets its own icon; every other course (names come from the engine) gets a generic one.
-function courseIcon(c) { return '<span class="ci ' + (isBbp(c) ? 'ci-blue' : 'ci-gray') + '"><i class="fa-solid ' + (isBbp(c) ? 'fa-droplet' : 'fa-book-open') + '"></i></span>'; }
+// Bloodborne Pathogens and the design prototypes get their own icons; every other course (names come from the engine) gets a generic one.
+function courseIcon(c) {
+  var ico = isBbp(c) ? ['ci-blue', 'fa-droplet'] : c.designOnly ? ['ci-gray', 'fa-bullhorn'] : ['ci-gray', 'fa-book-open'];
+  return '<span class="ci ' + ico[0] + '"><i class="fa-solid ' + ico[1] + '"></i></span>';
+}
 
 /* ---- The vocabulary cascade, same rules as the engine's launch page ----
    sub-sectors depend on sector; roles depend on sub-sector, else sector, else the full list. */
@@ -223,7 +240,7 @@ function keep(list, val) { return val != null && list.indexOf(val) >= 0 ? val : 
 /* ---- State ---- */
 var st = {
   mode: 'direct',          // 'direct' | 'handoff' (see top of script)
-  courses: SNAPSHOT,
+  courses: SNAPSHOT.concat(DESIGN_ONLY),
   preview: true,           // true = WIP preview, false = Live
   course: SNAPSHOT[1].composite_id,
   sector: null, subsector: null, role: null, language: 'en',
@@ -234,7 +251,7 @@ var st = {
   busy: false, error: null
 };
 function cur() { return st.courses.filter(function (c) { return c.composite_id === st.course; })[0] || st.courses[0]; }
-function notLive(c) { return !st.preview && c.has_active === false; }
+function notLive(c) { return !st.preview && c.has_active === false && !c.designOnly; }
 function allDone() { return STEPS.every(function (s) { return st.done[s]; }); }
 
 /* Pre-fill from this page's own URL, using the engine's parameter names, so links work both ways.
@@ -335,7 +352,7 @@ function drawSteps() {
 
 function drawCourses() {
   var c = cur();
-  $('courseSel').items = st.courses.map(function (x) { return { label: x.title, value: x.composite_id }; });
+  $('courseSel').items = st.courses.map(function (x) { return { label: x.title + (x.designOnly ? ' (design prototype)' : ''), value: x.composite_id }; });
   $('courseSel').value = c.composite_id;
 }
 
@@ -430,7 +447,7 @@ function drawRail() {
   var who = [st.sector, st.subsector, st.role].filter(Boolean).map(nice).join(' · ') || 'No sector or role set';
   $('rail').innerHTML =
     '<div class="rail-course">' + courseIcon(c) +
-      '<span><b>' + esc(c.title) + '</b><small>Adaptive · ' + c.modules.length + (c.modules.length === 1 ? ' module' : ' modules') + '</small></span></div>' +
+      '<span><b>' + esc(c.title) + '</b><small>Adaptive · ' + c.modules.length + (c.modules.length === 1 ? ' module' : ' modules') + (c.designOnly ? ' · Design prototype' : '') + '</small></span></div>' +
     railRow('Learner', 'who', esc(st.learnerName.trim() || 'No name') + '<small>' + esc(who) + '</small>') +
     railRow('Adapts', 'adapt', esc(summary('adapt')));
 
@@ -439,12 +456,13 @@ function drawRail() {
 
   // Start waits for every step, like a checkout's Place order.
   var ready = allDone();
-  $('launch').disabled = st.busy || !ready;
+  $('launch').disabled = st.busy || !ready || !!c.designOnly;
   $('launch').innerHTML = st.busy ? 'Starting…' : '<i class="fa-solid fa-play" style="margin-right:8px"></i>Start course';
   $('copyLink').disabled = !ready;
-  // Admin preview runs the Contain the Sharp prototype, so only Bloodborne Pathogens has one.
-  $('adminPreview').hidden = !isBbp(c);
+  // Admin preview runs the design team's prototypes: Contain the Sharp for Bloodborne Pathogens, and each design-only course.
+  $('adminPreview').hidden = !isBbp(c) && !c.designOnly;
   $('railNote').innerHTML = !ready ? 'Finish each step to start.'
+    : c.designOnly ? '<i class="fa-solid fa-circle-info"></i>The engine doesn’t have this course yet, so it can’t start there. Admin preview opens the design prototype with these choices.'
     : st.mode === 'direct' ? '<i class="fa-solid fa-circle-check"></i>Starts the course for this learner right here. Copy setup link to set up more testers the same way.'
     : '<i class="fa-solid fa-arrow-up-right-from-square"></i>Opens the engine’s launch page in a new tab with these choices filled in. Learner name, coordinator and demo mode aren’t carried over yet.';
 }
@@ -520,7 +538,7 @@ function selfLink() {
 
 /* ---- Admin preview ----
    Opens the admin preview viewer (products/aithera/admin-preview) on the design
-   team's Contain the Sharp prototype, as a learner would see it, with these choices (sector, test out, test up, approved formats), and an "Exit
+   team's prototype (Contain the Sharp, or a DESIGN_ONLY course's), as a learner would see it, with these choices (sector, test out, test up, approved formats), and an "Exit
    admin preview" button that comes back here. The page is saved first, so it
    reopens exactly as it was left.
    DEV NOTE: this is a design proposal. The engine has no admin preview mode yet,
@@ -529,19 +547,22 @@ var DRAFT = 'le-launch.draft';
 var VIEWER = '../../admin-preview/ver1/index.html';   // design and play views of the module
 var PREVIEW_FMT = { video: 'video', audio: 'listen', text: 'article' };   // engine format -> prototype format
 function adminPreview() {
-  var keep = {};
+  var c = cur(), keep = {};
   ['preview', 'course', 'sector', 'subsector', 'role', 'language', 'formats', 'testOut', 'testUp', 'demoMode', 'debugPanel',
    'learnerName', 'coordinator', 'identity', 'step', 'done'].forEach(function (k) { keep[k] = st[k]; });
   try { sessionStorage.setItem(DRAFT, JSON.stringify(keep)); } catch (e) {}
   var back = new URL(location.href); back.search = '?draft=1'; back.hash = '';
   var q = new URLSearchParams({
     adminPreview: '1', return: back.href,
-    // The prototype has Manufacturing and Law enforcement versions; other sectors preview Manufacturing.
-    role: st.sector === 'Public Sector' ? 'public' : 'manufacturing',
+    // Sharps has Manufacturing and Law enforcement versions; other sectors preview Manufacturing.
+    // Hazing has an Athletes and a Greek Life version; no role previews Athletes.
+    role: c.prototype === 'hazing' ? (st.role === 'Greek Life' ? 'greek' : 'athletes')
+      : st.sector === 'Public Sector' ? 'public' : 'manufacturing',
     formats: approved().map(function (m) { return PREVIEW_FMT[m]; }).filter(Boolean).join(','),
     test_out: st.testOut ? '1' : '0', test_up: st.testUp ? '1' : '0',
-    modules: 'm4'
+    modules: c.prototype === 'hazing' ? 'm5' : 'm4'
   });
+  if (c.prototype) q.set('course', c.prototype);
   location.href = VIEWER + '?' + q.toString();
 }
 
@@ -623,8 +644,8 @@ function loadCourses() {
     if (!Array.isArray(list) || !list.length) throw new Error('empty');
     // Course codes like "(RVCT-303B)" stay out of the title testers see.
     list.forEach(function (x) { x.title = String(x.title || '').replace(/\s*\([A-Z]{2,}-[\w-]+\)\s*$/, ''); });
-    st.courses = list; draw();
-  }).catch(function () { st.mode = 'handoff'; st.courses = SNAPSHOT; draw(); });
+    st.courses = list.concat(DESIGN_ONLY); draw();
+  }).catch(function () { st.mode = 'handoff'; st.courses = SNAPSHOT.concat(DESIGN_ONLY); draw(); });
 }
 
 // Only try the API when there's a chance it's ours (not file://, not the design site).
