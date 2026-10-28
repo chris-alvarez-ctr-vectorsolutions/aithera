@@ -163,6 +163,7 @@ information layer**, it builds on it.
 
 | File | What it holds |
 |---|---|
+| [**`PROTOTYPE-KEY.html`**](PROTOTYPE-KEY.html) | The visual key, standalone and for the team: four diagrams, what every colour and marker in the prototype means, terms, deep links. Start here if you've never opened the prototype. |
 | [`../Studio-AI-Platform/MODEL.md`](../Studio-AI-Platform/MODEL.md) | The knowledge library, information set, points, depth, coverage, goals. **All of it still holds.** |
 | **`MODEL.md`** | The generative loop, the project brief, variations, element targeting, review tooling — and which parent decisions carry, change, or are superseded. |
 | **`OPEN-QUESTIONS.md`** | What's unresolved, and what each answer would change. |
