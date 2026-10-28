@@ -45,7 +45,14 @@
     // Review mode. OFF unless a course asks for it, same reason: gating the
     // bare S key and the Demo menu's toggle behind it is a behaviour change,
     // and a course that never asked for review mode keeps the S key it has.
-    reviewGate: false
+    reviewGate: false,
+    // Footer aids, for a course in front of real learners (sharps, user
+    // testing 2026-10-24): the cover's "Course overview" label, and the "?"
+    // that opens each screen's reviewer caption. Defaults keep both, so
+    // pages already on this engine look the same. reviewCaptions: true shows
+    // the "?" only while Review mode is on.
+    coverLabel: 'Course overview',
+    reviewCaptions: false
   };
   var STEPS = [];
 
@@ -662,7 +669,7 @@
     var sec = sectionPos(step);
     // The title page is a cover: no back, no counter — just the course CTA.
     if (step.cover) {
-      if (footCount) footCount.textContent = 'Course overview';
+      if (footCount) footCount.textContent = CFG.coverLabel || '';
       if (footBar) footBar.style.display = 'none';
       backBtn.style.display = 'none';
     } else if (!sec || step.hideProgress) {
@@ -692,6 +699,8 @@
     nextBtn.innerHTML = (step.nextLabel || (isLast ? 'Finish' : 'Continue')) + ' <i class="fa-solid fa-arrow-right"></i>';
     nextBtn.disabled = !!step.gate;                 // gated steps re-enable via ctx.enableNext()
     // Popover caption
+    infoBtn.hidden = !step.caption || (CFG.reviewCaptions && !reviewMode());
+    if (infoBtn.hidden) { pop.classList.remove('open'); infoBtn.setAttribute('aria-expanded', 'false'); }
     if (step.caption) {
       pop.querySelector('.ll-pop-eyebrow').innerHTML =
         // "screen" not "section": this counts every screen including the cover
@@ -1033,7 +1042,7 @@
     if (CFG.reviewGate) {
       rows.push({ icon: 'fa-user-check', name: 'Review mode', type: 'toggle',
         on: reviewMode(),
-        note: 'Unlocks the S-key skip and the video Skip pill',
+        note: 'Unlocks the S-key skip and the video Skip pill' + (CFG.reviewCaptions ? ', and the screen notes (?)' : ''),
         run: function () { setReviewMode(!reviewMode()); showStep(idx, 'fwd', false); } });
     }
     // Skip — only where there is a gate to get past.

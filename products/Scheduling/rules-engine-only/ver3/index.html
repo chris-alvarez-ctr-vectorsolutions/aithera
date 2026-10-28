@@ -530,6 +530,13 @@
 
   /* Composer: tool buttons + square send (Builder) */
   .rb-input-foot { padding: 8px 12px 10px; border-top: 1px solid var(--line-3); }
+  /* Suggested replies dock: pre-prompt pills sit just above the composer
+     (not inside the AI message) so the answers are always next to the input. */
+  .rb-sugg { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; max-height: 132px; overflow-y: auto; }
+  .rb-sugg:not(:empty) { padding: 10px 12px 0; border-top: 1px solid var(--line-3); }
+  .rb-sugg:not(:empty) + .rb-input-foot { border-top: 0; }
+  .rb-sugg .chip-col { margin: 0 !important; }
+  .rb-sugg .sugg-file { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
   .composer { border: 1px solid var(--field-line); border-radius: 10px; background: #fff; padding: 4px; display: flex; flex-direction: column; transition: border-color .15s, box-shadow .15s; }
   .composer:focus-within { border-color: var(--ai); box-shadow: 0 0 0 3px var(--ai-tint); }
   .composer.spot { border-color: var(--ai); }
@@ -579,6 +586,9 @@
   .field-reveal.sub-field { margin: -4px 0 8px 14px; padding-left: 10px; border-left: 2px solid var(--ai-soft); }
   .field-reveal .sub-field { border-left-color: var(--ai-soft); padding-left: 12px; }
   .field-hl, .field-reveal.user-hl { background: var(--ai-tint); border-color: var(--ai-soft); box-shadow: inset 3px 0 0 var(--ai); padding: 8px 10px 10px; margin-left: 0; margin-right: 0; }
+  /* Same box in both states so the highlight fades without moving anything */
+  .field-reveal { transition: background-color .45s ease, border-color .45s ease, box-shadow .45s ease; }
+  .field-reveal.sub-field.field-hl, .field-reveal.sub-field.user-hl { margin: -4px 0 8px 14px; padding-left: 10px; }
   .suggest { margin-top: 10px; border: 1px dashed var(--ai-soft); border-radius: 6px; padding: 8px 10px; display: flex; align-items: center; gap: 8px; font-size: 12px; line-height: 16px; background: #fff; }
   .suggest .sp { color: var(--ai); display: inline-flex; flex: none; }
   .suggest .tx { flex: 1; color: var(--ink-2); min-width: 0; }
@@ -2789,7 +2799,13 @@ function attachApplied() {
 function setNewestField(field) {
   bld.newestField = field;
   clearTimeout(bld.newestFieldTimer);
-  bld.newestFieldTimer = setTimeout(() => { if (!bld) return; bld.newestField = null; renderBuilderPanel(); }, 2400);
+  // Fade the highlight off in place. Re-rendering the panel here replayed every
+  // field's reveal animation, so the parameters looked like they refreshed.
+  bld.newestFieldTimer = setTimeout(() => {
+    if (!bld) return;
+    bld.newestField = null;
+    document.querySelectorAll('#cfgScroll .field-hl').forEach(el => el.classList.remove('field-hl'));
+  }, 2400);
 }
 
 function aiReplyLater(mutate, delay) {
@@ -3336,6 +3352,7 @@ function renderBuilderShell() {
         ${builderHeaderHtml()}
         <div class="ctx-row" id="rbContext" aria-label="Context Vectoria can see"></div>
         <div class="rb-thread" id="rbThread"></div>
+        <div class="rb-sugg" id="rbSugg" aria-label="Suggested replies"></div>
         <div class="rb-input-foot" id="rbFoot"></div>
         <div class="legal-row"><span>Private to your organization · <a href="#" onclick="return false">Privacy</a></span><a href="#" onclick="return false"><i class="fa-regular fa-circle-question"></i>Help</a></div>
       </div>
@@ -3529,17 +3546,17 @@ function multiChipsHtml(m) {
     </div>`;
 }
 
-function suggestionsHtml(inline) {
+function suggestionsHtml() {
+  // Rule-type pills for the dock above the composer.
   return `
-    <div class="chip-col" style="margin-left:${inline ? 0 : 34}px">
-      <div style="font-size:12px;color:rgba(0,0,0,.45);margin-bottom:2px">Pick a rule type:</div>
+    <div class="chip-col">
       ${SUGGESTION_SETS.flat().map(s => `<button class="chip-btn" data-rb="suggestion" data-name="${esc(s.name)}">${esc(s.name)}</button>`).join('')}
       <button class="chip-btn chip-btn--dashed" data-rb="custom-answer"><i class="fa-solid fa-pencil" style="font-size:11px"></i> Something else</button>
       <button class="skip-link" data-rb="skip">Skip for now</button>
-      <div style="display:flex;align-items:center;gap:7px;margin-top:4px;padding-top:8px;border-top:1px dashed var(--line-2)">
-        <span style="font-size:11.5px;color:rgba(0,0,0,.4)">Already have one?</span>
+      <span class="sugg-file">
+        <span style="font-size:11.5px;color:var(--muted)">Already have one?</span>
         <button class="tertiary-link" data-rb="rules-file" style="height:22px"><i class="fa-solid fa-upload" style="font-size:10px"></i> Bring in a Rules file</button>
-      </div>
+      </span>
     </div>`;
 }
 
@@ -3574,6 +3591,7 @@ function renderBuilderChat() {
   const lastAiIdx = bld.messages.reduce((last, msg, idx) => msg.role === 'ai' ? idx : last, -1);
   attachApplied();
   const top = previewTop();
+  let dock = '';
   thread.innerHTML = bld.messages.map((m, i) => {
     if (m.role === 'ai') {
       const isLast = i === lastAiIdx && !bld.typing;
@@ -3582,17 +3600,15 @@ function renderBuilderChat() {
       // at the parameters + preview it changed.
       const showRef = !!m.applied;
       const asking = isLast && !previewReady();   // the question the preview is waiting on
-      // While highlighted, a following rule-type picker renders inside the same box
-      // so the question and its answers read as one thing to answer.
-      const sugInline = asking && bld.messages[i + 1]?.role === 'suggestions' && !bld.customAnswer;
+      // Single-select chips render in the #rbSugg dock above the composer.
+      if (showChips && !m.multi && !m.freeform) dock = chipButtonsHtml(m);
       return `
         <div class="msg-ai${asking ? ' asking' : ''}">
           ${aiAvatar(24)}
           <div class="msg-body">
             <div class="text">${esc(stripBold(m.text))}</div>
             ${showRef ? refCardHtml(m, isLast ? top : null) : ''}
-            ${showChips ? (m.multi ? multiChipsHtml(m) : m.freeform ? freeformHtml(m) : chipButtonsHtml(m)) : ''}
-            ${sugInline ? suggestionsHtml(true) : ''}
+            ${showChips ? (m.multi ? multiChipsHtml(m) : m.freeform ? freeformHtml(m) : '') : ''}
             ${isLast ? respActionsHtml() : ''}
           </div>
         </div>`;
@@ -3617,13 +3633,15 @@ function renderBuilderChat() {
         </div>`;
     }
     if (m.role === 'suggestions') {
-      const prevAi = bld.messages[i - 1]?.role === 'ai' && i - 1 === lastAiIdx;
-      if (prevAi && !previewReady() && !bld.typing) return '';   // shown inside the highlighted question
-      return (!bld.typing && !bld.customAnswer) ? suggestionsHtml() : '';
+      // Rule-type picker renders in the dock above the composer.
+      if (!bld.typing && !bld.customAnswer) dock = suggestionsHtml();
+      return '';
     }
     return '';
   }).join('') + (bld.typing ? `
     <div class="msg-ai">${aiAvatar(24)}<div class="typing-dots"><span></span><span></span><span></span></div></div>` : '');
+  const sugg = byId('rbSugg');
+  if (sugg) sugg.innerHTML = dock.trim();
   thread.scrollTop = thread.scrollHeight;
   syncPreviewGuide();
 

@@ -328,6 +328,9 @@
   function openViewer(item, from) {
     viewing = item; viewFrom = from;
     $('#fc-viewer-title').textContent = item.name;
+    // From a Quick Link the user never saw the folder list, so the bar offers
+    // the File Center root; from the list, X already returns to the folder.
+    $('#fc-viewer-files').hidden = from !== 'origin';
     viewerEl.dataset.kind = item.type;
     stageEl.classList.remove('is-zoomed');
     var html = '';
@@ -500,6 +503,7 @@
     var b = e.target.closest('[data-fc]');
     if (!b) return;
     if (b.dataset.fc === 'close') closeViewer();
+    if (b.dataset.fc === 'files') { viewing = null; openRoot(origin); }   // keep the origin: back still exits to Home
     if (b.dataset.fc === 'share') shareMenu();
     if (b.dataset.fc === 'zoom')  toggleZoom();
   });

@@ -11,15 +11,18 @@
     <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
     <!-- Self-hosted Font Awesome Pro (repo root is four levels up from verN/) -->
     <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
-    <link rel="stylesheet" href="admin.css?v=61" />
+    <link rel="stylesheet" href="admin.css?v=66" />
 </head>
 <body>
     <div id="head"></div>
     <main class="rp-main">
 
-        <nav class="wiz" id="wiz" aria-label="Steps"></nav>
+        <!-- Checkout-style, like le-launch: every step is a card in one stack. One is open;
+             finished ones fold to a summary line with Edit; later ones wait their turn.
+             The rail builds out as you go and holds Assign course and Admin preview. -->
         <div class="wiz-layout" id="layout">
-            <section class="rp-card" id="stage" aria-live="polite"></section>
+            <div class="steps" id="steps" aria-live="polite"></div>
+            <section class="rp-card" id="doneCard" hidden></section>
             <aside class="rp-card wiz-rail" id="rail" aria-label="Assignment summary"></aside>
         </div>
 
@@ -46,13 +49,14 @@
         title: 'Assign a course — Flow Map', applyState: 'applyFlowState', canvas: { w: 1240, h: 300 },
         flows: [{ id: 'main', name: 'Assignment', pill: 'A', color: '#c9b8f0', lane: { x: 20, y: 20, w: 1200, h: 260 }, labelXY: { x: 40, y: 40 } }],
         nodes: [
-          { id: 'course', flow: 'main', entry: true, x: 60,  y: 100, step: '1', name: 'Pick a course',     state: 'course', desc: 'Looks like assigning any course. Adaptive and standard courses sit side by side.' },
-          { id: 'people', flow: 'main', x: 320, y: 100, step: '2', name: 'Pick who',           state: 'people', desc: 'Choose groups from the org tree. The role mix and version appear as soon as groups are picked.' },
-          { id: 'adapt',  flow: 'main', x: 580, y: 100, step: '3', name: 'How it adapts',      state: 'adapt',  desc: 'Four plain toggles. Each shows where its value came from; locked ones can’t be changed. Skipped entirely for standard courses.' },
-          { id: 'review', flow: 'main', x: 840, y: 100, step: '4', name: 'Review and assign',  state: 'review', desc: 'One sentence on what will happen, then assign.' },
-          { id: 'done',   flow: 'main', x: 1100, y: 100, step: '✓', name: 'Assigned',          state: 'done',   desc: 'Confirmation, with a way to preview or return to courses.' }
+          { id: 'course', flow: 'main', entry: true, x: 40,  y: 100, step: '1', name: 'Pick a course',     state: 'course', desc: 'Looks like assigning any course. For Bloodborne Pathogens, assign the full course or choose modules (microlearning). The later steps wait, closed, below it.' },
+          { id: 'people', flow: 'main', x: 240, y: 100, step: '2', name: 'Pick who',           state: 'people', desc: 'Choose groups from the org tree. The role mix and version appear as soon as groups are picked.' },
+          { id: 'adapt',  flow: 'main', x: 440, y: 100, step: '3', name: 'Adaptations',        state: 'adapt',  desc: 'Four plain toggles plus the formats people can choose. Each toggle shows where its value came from; locked ones can’t be changed. Ends with what will happen, and each group’s settings. Not shown for standard courses.' },
+          { id: 'custom', flow: 'main', x: 640, y: 100, step: '4', name: 'Custom content',     state: 'custom', desc: 'Optional: add your own content, policies and resources, the same as a Standard or Learning Studio course.' },
+          { id: 'ready',  flow: 'main', x: 840, y: 100, step: '5', name: 'Ready to assign',   state: 'ready',  desc: 'Every step folded to a summary line, each with Edit. Assign course in the rail is now on; Admin preview sits under it.' },
+          { id: 'done',   flow: 'main', x: 1040, y: 100, step: '✓', name: 'Assigned',          state: 'done',   desc: 'Confirmation, with a way back to courses.' }
         ],
-        edges: [['course', 'people'], ['people', 'adapt'], ['adapt', 'review'], ['review', 'done']]
+        edges: [['course', 'people'], ['people', 'adapt'], ['adapt', 'custom'], ['custom', 'ready'], ['ready', 'done']]
       } };
 
       (function () {
@@ -63,12 +67,59 @@
         var COURSES = [
           { id: 'bbp',  name: 'Bloodborne Pathogens', icon: 'fa-droplet', cls: 'ci-blue', adaptive: true, desc: 'Adaptive · about 25 min · 8 learning goals' },
           { id: 'hazcom', name: 'Hazard Communication', icon: 'fa-triangle-exclamation', cls: 'ci-amber', adaptive: true, desc: 'Adaptive · about 20 min' },
-          { id: 'loto', name: 'Lockout/Tagout', icon: 'fa-bolt', cls: 'ci-violet', adaptive: false, desc: 'Standard · 30 min · everyone takes the same course' }
+          { id: 'loto', name: 'Lockout/Tagout', icon: 'fa-bolt', cls: 'ci-violet', adaptive: false, desc: 'Standard · 30 min · everyone takes the same course' },
+          // Higher Ed design prototype (lesson-presentation/clara/hazing.html). Only Module 5 is built.
+          { id: 'hazing', name: 'Hazing Awareness and Prevention', icon: 'fa-bullhorn', cls: 'ci-amber', adaptive: true, desc: 'Adaptive · Higher Ed · design prototype, Module 5 built' }
         ];
+        // Bloodborne Pathogens (RVCT-303B) has six modules, one per behavior (names from the recomposition plan).
+        // Only "Contain the Sharp" is built in the engine prototype today; the rest are here to show the choice.
+        var BBP_MODULES = [
+          { id: 'm1', name: 'Know the Risk',      what: 'What bloodborne pathogens are, how they spread, and whether your role carries extra risk.' },
+          { id: 'm2', name: 'Barrier First',      what: 'Treat any blood as infectious and get a barrier in place before contact.' },
+          { id: 'm3', name: 'Control the Hazard', what: 'Engineering controls first, then safe work practices, then PPE.' },
+          { id: 'm4', name: 'Contain the Sharp',  what: 'Plan the disposal route, use the safety feature, straight into the container.' },
+          { id: 'm5', name: 'Gear Up, Gear Down', what: 'Pick PPE that fits the task, wear it correctly, take it off cleanly.' },
+          { id: 'm6', name: 'Act on Exposure',    what: 'Clean the site, report it, and get a medical evaluation within 24–48 hours.' }
+        ];
+        COURSES[0].modules = BBP_MODULES;
+        // Hazing's earlier modules aren't named in the course map yet.
+        COURSES[3].modules = [
+          { id: 'm1', name: 'Module 1', what: 'Not built yet.' },
+          { id: 'm2', name: 'Module 2', what: 'Not built yet.' },
+          { id: 'm3', name: 'Module 3', what: 'Not built yet.' },
+          { id: 'm4', name: 'Module 4', what: 'Not built yet.' },
+          { id: 'm5', name: 'Report Hazing Through Appropriate Channels', what: 'Call 911 in an emergency; otherwise report through the hotline, anonymous reporting, counseling, or the dean of students.' }
+        ];
+        // The courses Admin preview can show: the ones with a design prototype behind them.
+        var PREVIEWS = { bbp: 'sharps', hazing: 'hazing' };
+        var FORMATS = [{ id: 'video', label: 'Watch', icon: 'fa-circle-play' }, { id: 'audio', label: 'Listen', icon: 'fa-headphones' }, { id: 'text', label: 'Read', icon: 'fa-book-open' }];
+        // Representative examples of what an admin might add. "Add" cycles through these.
+        var EXAMPLES = {
+          content: [{ name: 'Where the sharps containers are on our floor', kind: 'Video · 2 min', icon: 'fa-film' },
+                    { name: 'Our clean-up kit and who restocks it', kind: 'Page', icon: 'fa-file-lines' }],
+          policy:  [{ name: 'Exposure Control Plan', kind: 'PDF', icon: 'fa-file-pdf' },
+                    { name: 'Sharps disposal procedure', kind: 'PDF', icon: 'fa-file-pdf' }],
+          res:     [{ name: 'Occupational Health: who to call after an exposure', kind: 'Link', icon: 'fa-link' },
+                    { name: 'Hepatitis B vaccination sign-up', kind: 'Link', icon: 'fa-link' }]
+        };
         var MIX = S.key === 'mfg' ? [.12, .42, .16, .12, .18] : [.38, .36, .10, .16];
-        var st = { step: 'course', course: 'bbp', units: {}, due: '2026-11-06', ov: {}, mixedPick: {} };
-        var STEPS = function () { return cur().adaptive ? ['course', 'people', 'adapt', 'review'] : ['course', 'people', 'review']; };
-        var LABEL = { course: 'Course', people: 'People', adapt: 'How it adapts', review: 'Review' };
+        var st = { step: 'course', done: {}, assigned: false, course: 'bbp', units: {}, due: '2026-11-06', ov: {}, mixedPick: {},
+                   scope: 'full', mods: { m4: true },                       // full course, or the modules picked
+                   formats: { video: true, audio: true, text: true },       // formats people may choose
+                   custom: { content: [], policy: [], res: [] } };          // what the admin adds
+        // "Custom content" applies to every course, adaptive or not.
+        var STEPS = function () { return cur().adaptive ? ['course', 'people', 'adapt', 'custom'] : ['course', 'people', 'custom']; };
+        var LABEL = { course: 'Course', people: 'People', adapt: 'Adaptations', custom: 'Custom content' };
+        function pickedMods() { return (cur().modules || []).filter(function (m) { return st.mods[m.id]; }); }
+        function modsText() {
+          var c = cur(); if (!c.modules) return '';
+          return st.scope === 'full' ? 'All ' + c.modules.length + ' modules' : pickedMods().length + ' of ' + c.modules.length + ' modules';
+        }
+        function formatsText() {
+          var on = FORMATS.filter(function (f) { return st.formats[f.id]; });
+          return on.length === FORMATS.length ? 'Any format' : on.map(function (f) { return f.label; }).join(' and ') + ' only';
+        }
+        function customCount() { return st.custom.content.length + st.custom.policy.length + st.custom.res.length; }
         function cur() { return COURSES.filter(function (c) { return c.id === st.course; })[0]; }
 
         /* ---- who is selected --------------------------------------------- */
@@ -101,34 +152,104 @@
         }
         function valueOf(key) { var r = resolved(key); return r.state === 'mixed' ? null : r.value; }
 
-        /* ---- steps -------------------------------------------------------- */
-        function wizard() {
-          var steps = STEPS(), i = steps.indexOf(st.step);
-          document.getElementById('wiz').innerHTML = steps.map(function (s, n) {
-            return '<span class="wiz-step' + (n === i ? ' on' : n < i ? ' done' : '') + '"><b>' + (n < i ? '<i class="fa-solid fa-check" style="font-size:9px"></i>' : n + 1) + '</b>' + LABEL[s] + '</span>';
+        /* ---- steps: one stack of cards (same pattern as le-launch) ---------- */
+        function allDone() { return STEPS().every(function (x) { return st.done[x]; }); }
+        // What stops a step from being finished, if anything.
+        function canFinish(x) {
+          if (x === 'course') return !(cur().modules && st.scope === 'pick' && !pickedMods().length);
+          if (x === 'people') return count() > 0;
+          return true;
+        }
+        // One-line summaries shown on a finished step.
+        function summary(x) {
+          if (x === 'course') return cur().name + (cur().modules ? ' · ' + (st.scope === 'full' ? modsText() : pickedMods().map(function (m) { return m.name; }).join(', ')) : '');
+          if (x === 'people') return count() + ' people in ' + selectedLeaves().length + ' groups · due ' + fmtDue();
+          if (x === 'adapt') {
+            var on = B.BEHAVIORS.map(function (b, i) { var r = resolved(b.key); return r.state === 'mixed' ? SHORT[i] + ' varies' : (r.value ? SHORT[i] : null); }).filter(Boolean);
+            return (on.length ? on.join(', ') : 'Everyone gets the same course') + ' · ' + formatsText();
+          }
+          return customCount() ? customSummary() : 'Nothing added';
+        }
+        var SHORT = ['Skip ahead', 'Harder checks', 'Extra practice', '30-day check-in'];
+        function stepFoot(x) {
+          var steps = STEPS(), later = steps.slice(steps.indexOf(x) + 1);
+          var label = st.done[x] && later.every(function (y) { return st.done[y]; }) ? 'Save' : later.length ? 'Continue' : 'Done';
+          if (x === 'custom' && !customCount() && label !== 'Save') label = 'Skip';
+          return '<div class="step-foot">' + (x === 'course' ? '<small><a class="card-link" href="courses.html">Cancel</a></small>' : '') +
+            '<vaadin-button theme="primary" class="step-next"' + (canFinish(x) ? '' : ' disabled') + '>' + label + '</vaadin-button></div>';
+        }
+        function openStep(x) { st.step = x; draw(); }
+        function finishStep(x) {
+          if (!canFinish(x)) return;
+          st.done[x] = true;
+          var next = STEPS().filter(function (y) { return !st.done[y]; })[0] || null;
+          openStep(next);
+          var el = next && document.querySelector('.step[data-step="' + next + '"]');
+          if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        }
+        function drawSteps() {
+          var steps = STEPS(), reached = true;
+          if (steps.indexOf(st.step) < 0) st.step = null;
+          var views = { course: viewCourse, people: viewPeople, adapt: viewAdapt, custom: viewCustom };
+          document.getElementById('steps').innerHTML = steps.map(function (x, i) {
+            var open = st.step === x, done = !!st.done[x], locked = !open && !done && !reached;
+            if (!done) reached = false;
+            return '<section class="rp-card step' + (open ? ' open' : '') + (done ? ' done' : '') + (locked ? ' locked' : '') + '" data-step="' + x + '">' +
+              '<button type="button" class="step-head" aria-expanded="' + open + '"' + (locked ? ' disabled' : '') + '>' +
+                '<span class="step-num">' + (done && !open ? '<i class="fa-solid fa-check"></i>' : i + 1) + '</span>' +
+                '<span><h2>' + LABEL[x] + (x === 'custom' ? ' <span class="opt">(optional)</span>' : '') + '</h2><span class="step-sum">' + (done && !open ? A.esc(summary(x)) : '') + '</span></span>' +
+                '<span class="step-edit">Edit</span></button>' +
+              (open ? '<div class="step-body">' + views[x]() + stepFoot(x) + '</div>' : '') + '</section>';
           }).join('');
-        }
-        function foot(canNext, nextLabel) {
-          var steps = STEPS(), i = steps.indexOf(st.step);
-          return '<div class="wiz-foot"><span>' + (i > 0 ? '<vaadin-button theme="tertiary" id="back"><i class="fa-solid fa-arrow-left" style="margin-right:7px"></i>Back</vaadin-button>' : '<a class="card-link" href="courses.html">Cancel</a>') + '</span>' +
-            '<span class="right"><vaadin-button theme="primary" id="next"' + (canNext ? '' : ' disabled') + '>' + nextLabel + '</vaadin-button></span></div>';
-        }
-        function wireFoot() {
-          var steps = STEPS(), i = steps.indexOf(st.step);
-          var b = document.getElementById('back'), n = document.getElementById('next');
-          if (b) b.addEventListener('click', function () { go(steps[i - 1]); });
-          if (n) n.addEventListener('click', function () { if (st.step === 'review') assign(); else go(steps[i + 1]); });
+          document.querySelectorAll('.step').forEach(function (el) {
+            var x = el.dataset.step;
+            el.querySelector('.step-head').addEventListener('click', function () {
+              if (st.step === x) { if (st.done[x]) openStep(null); return; }   // fold a finished step back up
+              if (!el.classList.contains('locked')) openStep(x);
+            });
+            var nx = el.querySelector('.step-next'); if (nx) nx.addEventListener('click', function () { finishStep(x); });
+          });
+          ({ course: wireCourse, people: wirePeople, adapt: wireAdapt, custom: wireCustom }[st.step] || function () {})();
         }
 
         function viewCourse() {
-          return '<div class="rp-card-head"><h2>Which course?</h2></div><p class="rp-card-sub">Same as assigning any course. Adaptive courses add one extra step later.</p><div class="pick-grid">' +
-            COURSES.map(function (c) {
-              return '<button type="button" class="pick' + (c.id === st.course ? ' on' : '') + '" data-c="' + c.id + '"><span class="ci ' + c.cls + '"><i class="fa-solid ' + c.icon + '"></i></span><span><h3>' + c.name + '</h3><p>' + c.desc + '</p></span>' +
-                (c.adaptive ? '<span class="course-tag ai">Adaptive</span>' : '<span class="course-tag std">Standard</span>') + '</button>';
-            }).join('') + '</div>' + foot(true, 'Next: who');
+          // A searchable dropdown, so it scales to the full course library. The rail shows the pick.
+          return '<p class="rp-card-sub">Same as assigning any course. Adaptive courses add one extra step: adaptations.</p>' +
+            '<vaadin-combo-box theme="outlined" id="courseBox" label="Course" placeholder="Search courses" class="course-box"></vaadin-combo-box>' + modulePicker();
+        }
+        /* Microlearning: assign the full course, or just the modules you need. */
+        function modulePicker() {
+          var c = cur(); if (!c.modules) return '';
+          var pick = st.scope === 'pick', n = pickedMods().length;
+          return '<div class="mod-pick"><div class="mod-pick-head"><h3>What to assign</h3>' +
+            '<span class="mini-seg" role="radiogroup" aria-label="What to assign">' +
+              '<button type="button" role="radio" data-scope="full" aria-checked="' + !pick + '"' + (!pick ? ' class="on"' : '') + '>Full course · ' + c.modules.length + ' modules</button>' +
+              '<button type="button" role="radio" data-scope="pick" aria-checked="' + pick + '"' + (pick ? ' class="on"' : '') + '>Choose modules</button></span></div>' +
+            '<p class="rp-card-sub">' + (pick ? 'Each module covers one behavior, so one or two make a short, focused refresher.' : 'Everyone gets all ' + c.modules.length + ' modules, in order.') +
+              (pick ? ' <span class="tree-actions"><button type="button" id="modAll">' + (n === c.modules.length ? 'Deselect all' : 'Select all') + '</button></span>' : '') + '</p>' +
+            (pick ? '<div class="mod-list" role="group" aria-label="Modules">' + c.modules.map(function (m, i) {
+              var on = !!st.mods[m.id];
+              return '<button type="button" role="checkbox" aria-checked="' + on + '" class="mod-row' + (on ? ' on' : '') + '" data-m="' + m.id + '">' +
+                '<span class="mod-box"><i class="fa-solid fa-check"></i></span>' +
+                '<span><small>Module ' + (i + 1) + '</small><b>' + A.esc(m.name) + '</b><span>' + A.esc(m.what) + '</span></span></button>';
+            }).join('') + '</div>' + (n ? '' : '<p class="mod-none"><i class="fa-solid fa-circle-info"></i>Choose at least one module.</p>') : '') +
+            '</div>';
         }
         function wireCourse() {
-          document.querySelectorAll('.pick').forEach(function (p) { p.addEventListener('click', function () { st.course = p.dataset.c; draw(); }); });
+          var box = document.getElementById('courseBox');
+          box.items = COURSES.map(function (c) { return { label: c.name + ' · ' + (c.adaptive ? 'Adaptive' : 'Standard'), value: c.id }; });
+          box.value = st.course;
+          box.addEventListener('change', function () {
+            if (!box.value) { box.value = st.course; return; }       // a course is always picked
+            if (box.value !== st.course) { st.course = box.value; draw(); }
+          });
+          document.querySelectorAll('[data-scope]').forEach(function (b) { b.addEventListener('click', function () { st.scope = b.dataset.scope; draw(); }); });
+          var all = document.getElementById('modAll');
+          if (all) all.addEventListener('click', function () {
+            var on = pickedMods().length !== cur().modules.length;
+            cur().modules.forEach(function (m) { st.mods[m.id] = on; }); draw();
+          });
+          document.querySelectorAll('[data-m]').forEach(function (b) { b.addEventListener('click', function () { st.mods[b.dataset.m] = !st.mods[b.dataset.m]; draw(); }); });
         }
 
         function treeHTML(n, d) {
@@ -147,11 +268,11 @@
         }
         function viewPeople() {
           var n = count();
-          return '<div class="rp-card-head"><h2>Who is this for?</h2><span class="tree-actions"><button type="button" id="selAll">Select all</button><button type="button" id="selNone">Clear</button></span></div>' +
-            '<p class="rp-card-sub">Pick groups, not individuals. People who join these groups later get it automatically.</p>' +
+          return '<div class="step-sub-row"><p class="rp-card-sub">Pick groups, not individuals. People who join these groups later get it automatically.</p>' +
+            '<span class="tree-actions"><button type="button" id="selAll">Select all</button><button type="button" id="selNone">Clear</button></span></div>' +
             '<div class="check-tree" id="ctree">' + treeHTML(S.tree, 0) + '</div>' +
             '<div class="due-field"><vaadin-date-picker theme="outlined" label="Due date" id="due"></vaadin-date-picker></div>' +
-            foot(n > 0, cur().adaptive ? 'Next: how it adapts' : 'Next: review');
+            (n ? '' : '<p class="mod-none"><i class="fa-solid fa-circle-info"></i>Choose at least one group.</p>');
         }
         function wirePeople() {
           document.querySelectorAll('#ctree vaadin-checkbox').forEach(function (cb) {
@@ -178,14 +299,28 @@
                 : '<span class="prov"><i class="fa-solid fa-arrow-turn-down"></i> From ' + A.esc(r.from.name) + ' settings · <a href="settings.html?node=' + r.from.id + '">Change in Settings</a></span>';
             }
             return '<div class="set-row"><span class="set-ico"><i class="fa-solid ' + b.icon + '"></i></span><div class="set-main"><h3>' + A.esc(b.label) + '</h3><p>' + A.esc(b.help) + '</p>' + prov + '</div><div class="set-ctl">' + ctl + '</div></div>';
-          }).join('');
-          return '<div class="rp-card-head"><div><h2>How should this course adapt?</h2><p class="rp-card-sub" style="margin:2px 0 0">These come from your settings. Change them here only if this assignment is different.</p></div>' +
-            '<a class="card-link" id="pv" href="preview.html?from=assign" target="_blank" rel="noopener">Preview what people will see <i class="fa-solid fa-arrow-up-right-from-square"></i></a></div>' + rows +
-            '<div class="callout" style="margin-top:16px"><i class="fa-solid fa-wand-magic-sparkles"></i><div><b>What this means</b><br>' + A.esc(sentence()) + '</div></div>' +
-            '<div class="always" style="margin-top:12px"><i class="fa-solid fa-shield-check"></i><b>Always included:</b> spotting hazards, the live practice, and the closing check. They’re required by the training standard.</div>' +
-            foot(true, 'Next: review');
+          }).join('') + formatsRow();
+          // "What will happen" and the per-group table were the old Review step; they live here now.
+          return '<p class="rp-card-sub">These come from your settings. Change them here only if this assignment is different.</p>' + rows +
+            '<div class="callout" style="margin-top:16px"><i class="fa-solid fa-wand-magic-sparkles"></i><div><b>What will happen</b><br>' + A.esc(sentence()) + '</div></div>' +
+            (selectedLeaves().length > 1 ? effTable() : '') +
+            '<div class="always" style="margin-top:12px"><i class="fa-solid fa-shield-check"></i><b>Always included:</b> spotting hazards, the live practice, and the closing check. They’re required by the training standard.</div>';
+        }
+        /* Which formats people may choose. At least one stays on. */
+        function formatsRow() {
+          var on = FORMATS.filter(function (f) { return st.formats[f.id]; }).length;
+          return '<div class="set-row"><span class="set-ico"><i class="fa-solid fa-photo-film"></i></span><div class="set-main"><h3>Formats people can choose</h3>' +
+            '<p>People pick how they take each lesson. Untick a format you don’t want offered.</p>' +
+            '<span class="fmt-checks" role="group" aria-label="Formats people can choose">' + FORMATS.map(function (f) {
+              var v = !!st.formats[f.id], last = v && on === 1;
+              return '<button type="button" role="checkbox" aria-checked="' + v + '" class="fmt-chk' + (v ? ' on' : '') + '" data-f="' + f.id + '"' + (last ? ' disabled title="At least one format has to stay on"' : '') + '>' +
+                '<i class="fa-solid ' + (v ? 'fa-square-check' : 'fa-square') + '"></i><i class="fa-solid ' + f.icon + '"></i>' + f.label + '</button>';
+            }).join('') + '</span>' +
+            (on === 1 ? '<span class="prov"><i class="fa-solid fa-circle-info"></i> At least one format has to stay on.</span>' : '') +
+            '</div><div class="set-ctl"></div></div>';
         }
         function wireAdapt() {
+          document.querySelectorAll('[data-f]').forEach(function (b) { b.addEventListener('click', function () { st.formats[b.dataset.f] = !st.formats[b.dataset.f]; draw(); }); });
           document.querySelectorAll('.set-ctl vwc-switch').forEach(function (sw) {
             sw.addEventListener('checked-change', function () {
               var k = sw.dataset.key, r = resolved(k);
@@ -201,9 +336,56 @@
           B.save('bbp.assign', { unit: first ? first.id : S.tree.id, ov: st.ov });
         }
 
+        /* ---- Custom content: everything you can add to a Standard or Learning Studio course, added here too ---- */
+        var CZ = [
+          { key: 'content', icon: 'fa-photo-film', title: 'Your own content',
+            help: 'Add a video, page or file of your own. Choose whether it comes at the start or the end.', add: 'Add content' },
+          { key: 'policy', icon: 'fa-file-shield', title: 'Your policies',
+            help: 'Attach your company’s policy. People can be asked to confirm they’ve read it.', add: 'Attach a policy' },
+          { key: 'res', icon: 'fa-link', title: 'Resources',
+            help: 'Links that stay in the course’s Resources panel, so people can find them any time.', add: 'Add a link' }
+        ];
+        function czItem(sec, it, i) {
+          var ctl = sec.key === 'content'
+              ? '<span class="mini-seg" role="radiogroup" aria-label="Where it goes"><button type="button" data-where="start" data-i="' + i + '"' + (it.where === 'start' ? ' class="on"' : '') + '>At the start</button><button type="button" data-where="end" data-i="' + i + '"' + (it.where === 'end' ? ' class="on"' : '') + '>At the end</button></span>'
+            : sec.key === 'policy'
+              ? '<vaadin-checkbox data-ack="' + i + '" label="Ask people to confirm"' + (it.ack ? ' checked' : '') + '></vaadin-checkbox>' : '';
+          return '<div class="cz-item"><i class="fa-solid ' + it.icon + '"></i><span><b>' + A.esc(it.name) + '</b><small>' + A.esc(it.kind) + '</small></span>' +
+            '<span class="cz-ctl">' + ctl + '<button type="button" class="cz-x" data-rm="' + sec.key + '" data-i="' + i + '" aria-label="Remove ' + A.esc(it.name) + '"><i class="fa-solid fa-xmark"></i></button></span></div>';
+        }
+        function viewCustom() {
+          return '<p class="rp-card-sub">Anything you add to a Standard or Learning Studio course today, you can add here. Everyone sees what you add; the course never skips it.</p>' +
+            CZ.map(function (sec) {
+              var list = st.custom[sec.key];
+              return '<div class="cz-sec"><div class="cz-head"><span class="set-ico"><i class="fa-solid ' + sec.icon + '"></i></span><div><h3>' + sec.title + '</h3><p>' + sec.help + '</p></div>' +
+                '<vaadin-button theme="secondary" data-add="' + sec.key + '"><i class="fa-solid fa-plus" style="margin-right:7px"></i>' + sec.add + '</vaadin-button></div>' +
+                (list.length ? '<div class="cz-list">' + list.map(function (it, i) { return czItem(sec, it, i); }).join('') + '</div>' : '') + '</div>';
+            }).join('');
+        }
+        function wireCustom() {
+          document.querySelectorAll('[data-add]').forEach(function (b) {
+            b.addEventListener('click', function () {
+              var k = b.dataset.add, ex = EXAMPLES[k], list = st.custom[k], it = ex[list.length % ex.length];
+              list.push({ name: it.name, kind: it.kind, icon: it.icon, where: 'start', ack: true }); draw();
+            });
+          });
+          document.querySelectorAll('[data-rm]').forEach(function (b) { b.addEventListener('click', function () { st.custom[b.dataset.rm].splice(+b.dataset.i, 1); draw(); }); });
+          document.querySelectorAll('[data-where]').forEach(function (b) { b.addEventListener('click', function () { st.custom.content[+b.dataset.i].where = b.dataset.where; draw(); }); });
+          document.querySelectorAll('[data-ack]').forEach(function (c) { c.addEventListener('change', function () { st.custom.policy[+c.dataset.ack].ack = c.checked; }); });
+        }
+        function customSummary() {
+          var c = st.custom, parts = [];
+          if (c.content.length) parts.push(c.content.length + (c.content.length === 1 ? ' content item' : ' content items'));
+          if (c.policy.length) parts.push(c.policy.length + (c.policy.length === 1 ? ' policy' : ' policies'));
+          if (c.res.length) parts.push(c.res.length + (c.res.length === 1 ? ' resource' : ' resources'));
+          return parts.join(' · ');
+        }
+
         function sentence() {
           var s = [], v = valueOf;
-          s.push('Most people will finish in about 25 minutes. The full course takes about 33.');
+          if (cur().modules && st.scope === 'pick') s.push('People get ' + pickedMods().map(function (m) { return m.name; }).join(', ') + ' (' + modsText().toLowerCase() + ').');
+          else s.push('Most people will finish in about 25 minutes. The full course takes about 33.');
+          if (FORMATS.some(function (f) { return !st.formats[f.id]; })) s.push('Only ' + formatsText().replace(' only', '') + (FORMATS.filter(function (f) { return st.formats[f.id]; }).length > 1 ? ' are' : ' is') + ' offered.');
           if (v('skip')) s.push('Anyone who shows they already know the handling steps skips that lesson.');
           else if (v('skip') === null) s.push('Where skip-ahead is on (see the table), anyone who shows they already know the handling steps skips that lesson.');
           if (v('harder')) s.push('Anyone clearly ahead gets harder checks.');
@@ -211,20 +393,6 @@
           if (v('extra') !== false) s.push('Anyone who misses a check gets a short round of extra practice.');
           if (v('followup')) s.push('Everyone gets a five-minute check-in 30 days later.');
           return s.join(' ');
-        }
-        function viewReview() {
-          var pu = selectedLeaves(), groups = pu.map(function (l) { return l.name; });
-          var ad = cur().adaptive;
-          return '<div class="rp-card-head"><h2>Ready to assign?</h2></div>' +
-            '<dl class="sum-grid" style="margin:12px 0 4px">' +
-            '<dt>Course</dt><dd><b>' + cur().name + '</b> · ' + (ad ? 'Adaptive' : 'Standard') + '</dd>' +
-            '<dt>Who</dt><dd><b>' + count() + ' people</b> in ' + groups.length + ' groups<br><span style="color:var(--rp-ink-soft)">' + A.esc(groups.join(', ')) + '</span></dd>' +
-            (ad ? '<dt>Version</dt><dd>' + A.esc(S.short) + '</dd>' : '') +
-            '<dt>Due</dt><dd>' + fmtDue() + '</dd></dl>' +
-            (ad ? '<div class="callout" style="margin-top:14px"><i class="fa-solid fa-wand-magic-sparkles"></i><div><b>What will happen</b><br>' + A.esc(sentence()) + '</div></div>' +
-              effTable() :
-              '<div class="callout" style="margin-top:14px"><i class="fa-solid fa-circle-info"></i><div>This is a standard course. Everyone takes the same course in the same order, and you’ll see completions in reports.</div></div>') +
-            foot(true, 'Assign course');
         }
         function effTable() {
           var pu = perUnit(); if (!pu.length) return '';
@@ -235,72 +403,125 @@
               return '<td><span class="pill' + (v ? '' : ' off') + '">' + (v ? 'On' : 'Off') + '</span></td>';
             }).join('') + '</tr>';
           }).join('');
-          return '<div style="margin-top:14px;overflow-x:auto"><table class="eff-table"><thead><tr><th>Group</th>' + B.BEHAVIORS.map(function (b) { return '<th>' + ['Skip ahead', 'Harder checks', 'Extra practice', '30-day check-in'][B.BEHAVIORS.indexOf(b)] + '</th>'; }).join('') + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+          return '<div style="margin-top:14px;overflow-x:auto"><table class="eff-table"><caption class="eff-cap">What each group gets</caption><thead><tr><th>Group</th>' + SHORT.map(function (l) { return '<th>' + l + '</th>'; }).join('') + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
         }
         function fmtDue() { try { return new Date(st.due + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); } catch (e) { return st.due; } }
 
         function viewDone() {
           return '<div class="done-card"><div class="big"><i class="fa-solid fa-check"></i></div><h2>' + cur().name + ' is assigned</h2>' +
             '<p>' + count() + ' people were notified and it’s due ' + fmtDue() + '. Results appear in the course report as people finish.</p>' +
-            '<div class="row"><vaadin-button theme="primary" id="toReport">Go to courses</vaadin-button>' +
-            (cur().adaptive ? '<vaadin-button theme="secondary" id="toPreview">Preview what people will see</vaadin-button>' : '') + '</div></div>';
+            '<div class="row"><vaadin-button theme="primary" id="toReport">Go to courses</vaadin-button></div></div>';
         }
-        function assign() { persist(); go('done'); }
+        function assign() { if (!allDone()) return; persist(); st.assigned = true; draw(); window.scrollTo(0, 0); }
 
         function railRow(k, v) { return '<div class="rail-row"><span>' + k + '</span><div>' + v + '</div></div>'; }
         function railHTML() {
           var c = cur(), n = count(), ad = c.adaptive;
-          var h = '<h3>Assignment</h3><div class="rail-course"><span class="ci ' + c.cls + '"><i class="fa-solid ' + c.icon + '"></i></span><span><b>' + c.name + '</b><small>' + (ad ? 'Adaptive' : 'Standard') + ' course</small></span></div>';
-          if (!n) return h + '<p class="rail-empty">Choose groups to see who gets this and which version.</p>';
+          var h = '<h3>Assignment</h3><div class="rail-course"><span class="ci ' + c.cls + '"><i class="fa-solid ' + c.icon + '"></i></span><span><b>' + c.name + '</b><small>' + (ad ? 'Adaptive' : 'Standard') + ' course' + (c.modules ? ' · ' + modsText() : '') + '</small></span></div>';
+          if (!n) return h + '<p class="rail-empty">Choose groups to see who gets this and which version.</p>' + actionsHTML();
           var groups = selectedLeaves().length;
           h += railRow('Who', '<b>' + n + ' people</b><small>' + groups + ' group' + (groups === 1 ? '' : 's') + '</small>');
           if (ad) {
             h += railRow('Version', '<b>' + A.esc(S.short) + '</b>');
-            var parts = mixParts(), max = Math.max.apply(null, parts.map(function (p) { return p[1]; }));
-            h += '<div class="rail-mix">' + parts.map(function (p) {
-              return '<div><span>' + A.esc(p[0]) + '</span><i><em style="width:' + Math.round(p[1] / max * 100) + '%"></em></i><b>' + p[1] + '</b></div>';
-            }).join('') + '</div>';
+            // How many of the selected people hold each role (each role gets its own version). Plain counts, no bars.
+            h += railRow('By role', '<span class="role-list">' + mixParts().map(function (p) {
+              return '<span class="role-row"><span>' + A.esc(p[0]) + '</span><b>' + p[1] + '</b></span>';
+            }).join('') + '</span>');
           }
           h += railRow('Due', '<b>' + fmtDue() + '</b>');
-          if (ad && (st.step === 'adapt' || st.step === 'review')) {
+          if (customCount()) h += railRow('Added', '<b>' + customSummary() + '</b>');
+          if (ad && (st.step === 'adapt' || st.done.adapt)) {
             h += '<div class="rail-pills">' + B.BEHAVIORS.map(function (b, i) {
               var r = resolved(b.key), lbl = ['Skip ahead', 'Harder checks', 'Extra practice', '30-day check-in'][i];
               var v = r.state === 'mixed' ? 'mixed' : (r.value ? 'on' : 'off');
               return '<span class="pill' + (v === 'off' ? ' off' : '') + '">' + lbl + (v === 'mixed' ? ': varies' : (v === 'on' ? '' : ': off')) + '</span>';
-            }).join('') + '</div>';
+            }).join('') + '<span class="pill' + (formatsText() === 'Any format' ? '' : ' off') + '">' + formatsText() + '</span></div>';
           }
-          return h;
+          return h + actionsHTML();
+        }
+        // Assign course waits for every step, like le-launch's Start course. Admin preview doesn't.
+        function actionsHTML() {
+          var ready = allDone(), bbp = !!PREVIEWS[st.course], pv = canPreview();
+          return '<div class="rail-actions"><vaadin-button theme="primary" id="assignBtn"' + (ready ? '' : ' disabled') + '><i class="fa-solid fa-paper-plane" style="margin-right:8px"></i>Assign course</vaadin-button>' +
+            (bbp ? '<vaadin-button theme="secondary" id="adminPreview"' + (pv ? '' : ' disabled') + '><i class="fa-solid fa-eye" style="margin-right:8px"></i>Admin preview</vaadin-button>' : '') + '</div>' +
+            '<p class="rail-note">' + (ready ? '<i class="fa-solid fa-circle-check"></i>Assigning notifies ' + count() + ' people now.' : 'Finish each step to assign.') +
+              (bbp ? ' ' + (pv ? 'Admin preview shows the course as a learner will see it, with these choices. The 30-day check-in isn’t part of it.' : 'Choose at least one module to preview.') : '') + '</p>';
+        }
+
+        /* ---- Admin preview: the real learner view, with these choices ------------
+           Opens the admin preview viewer (products/aithera/admin-preview) on the
+           Contain the Sharp prototype, the one module built, with this assignment's
+           modules, formats and adaptations on its URL. Its "Exit admin preview"
+           button comes back here; the page is saved first so it
+           reopens with the same step open and nothing lost. Bloodborne Pathogens
+           (Contain the Sharp) and Hazing (its Module 5) only: see PREVIEWS. */
+        var DRAFT = 'bbp.assign.draft';
+        var VIEWER = '../../admin-preview/ver1/index.html';     // design and play views of the module
+        var FMT_KEY = { video: 'video', audio: 'listen', text: 'article' };   // admin format -> module format
+        function canPreview() { return !!PREVIEWS[st.course] && !(st.scope === 'pick' && !pickedMods().length); }
+        // The value a learner in this assignment gets: this assignment's change,
+        // else the first chosen group's setting, else the organization's.
+        function previewVal(key) {
+          var leaf = selectedLeaves()[0], e = B.effective(leaf ? leaf.id : S.tree.id, B.liveCfg())[key];
+          if (st.ov[key] != null && !e.lockedBy) return st.ov[key];
+          return e.value;
+        }
+        function adminPreview() {
+          if (!canPreview()) return;
+          try { sessionStorage.setItem(DRAFT, JSON.stringify(st)); } catch (e) {}
+          var back = new URL(location.href); back.hash = ''; back.searchParams.set('draft', '1');
+          var mods = st.scope === 'full' ? cur().modules : pickedMods();
+          var q = new URLSearchParams({
+            // Hazing's audience isn't an org setting here, so it previews Athletes.
+            adminPreview: '1', return: back.href, role: st.course === 'hazing' ? 'athletes' : S.key === 'le' ? 'public' : 'manufacturing',
+            formats: FORMATS.filter(function (f) { return st.formats[f.id]; }).map(function (f) { return FMT_KEY[f.id]; }).join(','),
+            test_out: previewVal('skip') ? '1' : '0', test_up: previewVal('harder') ? '1' : '0', extra: previewVal('extra') ? '1' : '0',
+            modules: mods.map(function (m) { return m.id; }).join(',')
+          });
+          if (PREVIEWS[st.course] !== 'sharps') q.set('course', PREVIEWS[st.course]);
+          location.href = VIEWER + '?' + q.toString();
         }
         function draw() {
-          wizard();
-          var stage = document.getElementById('stage');
-          var v = { course: viewCourse, people: viewPeople, adapt: viewAdapt, review: viewReview, done: viewDone }[st.step];
-          stage.innerHTML = v();
-          ({ course: wireCourse, people: wirePeople, adapt: wireAdapt }[st.step] || function () {})();
-          wireFoot();
-          var rail = document.getElementById('rail'), lay = document.getElementById('layout');
-          lay.classList.toggle('no-rail', st.step === 'done');
-          rail.innerHTML = st.step === 'done' ? '' : railHTML();
-          var tr = document.getElementById('toReport'); if (tr) tr.addEventListener('click', function () { location.href = 'courses.html'; });
-          var tp = document.getElementById('toPreview'); if (tp) tp.addEventListener('click', function () { location.href = 'preview.html?from=assign'; });
+          var lay = document.getElementById('layout'), done = document.getElementById('doneCard');
+          lay.classList.toggle('no-rail', st.assigned);
+          document.getElementById('steps').hidden = st.assigned;
+          done.hidden = !st.assigned;
+          if (st.assigned) {
+            done.innerHTML = viewDone(); document.getElementById('rail').innerHTML = '';
+            document.getElementById('toReport').addEventListener('click', function () { location.href = 'courses.html'; });
+            return;
+          }
+          drawSteps();
+          document.getElementById('rail').innerHTML = railHTML();
+          document.getElementById('assignBtn').addEventListener('click', assign);
+          var ap = document.getElementById('adminPreview'); if (ap) ap.addEventListener('click', adminPreview);
         }
-        function go(step) {
-          // Flow-map states need something selected to be meaningful.
-          if (step !== 'course' && !count()) {
+        // Flow-map states: a step open with everything before it done, or 'ready' (all done) / 'done' (assigned).
+        function go(state) {
+          if (state !== 'course' && !count()) {          // states past the first need groups picked to mean anything
             var first = S.tree.kids[0]; setNode(first, true);
             if (S.tree.kids[1]) setNode(S.tree.kids[1], true);
           }
-          if (step === 'adapt' && !cur().adaptive) step = 'review';
-          st.step = step; draw();
+          if (state === 'adapt' && !cur().adaptive) state = 'custom';
+          var steps = STEPS(), i = steps.indexOf(state);
+          st.done = {}; st.assigned = false;
+          steps.forEach(function (x, n) { if (i < 0 || n < i) st.done[x] = true; });
+          st.step = i < 0 ? null : state;
+          if (state === 'done') st.assigned = true;
+          draw();
         }
         window.AssignFlow = { go: go };
 
         var pre = new URLSearchParams(location.search).get('course');
         if (pre && COURSES.some(function (c) { return c.id === pre; })) st.course = pre;
+        // Back from Admin preview: reopen the wizard exactly as it was left.
+        if (new URLSearchParams(location.search).get('draft') === '1') {
+          try { var d = JSON.parse(sessionStorage.getItem(DRAFT) || 'null'); if (d) Object.assign(st, d); } catch (e) {}
+          try { var u = new URL(location.href); u.searchParams.delete('draft'); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch (e) {}
+        }
         draw(); bootFromHash();
       })();
 
     </script>
-    <script src="../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
 </body>
 </html>

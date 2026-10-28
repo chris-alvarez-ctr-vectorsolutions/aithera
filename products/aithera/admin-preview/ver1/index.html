@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin preview — Bloodborne Pathogens</title>
+    <!-- Vector Web Components (core v1.22.3 / themes v1.9.3, the versions cached in context/) -->
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+    <!-- Self-hosted Font Awesome Pro (repo root is four levels up from verN/) -->
+    <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+    <!-- Tokens, segmented control and switches shared with the assign flows -->
+    <link rel="stylesheet" href="../../bbp-admin/ver1/admin.css?v=66" />
+    <link rel="stylesheet" href="viewer.css?v=15" />
+</head>
+<body class="designing">
+<!-- ==========================================================================
+     Admin preview viewer. Opened from "Admin preview" in either assign flow
+     (bbp-admin, le-launch) with the assignment's choices on the URL.
+
+     Laid out like Keynote's edit mode.
+     Design: the selected screen large in the middle, every screen as a
+       thumbnail in the strip along the bottom (branches stack in two rows;
+       this learner's are lit and joined), and on the left the learner options
+       that matter for the selected screen.
+     Play: the light top bar, the options and the thumbnail strip go away and
+       the screen zooms up to fill the space. The dark bars stay.
+
+     Every screen, large or thumbnail, is the real module
+     (lesson-presentation/clara/sharps.html) in a frame, loaded with
+     js/preview-embed.js's learner profile. Thumbnails are those live pages
+     at 1280×720, scaled down, with video and motion off. Which screens light
+     comes from the module itself: a hidden frame with the same profile
+     reports its path.
+     ========================================================================== -->
+
+    <!-- One dark bar across the top in both modes: this screen on the left, the
+         Design / Play toggle in the middle (it never moves), zoom and
+         Previous / Next on the right. -->
+    <header class="st-bar">
+        <span class="st-where" id="stWhere"></span>
+        <span class="mini-seg av-mode" role="radiogroup" aria-label="Mode">
+            <button type="button" role="radio" data-mode="design"><i class="fa-solid fa-table-cells-large"></i>Design</button>
+            <button type="button" role="radio" data-mode="play"><i class="fa-solid fa-play"></i>Play</button>
+        </span>
+        <span class="st-right">
+            <span class="st-tools design-only" role="group" aria-label="Zoom">
+                <button type="button" class="st-tool" id="panBtn" aria-pressed="false" title="Drag to move around"><i class="fa-solid fa-hand"></i></button>
+                <button type="button" class="st-tool" id="zoomOut" aria-label="Zoom out"><i class="fa-solid fa-minus"></i></button>
+                <output id="zoomPct">100%</output>
+                <button type="button" class="st-tool" id="zoomIn" aria-label="Zoom in"><i class="fa-solid fa-plus"></i></button>
+                <button type="button" class="st-tool fit" id="zoomFit">Fit</button>
+            </span>
+            <button type="button" class="pl-btn" id="prevBtn"><i class="fa-solid fa-arrow-left"></i>Previous</button>
+            <button type="button" class="pl-btn" id="nextBtn">Next<i class="fa-solid fa-arrow-right"></i></button>
+            <button type="button" class="pl-btn pl-exit" id="exitBtn" title="Back to the assignment"><i class="fa-solid fa-right-from-bracket"></i>Exit admin preview</button>
+        </span>
+    </header>
+
+    <div class="av-body">
+        <!-- Learner options, led by the ones that matter for the selected screen (design only) -->
+        <aside class="av-panel" aria-label="Learner options">
+            <div class="av-title"><small>Admin preview</small><b>Bloodborne Pathogens · Contain the Sharp</b><span class="av-path" id="pathInfo" aria-live="polite"></span></div>
+            <div id="panel"></div>
+        </aside>
+
+        <main class="av-main">
+            <!-- The selected screen, live, scaled to fit (or zoomed in, with drag to move around) -->
+            <div class="st-stage" id="stage">
+                <div class="st-scroll" id="stScroll">
+                    <div class="st-sizer" id="stSizer">
+                        <iframe class="st-frame" id="stFrame" title="Learner view"></iframe>
+                        <div class="st-pan" id="stPan" hidden></div>
+                    </div>
+                </div>
+                <div class="st-off" id="stOff" hidden></div>
+            </div>
+
+            <!-- Design: every screen as a thumbnail, branches in two rows. Drag or scroll to move along it. -->
+            <nav class="nv design-only" id="nav" aria-label="All screens">
+                <div class="nv-scroll" id="nvScroll"><div class="nv-board" id="nvBoard"></div></div>
+            </nav>
+            <!-- Design, Read: the same screens as a vertical timeline on the right, the
+                 article's sections in their place. Scrolling the article moves the highlight. -->
+            <aside class="rl design-only" id="rail" aria-label="All screens, in order">
+                <div class="rl-scroll" id="rlScroll"><div class="rl-board" id="rlBoard"></div></div>
+            </aside>
+            <!-- Play: this learner's path as a strip of chips -->
+            <nav class="pl-strip play-only" id="plStrip" aria-label="This learner’s path"></nav>
+        </main>
+    </div>
+
+    <script src="viewer.js?v=18"></script>
+
+<!-- ── Design Toolbox: Flow Map ─────────────────────────────────────────── -->
+<script>
+  function applyFlowState(id, opts) {
+    opts = opts || {};
+    if (window.AdminViewer) window.AdminViewer.state(id);
+  }
+  window.applyFlowState = applyFlowState;
+  function bootFromHash() {
+    var m = (location.hash || '').match(/fm=([\w-]+)/);
+    if (m) { try { applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (e) {} }
+  }
+  bootFromHash();
+  window.addEventListener('hashchange', bootFromHash);
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'Admin preview — Flow Map',
+      applyState: 'applyFlowState',
+      canvas: { w: 1240, h: 300 },
+      flows: [{ id: 'main', name: 'Admin preview', pill: 'A', color: '#c9b8f0', lane: { x: 20, y: 20, w: 1200, h: 260 }, labelXY: { x: 40, y: 40 } }],
+      nodes: [
+        { id: 'design', flow: 'main', entry: true, x: 60, y: 100, step: '1', name: 'Design: course page', state: 'design',
+          desc: 'The course page large, every screen in the strip below, and the options that matter for the course page on the left (sector, format).' },
+        { id: 'precheck', flow: 'main', x: 360, y: 100, step: '2', name: 'Design: pre-check', state: 'precheck',
+          desc: 'Pre-check selected: its four answers are the quick toggles. Flip one and the strip relights; screens that changed pulse.' },
+        { id: 'case1', flow: 'main', x: 660, y: 100, step: '3', name: 'Design: Case 1', state: 'case1',
+          desc: 'A branching screen: Question 1, Harder checks, the Case 1 check and Extra practice, each saying what it does to this screen.' },
+        { id: 'play', flow: 'main', x: 960, y: 100, step: '4', name: 'Play', state: 'play',
+          desc: 'The options and strip go away; the screen zooms up. The dark top bar stays, with the Design / Play toggle in the same place as in design.' }
+      ],
+      edges: [['design', 'precheck'], ['precheck', 'case1'], ['case1', 'play']]
+    }
+  };
+</script>
+</body>
+</html>
