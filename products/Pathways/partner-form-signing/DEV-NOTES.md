@@ -24,13 +24,14 @@ Two placements to compare at the next sync:
 
 ## approvals
 - **Cards:** Waiting on you · Signature sent · Completed. There are no All workflows or Waiting for signatures cards, because the partner only sees forms that have reached them.
-- **Row actions:** every row has View (signer timeline). Rows waiting on the partner add Sign. Any row can be selected; Sign & approve (n) signs the selected forms waiting on them.
+- **Row actions:** clicking anywhere on a row opens its signer timeline, and a chevron at the far right shows that (no View link, same as Workflow Enhancement V1). Rows waiting on the partner add a Sign button before the chevron. The checkbox, Sign and the student name keep their own actions. Any row can be selected; Sign & approve (n) signs the selected forms waiting on them.
 
 ## selected
 - **Same form only:** one signature goes on several students' copies of the same form, across experiences. If the selection mixes forms, the bar offers one button per form, as in the admin table.
 
 ## drawer
 - **Bulk inside one experience only (V2):** one tab per form waiting on the partner, every student selected to start. A partner with the same form waiting in three experiences signs three times. That's the main trade-off against V1.
+- **Rows (V2):** clicking a student row opens their signer timeline in the drawer, with a link back to the experience; the checkbox keeps its own click.
 - **Signed by you (V2):** forms already signed in this experience, read-only. V2 has no cross-experience history.
 
 ## review
@@ -39,4 +40,4 @@ Two placements to compare at the next sync:
 - **Bulk confirmation:** the "my signature applies to each of them" checkbox only appears when signing more than one form.
 
 ## cosign
-- **Shared signing order:** today two signers can share an order, and both get the email at once. The partner can still open View while it's their turn.
+- **Shared signing order:** today two signers can share an order, and both get the email at once. The partner can still open the row's details while it's their turn.

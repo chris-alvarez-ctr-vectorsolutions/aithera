@@ -313,7 +313,15 @@ textarea.inp { height: auto; padding: 9px 12px; resize: vertical; }
 .pick-h label { display: inline-flex; gap: 10px; align-items: center; cursor: pointer; font-weight: 500; }
 .pick { list-style: none; margin: 0 0 24px; padding: 0; }
 .pick li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--row-line); }
-.pick li label { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; cursor: pointer; }
+.pick li label { display: flex; align-items: center; cursor: pointer; padding: 4px; margin: -4px; }
+/* No View link: the whole row opens the signer timeline, with a chevron at the far
+   right. The checkbox keeps its own click. */
+.pick li[data-id] { cursor: pointer; }
+.pick li[data-id]:hover { background: var(--row-hover); }
+.pick li[data-id]:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.pick .who { flex: 1; min-width: 0; }
+.row-chev { color: #8a9099; font-size: 13px; width: 14px; text-align: center; }
+.pick li[data-id]:hover .row-chev { color: var(--link); }
 .pick .nm { font-size: 14px; }
 .pick .sub { font-size: 12px; color: var(--muted); }
 .pick .lnk { color: var(--link); cursor: pointer; font-size: 13.5px; }
@@ -688,21 +696,28 @@ function expPanel() {
       ${forms.length > 1 ? `<div class="seg-tabs" role="tablist">${forms.map(f => `<button role="tab" class="${f.id === xForm ? 'is-on' : ''}" aria-selected="${f.id === xForm}" onclick="pickForm('${f.id}')">${esc(f.name)} (${ws.filter(w => w.form === f.id).length})</button>`).join('')}</div>` : ''}
       ${rows.length ? `
         <div class="pick-h"><label><input type="checkbox" ${allOn ? 'checked' : ''} onchange="xToggleAll(this.checked)"> ${forms.length > 1 ? 'All students' : esc(formOf(xForm).name)}</label><span>${n} of ${rows.length} selected</span></div>
-        <ul class="pick">${rows.map(w => `<li>
-          <label><input type="checkbox" ${tSel.has(w.id) ? 'checked' : ''} onchange="xToggle('${w.id}', this.checked)">
-            <span><span class="nm">${esc(w.student)}</span><div class="sub">Grade ${w.grade} · Sent to you ${fmtDate(daysAgo(myRow(w).at))}</div></span></label>
-          <a class="lnk" onclick="xView('${w.id}')">View</a></li>`).join('')}</ul>`
+        <ul class="pick" onclick="xRowOpen(event)" onkeydown="xRowOpen(event)">${rows.map(w => `<li data-id="${w.id}" tabindex="0" aria-label="${esc(w.student)}: open details">
+          <label><input type="checkbox" ${tSel.has(w.id) ? 'checked' : ''} onchange="xToggle('${w.id}', this.checked)" aria-label="Select ${esc(w.student)}"></label>
+          <span class="who"><span class="nm">${esc(w.student)}</span><div class="sub">Grade ${w.grade} · Sent to you ${fmtDate(daysAgo(myRow(w).at))}</div></span>
+          <i class="fa-solid fa-chevron-right row-chev" aria-hidden="true"></i></li>`).join('')}</ul>`
         : '<p class="dr-empty">Nothing in this experience is waiting on your signature.</p>'}
       ${signed.length ? `<details class="signed-sec" ${rows.length ? '' : 'open'}><summary>Signed by you (${signed.length})</summary>
-        <ul class="pick">${signed.map(w => `<li><span style="flex:1;min-width:0"><span class="nm">${esc(w.student)}</span><div class="sub">${esc(formOf(w.form).name)}</div></span>
-          ${statusChip(w)} <a class="lnk" onclick="xView('${w.id}')">View</a></li>`).join('')}</ul></details>` : ''}
+        <ul class="pick" onclick="xRowOpen(event)" onkeydown="xRowOpen(event)">${signed.map(w => `<li data-id="${w.id}" tabindex="0" aria-label="${esc(w.student)}: open details"><span class="who"><span class="nm">${esc(w.student)}</span><div class="sub">${esc(formOf(w.form).name)}</div></span>
+          ${statusChip(w)}<i class="fa-solid fa-chevron-right row-chev" aria-hidden="true"></i></li>`).join('')}</ul></details>` : ''}
     </div>
     <div class="dr-foot">${rows.length ? `<span class="left">${forms.length > 1 ? 'Sign one form at a time' : ''}</span>
       <button class="btn" ${n ? '' : 'disabled'} onclick="goSign(INST.filter(w => tSel.has(w.id)).map(w => w.id))"><i class="fa-regular fa-signature"></i> Sign &amp; approve (${n})</button>` : ''}</div>`;
 }
 function xToggle(id, on) { on ? tSel.add(id) : tSel.delete(id); openDrawer(expPanel()); }
 function xToggleAll(on) { waitingIn(xExp).filter(w => w.form === xForm).forEach(w => on ? tSel.add(w.id) : tSel.delete(w.id)); openDrawer(expPanel()); }
-// View swaps the drawer to the signer timeline, with a way back to the experience
+// Clicking (or pressing Enter on) a student row opens its signer timeline, except on the checkbox
+function xRowOpen(e) {
+  const li = e.target.closest('li[data-id]');
+  if (!li || e.target.closest('input, button, a, label')) return;
+  if (e.type === 'keydown' && e.key !== 'Enter') return;
+  xView(li.dataset.id);
+}
+// The row swaps the drawer to the signer timeline, with a way back to the experience
 function xView(id) {
   const e = expOf(xExp);
   openDrawer(workflowPanel(INST.find(w => w.id === id),
@@ -920,17 +935,17 @@ window.TOOLBOX_CONFIG = {
       { id: 'exp', flow: 'sign', entry: true, x: 40, y: 80, step: '1', name: 'My Experiences', state: 'exp',
         desc: 'Today\'s partner landing page. New: a Forms to sign column with Sign (n) on each experience that has forms waiting on you.' },
       { id: 'drawer', flow: 'sign', x: 320, y: 80, step: '2', name: 'Experience forms drawer', state: 'drawer',
-        desc: 'The students in this experience whose form is waiting on you, all selected to start. Bulk signing stays inside one experience.' },
+        desc: 'The students in this experience whose form is waiting on you, all selected to start. Click a row for its signers. Bulk signing stays inside one experience.' },
       { id: 'review', flow: 'sign', x: 600, y: 80, step: '3', name: 'Answer once, sign once', state: 'review',
         desc: 'Same page as V1: Approve or Reject (comment required to reject); ink signature as today.' },
       { id: 'done', flow: 'sign', x: 880, y: 80, step: '4', name: 'Signed', state: 'done',
         desc: 'Each form moves to its next signer (Signature sent) or completes. Back to My Experiences.' },
       { id: 'form-tab', flow: 'sign', x: 320, y: 250, step: 'Option', name: 'More than one form waiting', state: 'form-tab',
         desc: 'One tab per form, because forms sign together only when they\'re the same form.' },
-      { id: 'view', flow: 'sign', x: 600, y: 250, step: 'Option', name: 'View a student\'s signers', state: 'view',
-        desc: 'View swaps the drawer to the signer timeline, with a link back to the experience.' },
+      { id: 'view', flow: 'sign', x: 600, y: 250, step: 'Option', name: 'A student\'s signers', state: 'view',
+        desc: 'Clicking a row swaps the drawer to the signer timeline, with a link back to the experience.' },
       { id: 'cosign', flow: 'sign', x: 880, y: 250, step: 'Option', name: 'Up with another signer', state: 'cosign',
-        desc: 'Shared signing order: the partner and the school approver are up at once. View still works.' },
+        desc: 'Shared signing order: the partner and the school approver are up at once. The row still opens the details.' },
       { id: 'signed', flow: 'track', entry: true, x: 40, y: 500, step: '1', name: 'Signed by you', state: 'signed',
         desc: 'Inside the experience drawer: forms you signed here, as Signature sent or Completed. No cross-experience history in V2.' },
     ],

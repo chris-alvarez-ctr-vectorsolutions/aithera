@@ -219,8 +219,14 @@ textarea.inp { height: auto; padding: 9px 12px; resize: vertical; }
 .sum-card.mine .n { color: var(--tag-staff); }
 
 /* ── Row actions + selection bar ───────────────────────────── */
-.row-act { width: 150px; white-space: nowrap; }
-.row-btns { display: inline-flex; align-items: center; gap: 14px; }
+.row-act { width: 120px; text-align: right; white-space: nowrap; }
+/* No View link: the whole row opens the details, and a chevron at the far right
+   says so. Rows waiting on you keep a Sign button before the chevron. */
+.row-btns { display: inline-flex; align-items: center; justify-content: flex-end; gap: 14px; }
+.grid tbody tr[data-id] { cursor: pointer; }
+.grid tbody tr[data-id]:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.row-chev { color: #8a9099; font-size: 13px; width: 14px; text-align: center; }
+.grid tbody tr[data-id]:hover .row-chev { color: var(--link); }
 .sign-btn i { color: var(--blue); }
 .sel-bar {
   display: flex; align-items: center; gap: 14px; padding: 10px 14px 10px 20px; background: #eef5fd; border-bottom: 1px solid var(--blue-line);
@@ -457,7 +463,7 @@ textarea.inp { height: auto; padding: 9px 12px; resize: vertical; }
         <div class="t-scroll">
           <table class="grid">
             <thead><tr id="tHead"></tr></thead>
-            <tbody id="tBody"></tbody>
+            <tbody id="tBody" onclick="rowOpen(event)" onkeydown="rowOpen(event)"></tbody>
           </table>
         </div>
       </div>
@@ -686,10 +692,19 @@ function statusChip(w) {
   if (sentByMe(w)) return '<span class="st sent"><i class="fa-solid fa-paper-plane"></i> Signature sent</span>';
   return '<span class="st prog">Waiting for signatures</span>';
 }
-// Every row has View (the signer timeline); rows waiting on you add Sign
+// Last column: a chevron (the whole row opens the signer timeline); rows waiting
+// on you also get a Sign button (signs this one form).
 function rowAction(w) {
-  return `<span class="row-btns"><a class="lnk" onclick="openWorkflow('${w.id}')">View</a>${mine(w)
-    ? `<button class="btn ghost sm sign-btn" onclick="goSign(['${w.id}'])" title="Sign this form"><i class="fa-regular fa-signature"></i> Sign</button>` : ''}</span>`;
+  return `<span class="row-btns">${mine(w)
+    ? `<button class="btn ghost sm sign-btn" onclick="goSign(['${w.id}'])" title="Sign this form"><i class="fa-regular fa-signature"></i> Sign</button>` : ''}<i class="fa-solid fa-chevron-right row-chev" aria-hidden="true"></i></span>`;
+}
+// Clicking (or pressing Enter on) anywhere in a row opens its details, except on the
+// row's own controls: checkbox, Sign, the student name.
+function rowOpen(e) {
+  const tr = e.target.closest('tr[data-id]');
+  if (!tr || e.target.closest('input, button, a, label, select')) return;
+  if (e.type === 'keydown' && e.key !== 'Enter') return;
+  openWorkflow(tr.dataset.id);
 }
 function fv(id) { const el = $('#' + id); return el ? el.value : ''; }
 function tRows() {
@@ -713,7 +728,7 @@ function renderApprovals() {
   $('#tShowing').textContent = `Showing ${rows.length} of ${visible}`;
   $('#tBody').innerHTML = rows.length ? rows.map(w => {
     const on = tSel.has(w.id);
-    return `<tr class="${on ? 'is-sel' : ''}">
+    return `<tr class="${on ? 'is-sel' : ''}" data-id="${w.id}" tabindex="0" aria-label="${esc(w.student)}: open details">
       <td class="cb"><input type="checkbox" ${on ? 'checked' : ''} onchange="tToggle('${w.id}', this.checked)" aria-label="Select ${esc(w.student)}"></td>
       <td><a class="lnk" onclick="openWorkflow('${w.id}')">${esc(w.student)}</a><div class="sub">Grade ${w.grade}</div></td>
       <td>${esc(expOf(w.exp).name)}</td>
@@ -975,7 +990,7 @@ window.TOOLBOX_CONFIG = {
       { id: 'mixed', flow: 'sign', x: 600, y: 250, step: 'Option', name: 'Different forms selected', state: 'mixed',
         desc: 'Forms sign together only when they\'re the same form, so the bar offers one button per form.' },
       { id: 'cosign', flow: 'sign', x: 320, y: 250, step: 'Option', name: 'Up with another signer', state: 'cosign',
-        desc: 'Shared signing order: the partner and the school approver are up at once. View still works.' },
+        desc: 'Shared signing order: the partner and the school approver are up at once. The row still opens the details.' },
       { id: 'sent', flow: 'track', entry: true, x: 40, y: 500, step: '1', name: 'Signature sent', state: 'sent',
         desc: 'Forms the partner signed that moved on to their next signer.' },
       { id: 'sent-view', flow: 'track', x: 320, y: 500, step: '2', name: 'Workflow details', state: 'sent-view',
