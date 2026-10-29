@@ -182,7 +182,7 @@ should use Vector Web Components** (`vaadin-*` / `vwc-*`) and theme tokens.
 `ver1/dashboard.html` includes the shared Design Toolbox:
 
 ```html
-<script src="../../../../designtoolbox/toolbox.js"></script>
+<script src="../../../../../designtoolbox/toolbox.js"></script>
 ```
 
 The bottom-center **toolbox pill** and its **🗺 Flow Map button are review and

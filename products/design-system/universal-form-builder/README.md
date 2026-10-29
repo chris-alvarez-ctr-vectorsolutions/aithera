@@ -50,7 +50,7 @@ Everything inferred is listed in the [code-dive brief](05-code-dive-brief.md). P
 
 ## Sources reviewed
 
-**Evaluations:** `evaluation-form/` (ver1, ver2 and handoff docs), `event-forms/` (both versions, UPDATE-LOG, open-questions CSV), `course-recs/` (incl. legacy value maps), `admin-ui/`, `manage-activities/`, `manage-events/`, `evaluation-users/`, `reports/`. Plus EV+ admin screenshots (form setup, Add/Edit Question, subtypes, scale presets) and the product documents *Evaluation Form Redesign (Backend Preferences)* and *Question Subtype Definitions* in [`product-documentation/`](product-documentation/).
+**Evaluations:** `evaluation-form/` (ver1, ver2 and handoff docs), `event-forms/` (both versions, UPDATE-LOG, open-questions CSV), `course-recs/` (incl. legacy value maps), `administration/landing-message/`, `manage-activities/`, `manage-events/`, `evaluation-users/`, `reports/`. Plus EV+ admin screenshots (form setup, Add/Edit Question, subtypes, scale presets) and the product documents *Evaluation Form Redesign (Backend Preferences)* and *Question Subtype Definitions* in [`product-documentation/`](product-documentation/).
 **Check It:** `Checklist-management/ver1` and `_planning/*`; `sandbox/`; a brief look at `Controlled-substances/` and `Requisition-workflow/`.
 **EHS:** Andy Xia's Claude Doc *EHS Form Inventory for Universal Form Builder Analysis* (production screenshots + JSA mobile prototype).
 
