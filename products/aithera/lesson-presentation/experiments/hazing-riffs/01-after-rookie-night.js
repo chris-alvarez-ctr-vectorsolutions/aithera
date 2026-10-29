@@ -300,19 +300,26 @@
   $('#kpReset').addEventListener('click', () => { clearInterval(kpAuto); kpPos = 0; kpMiss = 0; kpPaint(); });
   $('#kpShow').addEventListener('click', () => { clearInterval(kpAuto); kpPos = 0; kpPaint(); kpAuto = setInterval(() => { if (kpPos >= WORD.length) { clearInterval(kpAuto); return; } kpPress(digitOf(WORD[kpPos])); }, reduced() ? 60 : 480); });
 
-  /* the sixth door: it rattles, it won't open, and then it shows itself as paint on the wall */
-  const fd = $('#fdBtn');
-  fd.addEventListener('click', () => {
-    if (fd.classList.contains('try')) return;
-    fd.classList.add('try'); fd.setAttribute('aria-disabled', 'true');
+  /* the sixth door: its sign is dark. Tried, the knob turns and the door rattles but stays shut;
+     then the sign flickers on: social media */
+  const fd = $('#fdBtn'), fdScene = $('#fdScene');
+  const tryDoor = () => {
+    if (fdScene.classList.contains('try')) return;
+    const t = reduced() ? 0 : 1;
+    fdScene.classList.add('try'); fd.setAttribute('aria-disabled', 'true');
+    setTimeout(() => fdScene.classList.add('lit'), 950 * t);
     setTimeout(() => {
-      fd.classList.add('painted'); fd.setAttribute('aria-label', 'The door marked Social media is not a real door');
+      fd.blur();
+      fd.setAttribute('aria-label', 'The sixth door is marked Social media, and it doesn’t open. It isn’t a reporting channel.');
+      fdScene.classList.add('done');
       $('.fd-hint').hidden = true; $('.fd-reveal').hidden = false;
-      // on a phone the explanation sits under the door, often below the screen
+      // the explanation sits under the scene, often below the screen
       const rv = $('.fd-reveal'); if (rv.getBoundingClientRect().bottom > innerHeight) rv.scrollIntoView({ behavior: smooth(), block: 'nearest' });
-      setTimeout(() => release($('#fakeDoor')), reduced() ? 0 : 1400);
-    }, reduced() ? 0 : 1050);
-  });
+      setTimeout(() => release($('#fakeDoor')), 1400 * t);
+    }, 1700 * t);
+  };
+  fd.addEventListener('click', tryDoor);
+  fd.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tryDoor(); } });
   hold($('#fakeDoor'), 'Try the sixth door to continue the story.');
 
   hold($('#kpPanel'), 'Spell the number to continue the story.');

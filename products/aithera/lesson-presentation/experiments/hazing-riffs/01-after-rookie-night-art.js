@@ -62,8 +62,8 @@
         `<g class="in-r">${P({ x: 470, face: -1, top: '#3f5c9c', hair: '#5a3a22', skin: '#d8ad8c', arm: variant === 'reprise' ? -40 : 4, cls: 'p-room', phone: variant === 'reprise' })}</g>`;
     const stars = [[560, 92], [598, 120], [640, 84], [688, 110], [712, 150], [574, 168]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.4" fill="#cfe0ff" opacity=".7"/>`).join('');
     return `<g class="cam">
-      <rect x="-800" y="-300" width="2400" height="702" fill="url(#hzWall)"/>
-      <path d="${Array.from({ length: 20 }, (_, i) => `M${-640 + i * 120} -300V384`).join('')}" stroke="#fff" stroke-opacity=".035" stroke-width="2"/>
+      <rect x="-2400" y="-2400" width="5600" height="2802" fill="url(#hzWall)"/>
+      <path d="${Array.from({ length: 46 }, (_, i) => `M${-2320 + i * 120} -2400V384`).join('')}" stroke="#fff" stroke-opacity=".035" stroke-width="2"/>
       <g class="win"><rect x="540" y="70" width="190" height="150" rx="4" fill="url(#hzSkyN)"/>${stars}
         <rect class="sky-d" x="540" y="70" width="190" height="150" rx="4" fill="url(#hzSkyD)"/>
         <rect class="strobe-w" x="540" y="70" width="190" height="150" rx="4"/>
@@ -72,8 +72,8 @@
       <polygon class="sun" points="548,226 726,226 660,400 380,400" fill="url(#hzSun)"/>
       <g transform="translate(150 112)"><rect x="-5" y="-6" width="6" height="60" rx="2" fill="#8d9bbf"/><path d="M0 0L120 24L0 48Z" fill="#14b8a6"/>${T(14, 29, 'SWIM', { size: 14, w: 800, fill: '#04121a', a: 'start', ls: 2 })}</g>
       <rect x="300" y="150" width="96" height="70" rx="3" fill="#3a4a76"/><rect x="308" y="158" width="36" height="26" fill="#cfd8ea" opacity=".75"/><rect x="350" y="160" width="38" height="22" fill="#ffcf7a" opacity=".6"/><rect x="314" y="190" width="70" height="20" fill="#9fb0d2" opacity=".5"/>
-      <rect x="-800" y="384" width="2400" height="16" fill="#151d36"/>
-      <rect x="-800" y="400" width="2400" height="420" fill="url(#hzFloor)"/>
+      <rect x="-2400" y="384" width="5600" height="16" fill="#151d36"/>
+      <rect x="-2400" y="400" width="5600" height="800" fill="url(#hzFloor)"/>
       <ellipse cx="400" cy="436" rx="210" ry="24" fill="#2a3a66" opacity=".55"/>
       <g><rect x="30" y="256" width="14" height="144" rx="4" fill="#4a5a86"/><rect x="40" y="338" width="300" height="14" rx="4" fill="#4a5a86"/>
         <rect x="44" y="318" width="292" height="24" rx="9" fill="#c9d4ea"/><path d="M128 314h208v28H128z" fill="#2f6aa8"/><path d="M128 314h208v6H128z" fill="#4a86c6"/>
@@ -89,8 +89,8 @@
           bubble(400, 84, ['I want to report it, but', 'not with my name on it.'], 'b-s', 400) +
           bubble(500, 84, ['What can the school', 'actually do?'], 'b-r', 512)
         : bubble(450, 96, ['Who on campus', 'should hear about this?'], 'b-ask', 452)}
-      <rect class="nightveil" x="-800" y="-300" width="2400" height="1200" fill="#030716"/>
-      <rect class="strobe" x="-800" y="-300" width="2400" height="1200"/>
+      <rect class="nightveil" x="-2400" y="-2400" width="5600" height="3600" fill="#030716"/>
+      <rect class="strobe" x="-2400" y="-2400" width="5600" height="3600"/>
     </g>`;
   };
 
@@ -125,16 +125,17 @@
   const door = (d) => {
     const L = d.x - 63, R = d.x + 63;
     return `
-    <g class="door d-${d.k}" data-k="${d.k}">
+    <g class="door d-${d.k}" data-k="${d.k}" style="--c:${d.col}">
       <linearGradient id="sp-${d.k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${d.col}" stop-opacity=".9"/><stop offset="1" stop-color="${d.col}" stop-opacity="0"/></linearGradient>
       <polygon class="spill" points="${L},400 ${R},400 ${R + 52},468 ${L - 18},468" fill="url(#sp-${d.k})"/>
-      <rect x="${d.x - 100}" y="112" width="200" height="44" rx="9" fill="#0b1124" stroke="${d.col}" stroke-opacity=".55" stroke-width="2"/>
-      ${T(d.x, 131, d.name, { size: 13, w: 800, fill: d.col, ls: 1.4 })}${T(d.x, 148, d.sub, { size: 11, w: 600, fill: '#cfd8ea' })}
+      <g class="sign"><rect x="${d.x - 100}" y="112" width="200" height="44" rx="9" fill="#0b1124"/><rect class="sign-lit" x="${d.x - 100}" y="112" width="200" height="44" rx="9" fill="${d.col}" fill-opacity=".2" stroke="${d.col}" stroke-width="2.5"/>
+        <rect class="sign-edge" x="${d.x - 100}" y="112" width="200" height="44" rx="9" fill="none" stroke="${d.col}" stroke-opacity=".55" stroke-width="2"/>
+        ${T(d.x, 131, d.name, { size: 13, w: 800, fill: d.col, ls: 1.4 })}${T(d.x, 148, d.sub, { size: 11, w: 600, fill: '#cfd8ea' })}</g>
       <rect x="${d.x - 73}" y="162" width="146" height="240" rx="4" fill="#4a5a86"/>
       <rect x="${L}" y="172" width="126" height="228" fill="#0b1124"/>
       <rect x="${L}" y="172" width="126" height="228" fill="${d.col}" opacity=".2"/>
       <rect class="inglow" x="${L}" y="172" width="126" height="228" fill="url(#hzDoorGlow)"/>
-      ${d.k === 'em' ? T(d.x + 10, 262, '911', { size: 38, w: 800, fill: '#fff' }) + FA(d.ic, d.x + 10, 312, 32, '#ffd0d5') : FA(d.ic, d.x + 10, 282, 44, '#fff')}
+      <g class="dicon">${d.k === 'em' ? T(d.x + 10, 262, '911', { size: 38, w: 800, fill: '#fff' }) + FA(d.ic, d.x + 10, 312, 32, '#ffd0d5') : FA(d.ic, d.x + 10, 282, 44, '#fff')}</g>
       <g class="leaf-open"><polygon points="${L},172 ${L + 30},186 ${L + 30},388 ${L},400" fill="#2b3961"/><polygon points="${L + 7},190 ${L + 24},197 ${L + 24},268 ${L + 7},270" fill="none" stroke="#45578a" stroke-width="2"/><polygon points="${L + 7},282 ${L + 24},282 ${L + 24},376 ${L + 7},382" fill="none" stroke="#45578a" stroke-width="2"/><path d="M${L + 30} 186V388" stroke="${d.col}" stroke-opacity=".5" stroke-width="2"/></g>
       <g class="leaf"><rect x="${L}" y="172" width="126" height="228" rx="2" fill="#3b4b78"/><rect x="${d.x - 50}" y="186" width="100" height="86" rx="3" fill="none" stroke="#56689a" stroke-width="3"/><rect x="${d.x - 50}" y="284" width="100" height="100" rx="3" fill="none" stroke="#56689a" stroke-width="3"/><circle cx="${d.x + 48}" cy="292" r="5" fill="#cfd8ea"/></g>
       ${d.k === 'em' ? `<circle class="beacon" cx="${d.x}" cy="98" r="7" fill="#ff5d6c"/>` : ''}
@@ -150,15 +151,18 @@
 
   /* ---- the hotline route: your message → the hotline (law-firm monitor) → the right organization,
      with that jurisdiction's hazing laws attached on the way. .pkt and .pdoc animate in CSS. -------- */
-  const route = () => `<svg class="route" viewBox="0 0 900 330" role="img" aria-label="Your message goes to the hotline, where a representative from the law firm of Manley Burke forwards it to the appropriate organization along with the hazing laws from that jurisdiction.">
+  // the labels are page text under the drawing (not SVG text), so they keep a readable size however small the drawing gets
+  const ROUTE = [[150, 'f0e0', '#7fb2ff', 'Your message', 'Anonymous, or with your contact information for a direct response'],
+                 [450, 'f095', '#2ee6cf', 'The hotline', 'Monitored by a representative from the law firm of Manley Burke'],
+                 [750, 'f19c', '#ffb547', 'The right organization', 'Your message arrives with the hazing laws from the relevant jurisdiction']];
+  const route = () => `<div class="route-wrap" role="img" aria-label="Your message goes to the hotline, where a representative from the law firm of Manley Burke forwards it to the appropriate organization along with the hazing laws from that jurisdiction.">
+    <svg class="route" viewBox="0 0 900 190" aria-hidden="true">
       <path d="M150 120H450M450 120H750" stroke="#2ee6cf" stroke-opacity=".35" stroke-width="3" stroke-dasharray="2 9" stroke-linecap="round"/>
-      ${[[150, 'f0e0', '#7fb2ff', 'Your message', ['Anonymous, or with your', 'contact information for', 'a direct response']],
-         [450, 'f095', '#2ee6cf', 'The hotline', ['Monitored by a representative', 'from the law firm of', 'Manley Burke']],
-         [750, 'f19c', '#ffb547', 'The right organization', ['Your message arrives with', 'the hazing laws from the', 'relevant jurisdiction']]]
-        .map(([x, ic, c, h, sub]) => `<g><circle cx="${x}" cy="120" r="50" fill="#0e1631" stroke="${c}" stroke-width="2.5"/>${FA(ic, x, 120, 34, c)}
-          ${T(x, 206, h, { size: 19, w: 700 })}${sub.map((s, i) => T(x, 232 + i * 21, s, { size: 15, w: 400, fill: '#aab6cc' })).join('')}</g>`).join('')}
+      ${ROUTE.map(([x, ic, c]) => `<g><circle cx="${x}" cy="120" r="50" fill="#0e1631" stroke="${c}" stroke-width="2.5"/>${FA(ic, x, 120, 34, c)}</g>`).join('')}
       <g class="pkt"><circle r="15" fill="#eaf0fb"/>${FA('f0e0', 0, 0, 14, '#0b1124')}<g class="pdoc"><rect x="6" y="-30" width="22" height="27" rx="3" fill="#ffb547"/>${FA('f24e', 17, -16, 12, '#3b2300')}</g></g>
-    </svg>`;
+    </svg>
+    <div class="route-labels" aria-hidden="true">${ROUTE.map(([, , , h, sub]) => `<div><b>${h}</b><span>${sub}</span></div>`).join('')}</div>
+  </div>`;
 
   /* ---- 5.2 timeline: the night as four marks on one line; the liability arc reaches back from the
      hospital to the plan. Hooks: .tm1–.tm4, .pres (captain present), .arc, .arclbl. --------------- */

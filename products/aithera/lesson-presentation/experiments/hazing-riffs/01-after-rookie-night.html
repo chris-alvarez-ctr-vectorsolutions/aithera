@@ -259,7 +259,7 @@
   .inset .ir{ display:flex; align-items:center; gap:12px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
   .inset .ir i{ width:36px; height:36px; border-radius:50%; display:grid; place-items:center; background:rgba(255,93,108,.16); color:#ff8a96; flex:none; font-size:15px; }
   .inset .ir b{ display:block; font-size:18px; } .inset .ir span{ font-size:13px; color:var(--soft); }
-  #stageD[data-step="3"] .inset{ opacity:1; transform:none; }
+  #stageD[data-step="3"]:not([data-quote="1"]) .inset{ opacity:1; transform:none; }
   @media (max-width:1100px){ .inset{ top:auto; bottom:calc(var(--safe-b) + 6%); right:var(--pad); } }
 
   /* scene C: the corridor of channels. Doors open as the reader reaches them */
@@ -270,8 +270,14 @@
   .leaf-open{ transform:scaleX(0); transition:transform .45s cubic-bezier(.55,0,.9,.45); }
   .door.open .leaf{ transform:scaleX(0); transition:transform .45s cubic-bezier(.55,0,.9,.45); }
   .door.open .leaf-open{ transform:none; transition:transform .55s cubic-bezier(.15,.6,.3,1) .42s; }
-  .door.open .spill{ opacity:.18; } .door.open .inglow{ opacity:.6; }
-  .door.focus .spill{ opacity:.38; }
+  /* the door being talked about is lit: its sign glows in its colour and its light floods the floor.
+     Doors already visited stay open but go quiet, so only one reads as "now" */
+  .sign, .sign-lit, .dicon{ transition:opacity .6s var(--ease), filter .6s var(--ease); }
+  .sign-lit{ opacity:0; }
+  .door.open .spill{ opacity:.08; } .door.open .inglow{ opacity:.22; } .door.open .dicon{ opacity:.45; }
+  .door.open:not(.focus) .sign{ opacity:.45; }
+  .door.focus .sign{ filter:drop-shadow(0 0 12px var(--c)); } .door.focus .sign-lit{ opacity:1; }
+  .door.focus .spill{ opacity:.5; } .door.focus .inglow{ opacity:.9; } .door.focus .dicon{ opacity:1; }
   .beacon{ animation:beacon 1.4s ease-in-out infinite; } @keyframes beacon{ 50%{ opacity:.25; } }
   html.rm .beacon{ animation:none; }
   #stageC .cam{ transform:translate(0px,200px) scale(.5); }
@@ -281,9 +287,13 @@
   #stageC[data-lead="0"][data-step="4"] .cam{ transform:translate(-934px,-60px) scale(1.15); }
   #stageC[data-lead="0"][data-step="5"] .cam{ transform:translate(-1302px,-60px) scale(1.15); }
   #stageC[data-quote="1"] .cam{ transform:translate(0px,200px) scale(.5) !important; }
-  #stageC .plate{ left:0; padding-left:calc(var(--safe-l) + 3%); opacity:0; pointer-events:none; background:linear-gradient(180deg,rgba(13,21,44,.97),rgba(9,15,32,.97)); }
+  #stageC .plate{ left:0; right:0; padding-left:calc(var(--safe-l) + 3%); padding-right:calc(var(--wrapL) + 3%); opacity:0; pointer-events:none; background:linear-gradient(180deg,rgba(13,21,44,.97),rgba(9,15,32,.97)); }
   #stageC[data-step="2"][data-lead="0"] .plate{ opacity:1; }
-  .route{ width:100%; max-width:860px; display:block; overflow:visible; }
+  .route-wrap{ width:100%; max-width:860px; }
+  .route{ width:100%; display:block; overflow:visible; }
+  .route-labels{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:clamp(10px,2vw,24px); margin-top:8px; text-align:center; }
+  .route-labels b{ display:block; font-size:clamp(17px,1.6vw,20px); font-weight:700; color:var(--ink); }
+  .route-labels span{ display:block; margin:6px auto 0; max-width:22ch; font-size:clamp(15px,1.3vw,17px); line-height:1.45; color:#c3cde0; }
   .pkt{ animation:pkt 6.5s var(--ease) infinite; }
   .pdoc{ opacity:0; animation:pdoc 6.5s linear infinite; }
   @keyframes pkt{ 0%{ transform:translate(150px,120px); opacity:0; } 6%{ opacity:1; } 36%,52%{ transform:translate(450px,120px); } 86%{ transform:translate(750px,120px); opacity:1; } 96%,100%{ transform:translate(750px,120px); opacity:0; } }
@@ -363,29 +373,45 @@
   .eyebrow-sm{ font-size:12px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin-bottom:10px; display:block; }
 
   /* keypad: spell N-O-T-H-A-Z-E to find the number */
-  /* the sixth door: rattles, won't open, then shows itself as paint on the wall */
-  .fd-grid{ display:grid; grid-template-columns:minmax(220px,340px) minmax(0,1fr); gap:clamp(24px,4vw,56px); align-items:center; margin-top:26px; }
-  @media (max-width:800px){ .fd-grid{ grid-template-columns:1fr; justify-items:center; } }
-  .fd{ display:block; width:100%; max-width:340px; padding:0; border:0; border-radius:18px; overflow:hidden; background:none; cursor:pointer; }
-  .fd svg{ display:block; width:100%; height:auto; }
-  .fd:focus-visible{ outline:3px solid var(--teal); outline-offset:4px; }
-  .fd:hover .fd-knob{ filter:drop-shadow(0 0 6px rgba(255,255,255,.6)); }
-  .fd-leaf, .fd-knob{ transform-box:fill-box; }
-  .fd-knob{ transform-origin:50% 50%; }
-  .fd.try .fd-leaf{ animation:fdrattle .5s linear 2; } .fd.try .fd-knob{ animation:fdknob .5s ease-in-out 2; }
+  /* the sixth door: a wide end-of-hall scene. The five real doors stand open and quiet; the sixth is
+     the one to try. Tried, its knob turns and it rattles but stays shut; then its sign flickers on */
+  .fx .fx-text p.fd-intro{ text-wrap:balance; }
+  .fd-scene{ margin-top:26px; border-radius:18px; overflow:hidden; aspect-ratio:1000/300; }
+  .fd-scene svg{ display:block; width:100%; height:100%; }
+  @media (max-width:700px){ .fd-scene{ aspect-ratio:1.3; } }
+  /* after the try, the sixth door goes quiet and the five real ones light up: those are the way through */
+  .fd-real .fd-glow, .fd-real .fd-glow2, .fd-real .fd-spill, .fd-body{ transition:opacity .8s var(--ease), filter .8s var(--ease); }
+  .fd-scene.done .fd-real .fd-glow{ opacity:.4; } .fd-scene.done .fd-real .fd-glow2{ opacity:.55; } .fd-scene.done .fd-real .fd-spill{ opacity:.3; }
+  .fd-scene.done .fd-body{ opacity:.45; filter:saturate(.3); }
+  /* caution tape snaps across the tried door, one strip then the other */
+  .fd-tape .t1, .fd-tape .t2{ transform-box:fill-box; transform-origin:0% 50%; transform:scaleX(0); transition:transform .5s cubic-bezier(.2,.8,.2,1); }
+  .fd-scene.done .fd-tape .t1{ transform:none; transition-delay:.15s; } .fd-scene.done .fd-tape .t2{ transform:none; transition-delay:.45s; }
+  html.rm .fd-tape .t1, html.rm .fd-tape .t2{ transition:none; }
+  .fd-six{ cursor:pointer; outline:none; }
+  .fd-focus{ opacity:0; } .fd-six:focus-visible .fd-focus{ opacity:1; }
+  .fd-scene:not(.try) .fd-knob{ animation:fdinvite 2s ease-in-out infinite; }
+  @keyframes fdinvite{ 50%{ filter:drop-shadow(0 0 7px rgba(255,255,255,.9)); } }
+  .fd-scene.try .fd-six{ cursor:default; }
+  .fd-leaf, .fd-knob{ transform-box:fill-box; } .fd-knob{ transform-origin:50% 50%; }
+  .fd-scene.try .fd-leaf{ animation:fdrattle .45s linear 2; } .fd-scene.try .fd-knob{ animation:fdknob .45s ease-in-out 2; }
   @keyframes fdrattle{ 0%,100%{ transform:none; } 20%{ transform:translateX(-3px); } 40%{ transform:translateX(3px); } 60%{ transform:translateX(-2px); } 80%{ transform:translateX(2px); } }
-  @keyframes fdknob{ 0%,100%{ transform:none; } 30%{ transform:rotate(-40deg); } 60%{ transform:rotate(-40deg); } }
-  .fd-real, .fd-paint, .fd-face, .fd-sign{ transition:opacity .9s var(--ease), fill .9s var(--ease); }
-  .fd-paint{ opacity:0; }
-  .fd.painted .fd-real{ opacity:0; } .fd.painted .fd-paint{ opacity:1; } .fd.painted .fd-face{ fill:#2b3b62; }
-  .fd.painted .fd-leaf rect[stroke]{ opacity:.55; } .fd.painted .fd-knob circle{ fill:#7d8db8; }
-  .fd.painted{ cursor:default; }
-  html.rm .fd.try .fd-leaf, html.rm .fd.try .fd-knob{ animation:none; }
-  .fd-out{ min-width:0; }
-  .fd-hint{ font-size:15px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); }
+  @keyframes fdknob{ 0%,100%{ transform:none; } 40%,70%{ transform:rotate(-40deg); } }
+  .fd-sign{ transition:filter .6s var(--ease); }
+  .fd-words, .fd-sign-lit{ opacity:0; }
+  .fd-scene.lit .fd-words, .fd-scene.lit .fd-sign-lit{ animation:fdflicker .7s linear both; }
+  .fd-scene.lit .fd-sign{ filter:drop-shadow(0 0 12px rgba(255,143,209,.6)); }
+  @keyframes fdflicker{ 0%{ opacity:0; } 12%{ opacity:1; } 20%{ opacity:.1; } 34%{ opacity:.9; } 42%{ opacity:.2; } 60%,100%{ opacity:1; } }
+  html.rm .fd-scene .fd-knob, html.rm .fd-scene.try .fd-leaf{ animation:none; }
+  html.rm .fd-scene.lit .fd-words, html.rm .fd-scene.lit .fd-sign-lit{ animation:none; opacity:1; }
+  .fd-out{ margin-top:18px; min-height:3em; }
+  .fd-hint{ font-family:var(--serif); font-size:clamp(19px,1.9vw,23px); color:var(--soft); }
+  .fd-hint[hidden]{ display:none; }
+  .fd-reveal{ display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:clamp(20px,3vw,44px); align-items:start; }
+  .fd-reveal[hidden]{ display:none; }
+  @media (max-width:800px){ .fd-reveal{ grid-template-columns:1fr; } }
   .fd-reveal p{ font-family:var(--serif); font-size:clamp(18px,1.8vw,21px); line-height:1.6; color:#dfe7f6; margin-top:10px; max-width:46ch; }
   .fd-reveal .fd-h{ font-size:clamp(24px,2.6vw,32px); font-weight:700; line-height:1.15; color:var(--ink); margin-top:0; }
-  .fd-reveal .fd-real-h{ color:var(--teal); font-weight:700; }
+  .fd-reveal .fd-real-h{ color:var(--teal); font-weight:700; margin-top:4px; }
   .fd-chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
   .fd-chips span{ display:inline-flex; align-items:center; gap:8px; padding:7px 12px; border-radius:999px; border:1px solid var(--line); background:rgba(255,255,255,.04); font-size:13.5px; color:var(--ink); }
   .fd-reveal:not([hidden]){ animation:unlock .7s var(--ease) both; } html.rm .fd-reveal{ animation:none; }
@@ -780,7 +806,7 @@
       <div class="step"><div class="card" data-cap="The morning after"><span class="n">The next morning</span><h3>Dana is shaken, but okay.</h3><p>Dana is a freshman on the team too. She made it home. Her roommate, also on the team, was there for all of it.</p></div></div>
       <div class="step"><div class="card" data-cap="The question"><h3>Her roommate asks it out loud.</h3><p class="said">“Who on campus should hear about this?”</p><p>It’s the right question. Before anyone can speak up, they need to know where it can go.</p></div></div>
       <div class="step"><div class="card" data-cap="The first call"><span class="n em">Last night</span><h3>The first call was the right one.</h3><p>When someone shows signs of significant distress, such as unconsciousness, difficulty breathing, or signs of alcohol poisoning, call 911 or campus emergency services immediately.</p><p>That call comes before any other channel. This morning, no one is in danger, so the other channels are open.</p></div></div>
-      <div class="step quote-step"><div class="card quote-card" data-cap="This morning"><p class="qt">Last night called for 911. This morning calls for something else.</p></div></div>
+      <div class="step quote-step"><div class="card quote-card" data-cap="This morning"><p class="qt">Last night, 911 was the right call. This morning, the best next step is to report what happened.</p></div></div>
     </div>
   </div>
 </section>
@@ -793,7 +819,7 @@
       <div class="plate" aria-hidden="true"><div style="width:100%;max-width:880px"></div></div>
     </div></div>
     <div class="steps">
-      <div class="step lead-step"><div class="card lead-card" data-cap="Where it can go"><p class="n">Where it can go</p><h2 class="h2">Five doors, and you can open any of them.</h2><p class="lead-p">Each one does something different. Some don’t need your name at all.</p></div></div>
+      <div class="step lead-step"><div class="card lead-card" data-cap="Where it can go"><p class="n">Where it can go</p><h2 class="h2">Five doors, and you can open any of them.</h2><p class="lead-p">Each door is a different way to report hazing or get support. Some don’t need your name at all.</p></div></div>
       <div class="step"><div class="card" data-cap="Emergency" data-door="em"><span class="n em">Always first</span><h3>911 or campus emergency services</h3><p>If anyone shows signs of significant distress, such as unconsciousness, difficulty breathing, or signs of alcohol poisoning, this door comes first.</p><p>It takes priority over the hotline, anonymous reporting, and every other channel.</p></div></div>
       <div class="step"><div class="card" data-cap="The hotline" data-door="hot"><span class="n">Anonymous option</span><h3>The National Anti-Hazing Hotline</h3><p>Call <strong>1-888-NOT-HAZE</strong> (<span class="nw">1-888-668-4293</span>). You can leave an anonymous message describing your concern, or leave your contact information if you want a direct response.</p></div></div>
       <div class="step"><div class="card" data-cap="Where the message goes" data-door="hot"><span class="n">Behind the hotline</span><h3>Where your message goes</h3><p>A representative from the law firm of Manley Burke monitors the hotline. Every message is forwarded to the appropriate organization, along with the hazing laws from the relevant jurisdiction.</p></div></div>
@@ -804,35 +830,66 @@
     </div>
   </div>
 
-  <!-- encore to the corridor: a sixth door that turns out to be painted on the wall -->
+  <!-- encore to the corridor: the five doors already visited, and a sixth at the end of the hall whose sign is dark.
+       Tried, it won't open, and its sign lights up -->
   <div class="fx rv" id="fakeDoor">
     <span class="eyebrow-sm">One more door</span>
-    <h3>There’s a sixth door at the end of the hall.</h3>
-    <div class="fx-text"><p>It looks like the others. Try it.</p></div>
-    <div class="fd-grid">
-      <button type="button" class="fd" id="fdBtn" aria-label="Try the door marked Social media">
-        <svg viewBox="0 0 360 430" aria-hidden="true">
-          <rect width="360" height="402" fill="url(#hzWall)"/><rect y="386" width="360" height="16" fill="#151d36"/><rect y="402" width="360" height="28" fill="#141c38"/>
-          <g class="fd-sign"><rect x="80" y="30" width="200" height="50" rx="9" fill="#0b1124" stroke="#ff8fd1" stroke-opacity=".6" stroke-width="2"/>
-            <text x="180" y="52" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="13" font-weight="800" letter-spacing="1.4" fill="#ff8fd1">SOCIAL MEDIA</text>
-            <text x="180" y="70" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="11" font-weight="600" fill="#cfd8ea">Post it for everyone</text></g>
-          <g class="fd-real"><rect x="103" y="98" width="154" height="304" rx="4" fill="#4a5a86"/><rect x="111" y="106" width="138" height="296" fill="#0b1124"/></g>
-          <g class="fd-leaf"><rect class="fd-face" x="111" y="106" width="138" height="296" rx="2" fill="#3b4b78"/>
-            <rect x="125" y="122" width="110" height="112" rx="3" fill="none" stroke="#56689a" stroke-width="3"/><rect x="125" y="248" width="110" height="136" rx="3" fill="none" stroke="#56689a" stroke-width="3"/>
-            <g class="fd-knob"><circle cx="232" cy="258" r="6" fill="#cfd8ea"/><circle class="fd-real" cx="230" cy="256" r="2" fill="#fff"/></g></g>
-          <!-- what it really is: brush outlines and drips on a flat wall -->
-          <g class="fd-paint" fill="none" stroke="#7d8db8" stroke-width="2.5" stroke-linecap="round">
-            <path d="M104 401C103 300 105 200 103 99C150 97 210 100 257 98C256 200 258 300 256 401"/>
-            <path d="M118 240c0 9 1 18 0 26M196 102c0 8 1 15 0 22M247 300c0 10 1 20 0 30" stroke-width="3.5"/>
-            <circle cx="118" cy="270" r="2.5" fill="#7d8db8" stroke="none"/><circle cx="196" cy="128" r="2.5" fill="#7d8db8" stroke="none"/><circle cx="247" cy="334" r="2.5" fill="#7d8db8" stroke="none"/></g>
-        </svg>
-      </button>
-      <div class="fd-out" aria-live="polite">
-        <p class="fd-hint">Tap the door.</p>
-        <div class="fd-reveal" hidden>
-          <p class="fd-h">It’s not a real door.</p>
-          <p>Notice what isn’t on the list: a post on social media. Posting about hazing may feel like speaking up, but it isn’t a reporting channel.</p>
-          <p class="fd-real-h">The five doors are.</p>
+    <h3>Where does this one go?</h3>
+    <div class="fx-text"><p class="fd-intro">There’s a sixth door at the end of the hall. Its sign is dark.</p></div>
+    <div class="fd-scene" id="fdScene">
+      <svg viewBox="0 120 1000 300" preserveAspectRatio="xMaxYMax slice">
+        <rect y="0" width="1000" height="402" fill="url(#hzWall)"/><rect y="386" width="1000" height="16" fill="#151d36"/><rect y="402" width="1000" height="18" fill="#141c38"/>
+        <g aria-hidden="true"><g class="fd-real"><rect x="22" y="152" width="136" height="40" rx="7" fill="#0b1124" stroke="#ff5d6c" stroke-opacity=".65" stroke-width="1.5"/><text x="90" y="168" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="10" font-weight="800" letter-spacing="1" fill="#ff5d6c">EMERGENCY</text><text x="90" y="183" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="8.5" font-weight="600" fill="#cfd8ea">911 · campus emergency</text>
+            <rect x="44" y="204" width="92" height="188" rx="3" fill="#4a5a86"/><rect x="50" y="210" width="80" height="182" fill="#0b1124"/>
+            <rect class="fd-glow" x="50" y="210" width="80" height="182" fill="#ff5d6c" opacity=".22"/><rect class="fd-glow2" x="50" y="210" width="80" height="182" fill="url(#hzDoorGlow)" opacity="0"/><text x="96" y="300" text-anchor="middle" dominant-baseline="central" font-family="'Font Awesome 6 Pro'" font-weight="900" font-size="26" fill="#fff">&#xf0f9;</text>
+            <polygon points="50,210 68,219 68,384 50,392" fill="#2b3961"/>
+            <polygon class="fd-spill" points="50,392 130,392 154,420 40,420" fill="#ff5d6c" opacity=".12"/></g><g class="fd-real"><rect x="186" y="152" width="136" height="40" rx="7" fill="#0b1124" stroke="#2ee6cf" stroke-opacity=".65" stroke-width="1.5"/><text x="254" y="168" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="10" font-weight="800" letter-spacing="1" fill="#2ee6cf">HOTLINE</text><text x="254" y="183" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="8.5" font-weight="600" fill="#cfd8ea">1-888-NOT-HAZE</text>
+            <rect x="208" y="204" width="92" height="188" rx="3" fill="#4a5a86"/><rect x="214" y="210" width="80" height="182" fill="#0b1124"/>
+            <rect class="fd-glow" x="214" y="210" width="80" height="182" fill="#2ee6cf" opacity=".22"/><rect class="fd-glow2" x="214" y="210" width="80" height="182" fill="url(#hzDoorGlow)" opacity="0"/><text x="260" y="300" text-anchor="middle" dominant-baseline="central" font-family="'Font Awesome 6 Pro'" font-weight="900" font-size="26" fill="#fff">&#xf095;</text>
+            <polygon points="214,210 232,219 232,384 214,392" fill="#2b3961"/>
+            <polygon class="fd-spill" points="214,392 294,392 318,420 204,420" fill="#2ee6cf" opacity=".12"/></g><g class="fd-real"><rect x="350" y="152" width="136" height="40" rx="7" fill="#0b1124" stroke="#7fb2ff" stroke-opacity=".65" stroke-width="1.5"/><text x="418" y="168" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="10" font-weight="800" letter-spacing="1" fill="#7fb2ff">REPORT ONLINE</text><text x="418" y="183" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="8.5" font-weight="600" fill="#cfd8ea">Anonymous option</text>
+            <rect x="372" y="204" width="92" height="188" rx="3" fill="#4a5a86"/><rect x="378" y="210" width="80" height="182" fill="#0b1124"/>
+            <rect class="fd-glow" x="378" y="210" width="80" height="182" fill="#7fb2ff" opacity=".22"/><rect class="fd-glow2" x="378" y="210" width="80" height="182" fill="url(#hzDoorGlow)" opacity="0"/><text x="424" y="300" text-anchor="middle" dominant-baseline="central" font-family="'Font Awesome 6 Pro'" font-weight="900" font-size="26" fill="#fff">&#xf109;</text>
+            <polygon points="378,210 396,219 396,384 378,392" fill="#2b3961"/>
+            <polygon class="fd-spill" points="378,392 458,392 482,420 368,420" fill="#7fb2ff" opacity=".12"/></g><g class="fd-real"><rect x="514" y="152" width="136" height="40" rx="7" fill="#0b1124" stroke="#c7a6ff" stroke-opacity=".65" stroke-width="1.5"/><text x="582" y="168" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="10" font-weight="800" letter-spacing="1" fill="#c7a6ff">COUNSELING</text><text x="582" y="183" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="8.5" font-weight="600" fill="#cfd8ea">Confidential</text>
+            <rect x="536" y="204" width="92" height="188" rx="3" fill="#4a5a86"/><rect x="542" y="210" width="80" height="182" fill="#0b1124"/>
+            <rect class="fd-glow" x="542" y="210" width="80" height="182" fill="#c7a6ff" opacity=".22"/><rect class="fd-glow2" x="542" y="210" width="80" height="182" fill="url(#hzDoorGlow)" opacity="0"/><text x="588" y="300" text-anchor="middle" dominant-baseline="central" font-family="'Font Awesome 6 Pro'" font-weight="900" font-size="26" fill="#fff">&#xf086;</text>
+            <polygon points="542,210 560,219 560,384 542,392" fill="#2b3961"/>
+            <polygon class="fd-spill" points="542,392 622,392 646,420 532,420" fill="#c7a6ff" opacity=".12"/></g><g class="fd-real"><rect x="678" y="152" width="136" height="40" rx="7" fill="#0b1124" stroke="#ffb547" stroke-opacity=".65" stroke-width="1.5"/><text x="746" y="168" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="10" font-weight="800" letter-spacing="1" fill="#ffb547">DEAN OF STUDENTS</text><text x="746" y="183" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="8.5" font-weight="600" fill="#cfd8ea">Explains your options</text>
+            <rect x="700" y="204" width="92" height="188" rx="3" fill="#4a5a86"/><rect x="706" y="210" width="80" height="182" fill="#0b1124"/>
+            <rect class="fd-glow" x="706" y="210" width="80" height="182" fill="#ffb547" opacity=".22"/><rect class="fd-glow2" x="706" y="210" width="80" height="182" fill="url(#hzDoorGlow)" opacity="0"/><text x="752" y="300" text-anchor="middle" dominant-baseline="central" font-family="'Font Awesome 6 Pro'" font-weight="900" font-size="26" fill="#fff">&#xf19c;</text>
+            <polygon points="706,210 724,219 724,384 706,392" fill="#2b3961"/>
+            <polygon class="fd-spill" points="706,392 786,392 810,420 696,420" fill="#ffb547" opacity=".12"/></g></g>
+        <!-- the sixth door: same size as the rest, the only one still closed, sign dark -->
+        <g class="fd-six" id="fdBtn" role="button" tabindex="0" aria-label="Try the sixth door. Its sign is dark.">
+          <rect class="fd-focus" x="834" y="142" width="152" height="262" rx="10" fill="none" stroke="#2ee6cf" stroke-width="3"/>
+          <g class="fd-sign"><rect x="842" y="152" width="136" height="40" rx="7" fill="#0b1124" stroke="#56689a" stroke-opacity=".7" stroke-width="1.5"/>
+            <rect class="fd-sign-lit" x="842" y="152" width="136" height="40" rx="7" fill="#ff8fd1" fill-opacity=".14" stroke="#ff8fd1" stroke-width="2"/>
+            <g class="fd-words"><text x="910" y="168" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="10" font-weight="800" letter-spacing="1" fill="#ff8fd1">SOCIAL MEDIA</text>
+            <text x="910" y="183" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="8.5" font-weight="600" fill="#cfd8ea">Post it for everyone</text></g></g>
+          <g class="fd-body"><rect x="864" y="204" width="92" height="188" rx="3" fill="#4a5a86"/><rect x="870" y="210" width="80" height="182" fill="#0b1124"/>
+          <g class="fd-leaf"><rect x="870" y="210" width="80" height="182" rx="2" fill="#3b4b78"/>
+            <rect x="878" y="219" width="64" height="70" rx="2" fill="none" stroke="#56689a" stroke-width="2"/><rect x="878" y="298" width="64" height="84" rx="2" fill="none" stroke="#56689a" stroke-width="2"/>
+            <g class="fd-knob"><circle cx="938" cy="304" r="4" fill="#cfd8ea"/><circle cx="937" cy="303" r="1.3" fill="#fff"/></g></g></g>
+          <!-- once tried: caution tape across the door -->
+          <defs><pattern id="fdTape" width="18" height="18" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="18" height="18" fill="#ffd23f"/><rect width="9" height="18" fill="#1b1b22"/></pattern></defs>
+          <g class="fd-tape" transform="translate(910 300)">
+            <g transform="rotate(-27)"><rect class="t1" x="-96" y="-10" width="192" height="20" fill="url(#fdTape)"/></g>
+            <g transform="rotate(24)"><g class="t2"><rect x="-100" y="-11" width="200" height="22" fill="#ffd23f"/>
+              <text x="0" y="4" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="9" font-weight="800" letter-spacing="1.2" fill="#1b1b22">NOT A REPORTING CHANNEL</text></g></g>
+          </g>
+        </g>
+      </svg>
+    </div>
+    <div class="fd-out" aria-live="polite">
+      <p class="fd-hint">Tap the sixth door to see where it goes.</p>
+      <div class="fd-reveal" hidden>
+        <div>
+          <p class="fd-h">Nowhere. It doesn’t open.</p>
+          <p>That door is social media. Posting about hazing may feel like speaking up, but it isn’t a reporting channel.</p>
+        </div>
+        <div>
+          <p class="fd-real-h">Use one of the five doors instead:</p>
           <div class="fd-chips"><span><i class="fa-solid fa-truck-medical" style="color:#ff5d6c"></i>911 or campus emergency</span><span><i class="fa-solid fa-phone" style="color:#2ee6cf"></i>The hotline</span><span><i class="fa-solid fa-laptop" style="color:#7fb2ff"></i>Report online</span><span><i class="fa-solid fa-comments" style="color:#c7a6ff"></i>Counseling</span><span><i class="fa-solid fa-building-columns" style="color:#ffb547"></i>Dean of students</span></div>
         </div>
       </div>
@@ -1179,8 +1236,8 @@
 </main>
 <footer class="foot">Nothing on this page is scored or saved. <span class="revonly">Hazing riff 01 · Module 5, Outcome 5 · Athletes storyline only · content from the SME-reviewed extract; flagged items are unverified.</span></footer>
 
-<script src="01-after-rookie-night-art.js?v=3"></script>
+<script src="01-after-rookie-night-art.js?v=7"></script>
 <script src="01-after-rookie-night-frame.js?v=4"></script>
-<script src="01-after-rookie-night.js?v=12"></script>
+<script src="01-after-rookie-night.js?v=17"></script>
 </body>
 </html>
