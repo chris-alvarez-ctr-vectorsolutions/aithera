@@ -326,41 +326,82 @@
   new MutationObserver(() => { if (kpPos >= WORD.length) setTimeout(() => release($('#kpPanel')), reduced() ? 0 : 900); }).observe(kpOut, { childList: true });
   kpPaint();
 
-  /* triage: one question; a sign of distress moves 911 to the front and sends the rest behind it */
-  $$('.triage-host').forEach((host, hi) => {
+  /* triage: "emergency or not?" Four situations, one at a time. Each answer re-sorts the channel stack to
+     the right path: an emergency sends 911 to the front and the rest behind it; no danger leaves 911
+     aside and lights the other four as equal choices. The signs of distress are the extract's. */
+  const SIT = [
+    { s: 'After a drinking game, a pledge is slumped on the couch and won’t wake up.', em: true,
+      why: 'Unconsciousness is a sign of significant distress. Call 911 or campus emergency services immediately.' },
+    { s: 'Rookies were made to do a punishment workout last week. Everyone’s sore, but okay.', em: false,
+      why: 'No one is in danger right now. Report it through whichever channel fits: the hotline, anonymous online reporting, counseling, or the dean of students office.' },
+    { s: 'A rookie is breathing slowly and unevenly after being made to drink.', em: true,
+      why: 'Difficulty breathing is a sign of significant distress, and so are signs of alcohol poisoning. Call 911 or campus emergency services immediately.' },
+    { s: 'The captains are planning a rookie initiation for next Friday.', em: false,
+      why: 'No one is in danger yet. This is the time to report it, through whichever channel fits.' }];
+  $$('.triage-host').forEach((host) => {
     host.innerHTML = `<span class="eyebrow-sm" style="color:var(--red)">When someone is in danger</span>
       <h3>When someone is in danger, 911 jumps the line.</h3>
-      <div class="fx-text"><p>The hotline, anonymous reporting, counseling, and the dean of students office are for non-emergency or after-the-fact reporting. Tap a sign to see what changes.</p></div>
+      <div class="fx-text"><p>The hotline, anonymous reporting, counseling, and the dean of students office are for non-emergency or after-the-fact reporting. Sort each situation: does it call for 911, or another channel?</p></div>
       <div class="tri">
-        <div><p class="tri-q">Is anyone showing signs of significant distress?</p>
-          <div class="tri-signs">${['Unconscious', 'Difficulty breathing', 'Signs of alcohol poisoning'].map(s => `<button type="button" class="chip" aria-pressed="false"><i></i>${s}</button>`).join('')}</div>
-          <p class="tri-note" aria-live="polite"></p></div>
-        <div class="tri-stack" data-em="0">
+        <div class="tri-left">
+          <div class="tri-dots" aria-hidden="true">${SIT.map(() => '<i></i>').join('')}</div>
+          <p class="tri-n"></p>
+          <p class="tri-q"></p>
+          <div class="tri-choose" role="group" aria-label="Where does this go?">
+            <button type="button" class="btn tri-b em" data-em="1"><i class="fa-solid fa-truck-medical" aria-hidden="true"></i>Call 911 now</button>
+            <button type="button" class="btn tri-b" data-em="0"><i class="fa-solid fa-signs-post" aria-hidden="true"></i>Use another channel</button>
+          </div>
+          <p class="tri-note" aria-live="polite"></p>
+          <div class="tri-nav" hidden><button type="button" class="btn pri sm tri-next"></button></div>
+        </div>
+        <div class="tri-stack" data-em="">
           <div class="tcard em" data-ch="em"><span class="ic"><i class="fa-solid ${CH.em.ic}"></i></span><div><b>911 or campus emergency services</b><span class="emsub"></span></div></div>
           <p class="tri-later">After the immediate danger is addressed</p>
+          <p class="tri-any">No one in danger: choose whichever fits</p>
           ${['hot', 'web', 'care', 'dean'].map(k => `<div class="tcard" data-ch="${k}"><span class="ic"><i class="fa-solid ${CH[k].ic}"></i></span><div><b>${CH[k].name}</b><span>${CH[k].sub}</span></div></div>`).join('')}
         </div>
       </div>`;
-    const stack = $('.tri-stack', host), chips = $$('.chip', host), note = $('.tri-note', host), emsub = $('.emsub', host);
-    const kids = [...stack.children];
-    const paint = (animate) => {
-      const on = chips.some(c => c.getAttribute('aria-pressed') === 'true');
+    const stack = $('.tri-stack', host), note = $('.tri-note', host), emsub = $('.emsub', host);
+    const kids = [...stack.children], btns = $$('.tri-b', host), nav = $('.tri-nav', host), next = $('.tri-next', host);
+    const dots = $$('.tri-dots i', host);
+    // em: '' (nothing sorted yet), '1' (emergency) or '0' (no danger). Cards move with a FLIP so the re-sort reads
+    const paint = (em, animate) => {
       const before = animate && !reduced() ? kids.map(k => k.getBoundingClientRect().top) : null;
-      stack.dataset.em = on ? '1' : '0';
-      kids.forEach((k, n) => { k.style.order = on ? n : (k.classList.contains('em') ? 9 : k.classList.contains('tri-later') ? 10 : n); });
-      emsub.textContent = on ? 'Call immediately' : 'Comes first if anyone shows signs of significant distress';
-      note.innerHTML = on
-        ? '<b>Call 911 or campus emergency services immediately.</b> The other channels are the right choice only after the immediate danger is addressed.'
-        : '<b>No one in danger?</b> Choose whichever channel fits what you need.';
+      stack.dataset.em = em;
+      kids.forEach((k, n) => {
+        const isEm = k.classList.contains('em'), later = k.classList.contains('tri-later'), any = k.classList.contains('tri-any');
+        k.style.order = em === '1' ? (any ? 20 : n) : (isEm ? 9 : later ? 10 : any ? 1 : n + 1);
+      });
+      emsub.textContent = em === '1' ? 'Call immediately' : em === '0' ? 'Not needed right now' : 'Comes first if anyone shows signs of significant distress';
       if (before) kids.forEach((k, n) => { const dy = before[n] - k.getBoundingClientRect().top; if (Math.abs(dy) > 1) k.animate([{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0)' }], { duration: 650, easing: 'cubic-bezier(.2,.7,.2,1)' }); });
     };
-    // the first sign tapped lets 911 move to the front, then the story continues
-    chips.forEach(c => c.addEventListener('click', () => {
-      c.setAttribute('aria-pressed', String(c.getAttribute('aria-pressed') !== 'true')); paint(true);
-      if (chips.some(x => x.getAttribute('aria-pressed') === 'true')) setTimeout(() => release(host), reduced() ? 300 : 1800);
+    let cur = 0;
+    const show = (k) => {
+      cur = k; const it = SIT[k];
+      $('.tri-n', host).textContent = `Situation ${k + 1} of ${SIT.length}`;
+      $('.tri-q', host).textContent = it.s;
+      btns.forEach(b => { b.disabled = false; b.classList.remove('picked', 'ok', 'no'); });
+      dots.forEach((d, n) => d.classList.toggle('cur', n === k));
+      note.innerHTML = ''; nav.hidden = true; paint('', true);
+      const q = $('.tri-q', host); q.classList.remove('tri-in'); void q.offsetWidth; q.classList.add('tri-in');
+    };
+    btns.forEach(b => b.addEventListener('click', () => {
+      const it = SIT[cur], saidEm = b.dataset.em === '1', right = saidEm === it.em;
+      btns.forEach(x => { x.disabled = true; }); b.classList.add('picked', right ? 'ok' : 'no');
+      dots[cur].classList.add(right ? 'ok' : 'no');
+      paint(it.em ? '1' : '0', true);
+      note.innerHTML = `<b class="${right ? 'ok' : 'no'}">${right ? 'Right.' : (it.em ? 'This one is an emergency.' : 'This one isn’t an emergency.')}</b> ${it.why}`;
+      next.innerHTML = cur < SIT.length - 1 ? 'Next situation <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>' : 'Done <i class="fa-solid fa-check" aria-hidden="true"></i>';
+      nav.hidden = false;
     }));
-    paint(false);
-    hold(host, 'Tap a sign to continue the story.');
+    next.addEventListener('click', () => {
+      if (cur < SIT.length - 1) { show(cur + 1); return; }
+      nav.hidden = true; dots.forEach(d => d.classList.remove('cur'));
+      note.innerHTML = '<b>That’s the rule.</b> Signs of significant distress mean 911 first. Otherwise, any of the four other channels is the right place to report.';
+      release(host);
+    });
+    show(0);
+    hold(host, 'Sort all four situations to continue the story.');
   });
 
   /* match (test-up): a need, then a channel. Right pairs are joined by a line; wrong ones explain */

@@ -447,10 +447,6 @@
   .hold-here > .hold-bar{ display:flex; }
   .hold-opened{ animation:unlock .9s var(--ease) both; } html.rm .hold-opened{ animation:none; }
   /* while the triage is holding, its signs pulse so it's clear they're the thing to tap */
-  .hold-here .tri-signs .chip{ animation:chipcall 2.2s ease-in-out infinite; }
-  .hold-here .tri-signs .chip:nth-child(2){ animation-delay:.25s; } .hold-here .tri-signs .chip:nth-child(3){ animation-delay:.5s; }
-  @keyframes chipcall{ 0%,60%,100%{ box-shadow:0 0 0 0 rgba(255,93,108,0); } 25%{ box-shadow:0 0 0 4px rgba(255,93,108,.35); } }
-  html.rm .hold-here .tri-signs .chip{ animation:none; box-shadow:0 0 0 2px rgba(255,93,108,.35); }
   .kp{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; padding:18px; border-radius:30px; background:#070c18; border:1px solid var(--line); width:100%; max-width:320px; }
   .kp button{ aspect-ratio:1.25; border-radius:50%; border:0; background:#1a2440; color:var(--ink); cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1; transition:background .2s, transform .12s, box-shadow .3s; }
   .kp button b{ font-size:24px; font-weight:600; } .kp button small{ font-size:10px; font-weight:700; letter-spacing:.14em; color:var(--soft); margin-top:3px; min-height:10px; }
@@ -462,13 +458,23 @@
   @keyframes kpmiss{ 25%{ transform:translateX(-4px); } 75%{ transform:translateX(4px); } }
 
   /* triage: one question reorders the channels */
-  .tri{ display:grid; grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr); gap:clamp(24px,4vw,56px); align-items:start; margin-top:26px; }
+  .tri{ display:grid; grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr); gap:clamp(24px,4vw,56px); align-items:start; margin-top:clamp(36px,4.5vw,56px); }
   @media (max-width:860px){ .tri{ grid-template-columns:1fr; } }
   .tri-q{ font-family:var(--serif); font-size:clamp(20px,2vw,24px); line-height:1.35; }
-  .tri-signs{ display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
-  .chip{ display:inline-flex; align-items:center; gap:9px; padding:10px 16px; border-radius:999px; border:1.5px solid var(--line); background:var(--panel-2); color:var(--ink); font-size:15px; font-weight:600; cursor:pointer; transition:border-color .2s, background .2s; }
-  .chip i{ width:16px; height:16px; border-radius:50%; border:1.5px solid rgba(255,255,255,.35); flex:none; transition:background .2s, border-color .2s; }
-  .chip[aria-pressed="true"]{ border-color:var(--red); background:rgba(255,93,108,.12); } .chip[aria-pressed="true"] i{ background:var(--red); border-color:var(--red); }
+  /* one situation at a time, two choices, a dot per situation */
+  .tri-dots{ display:flex; gap:8px; } .tri-dots i{ width:26px; height:5px; border-radius:3px; background:rgba(255,255,255,.14); transition:background .3s; }
+  .tri-dots i.cur{ background:var(--ink); } .tri-dots i.ok{ background:var(--teal); } .tri-dots i.no{ background:var(--amber); }
+  .tri-n{ font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin-top:16px; }
+  .tri-q{ margin-top:6px; min-height:2.7em; }
+  .tri-q.tri-in{ animation:qzin .45s var(--ease) both; } html.rm .tri-q.tri-in{ animation:none; }
+  .tri-choose{ display:flex; flex-wrap:wrap; gap:10px; margin-top:18px; }
+  .tri-b{ gap:9px; } .tri-b i{ font-size:.95em; }
+  /* both choices look the same until one is picked, so neither reads as the suggested answer */
+  .tri-b i{ color:var(--soft); }
+  .tri-b:disabled{ cursor:default; opacity:.45; } .tri-b.picked{ opacity:1; }
+  .tri-b.picked.ok{ border-color:var(--teal); background:rgba(46,230,207,.12); } .tri-b.picked.no{ border-color:var(--amber); background:rgba(255,181,71,.12); }
+  .tri-note b.ok{ color:var(--teal); } .tri-note b.no{ color:var(--amber); }
+  .tri-nav{ margin-top:16px; } .tri-nav[hidden]{ display:none; }
   .tri-note{ margin-top:18px; font-size:15.5px; line-height:1.6; color:var(--soft); }
   .tri-note b{ color:var(--ink); }
   .tri-stack{ position:relative; display:grid; gap:8px; }
@@ -480,8 +486,13 @@
   .tri-stack[data-em="1"] .tcard.em{ background:rgba(255,93,108,.16); border-color:var(--red); padding:20px 18px; transform:scale(1.03); box-shadow:0 18px 40px rgba(255,93,108,.18); }
   .tri-stack[data-em="1"] .tcard.em b{ font-size:19px; }
   .tri-stack[data-em="1"] .tcard:not(.em){ opacity:.38; transform:translateX(14px); }
-  .tri-later{ font-size:12px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); margin:8px 0 0 4px; opacity:0; transition:opacity .4s; }
-  .tri-stack[data-em="1"] .tri-later{ opacity:1; }
+  .tri-later, .tri-any{ font-size:12px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); margin:8px 0 0 4px; display:none; }
+  .tri-stack[data-em="1"] .tri-later{ display:block; }
+  /* no danger: 911 steps aside and the four other channels light up as equal choices */
+  .tri-stack[data-em=""] .tcard.em{ border-color:var(--line); } .tri-stack[data-em=""] .tcard.em .ic{ color:var(--soft); background:rgba(255,255,255,.06); }
+  .tri-stack[data-em="0"] .tri-any{ display:block; color:var(--teal); margin-top:0; }
+  .tri-stack[data-em="0"] .tcard.em{ opacity:.4; transform:translateX(14px); }
+  .tri-stack[data-em="0"] .tcard:not(.em){ border-color:rgba(46,230,207,.4); background:rgba(46,230,207,.06); }
   html.rm .tcard{ transition:none; }
 
   /* match: three needs, five doors */
@@ -716,6 +727,60 @@
   .cf-btn:disabled{ opacity:.4; cursor:not-allowed; }
   .cf-ghost{ background:transparent; border-color:rgba(255,255,255,.18); color:#aab6cc; }
   .cf-pri{ background:linear-gradient(135deg,#46f0dc,#16b8a6 55%,#0c8f83); color:#052b27; box-shadow:0 6px 18px rgba(20,184,166,.34); }
+
+  /* ==========================================================================
+     ARTICLE FLOW. No boxed panels: the text runs on one reading column (the same 612px measure as
+     the prose), and each interactive piece breaks out wider below its paragraph, like a figure in a
+     long-form article. Checks read as part of the page rather than a sheet laid over it.
+     ========================================================================== */
+  .fx{ width:100%; max-width:1128px; padding:0 24px; background:none; border:0; border-radius:0; box-shadow:none; }
+  .fx > .eyebrow-sm, .fx > h3, .fx > .fx-text{ max-width:612px; margin-left:auto; margin-right:auto; }
+  .fx h3{ font-size:clamp(28px,3vw,38px); line-height:1.15; }
+  .fx > .fx-text p{ font-size:clamp(19px,2vw,22px); line-height:1.65; margin-top:.9em; }
+  .fx > .fx-cap{ max-width:612px; margin-left:auto; margin-right:auto; }
+  .fx-split{ max-width:1180px; }
+  .rule-card{ border:0; background:none; padding:0; }
+  /* short connecting lines between the story and each figure, on the reading column */
+  .prose.bridge{ margin-top:clamp(64px,10vh,110px); } .prose.bridge p{ margin-top:0; }
+  .prose.bridge + .fx, .prose.bridge + .pin-run{ margin-top:clamp(28px,4vh,44px); }
+  .prose.bridge p + p{ margin-top:1em; }
+  /* the paragraph after an activity follows it closely: it reads as the article picking the thread back up */
+  .station + .prose.after:not(.held), .prose.after{ margin-top:clamp(40px,6vh,64px); } .prose.after p{ margin-top:0; }
+  .prose.after + .prose.bridge{ margin-top:clamp(40px,6vh,64px); }
+  /* interactive pieces sit a little wider than the text, centred on it; pictures can run full width */
+  .fx > .kp-wrap, .fx > .tri, .fx > .rules-grid, .fx > .sev, .fx > .fd-out, .fx > .mt, .fx > .mt-fb{ max-width:880px; margin-left:auto; margin-right:auto; }
+  .fx > .fd-out .fd-hint{ text-align:center; }
+  .kp-letters .pre, .kp-letters .slot b, .kp-letters .dash{ font-size:clamp(28px,3.5vw,46px); }
+  @media (min-width:801px){ .kp-letters{ flex-wrap:nowrap; } }
+  .station{ margin-top:clamp(80px,14vh,140px); }
+  .station + *:not(.held):not(.hold-spacer){ margin-top:clamp(80px,14vh,140px); }
+
+  /* the "keep going" line under a stop: quiet text, not a box */
+  .hold-bar{ justify-content:center; gap:10px; margin-top:34px; padding:0; border:0; border-radius:0; font-size:14.5px; color:var(--faint); }
+  .hold-bar .btn{ margin-left:4px; padding:0; border:0; background:none; color:var(--soft); font-weight:600; font-size:14.5px; text-decoration:underline; text-underline-offset:3px; }
+  .hold-bar .btn:hover{ color:var(--ink); }
+  .qz-host > .hold-bar{ max-width:612px; }
+
+  /* checks on the dark page, on the reading column */
+  .qz-host{ padding:0 24px; }
+  .qz{ --ink:#eaf0fb; --soft:#aab6cc; --faint:#8793ab; --line:rgba(255,255,255,.11); max-width:612px; padding:0; background:none; border-radius:0; box-shadow:none; color:var(--ink); }
+  .qz .pr-tag{ color:var(--teal); background:rgba(46,230,207,.08); border-color:rgba(46,230,207,.3); }
+  .qz .pr-tag i{ background:var(--teal); box-shadow:0 0 0 4px rgba(46,230,207,.18); }
+  .qz h2{ font-size:clamp(28px,3vw,38px); }
+  .qz .rev{ color:var(--amber); border-color:rgba(255,181,71,.45); background:rgba(255,181,71,.08); }
+  .qz .qz-n{ color:var(--teal); }
+  .qz .opt{ background:rgba(255,255,255,.03); color:var(--ink); border-color:rgba(255,255,255,.14); }
+  .qz .opt:hover:not(:disabled){ border-color:rgba(255,255,255,.4); }
+  .qz .opt i{ color:var(--faint); }
+  .qz .opt[aria-checked="true"]{ border-color:var(--ink); }
+  .qz .opt.ok[aria-checked="true"], .qz .qz-q.reveal .opt.ok{ border-color:var(--teal); background:rgba(46,230,207,.1); } .qz .opt.ok[aria-checked="true"] i, .qz .qz-q.reveal .opt.ok i{ color:var(--teal); }
+  .qz .opt.no[aria-checked="true"]{ border-color:var(--amber); background:rgba(255,181,71,.1); } .qz .opt.no[aria-checked="true"] i{ color:var(--amber); }
+  .qz .fb{ border-top-color:var(--line); color:var(--soft); } .qz .fb b.ok{ color:var(--teal); } .qz .fb b.no{ color:var(--amber); }
+  .qz .qz-foot{ background:rgba(255,255,255,.04); border-color:var(--line); border-left-color:var(--teal); } .qz .qz-foot.miss{ border-left-color:var(--amber); }
+  .qz .btn{ border-color:rgba(255,255,255,.2); color:var(--ink); } .qz .btn.pri{ background:var(--teal); border-color:var(--teal); color:#04121a; }
+  .qz .scale button{ background:rgba(255,255,255,.03); color:var(--ink); border-color:rgba(255,255,255,.14); }
+  .qz .scale button:hover{ border-color:rgba(255,255,255,.4); }
+  .qz .scale button[aria-checked="true"]{ border-color:var(--ink); background:rgba(255,255,255,.1); }
 </style>
 </head>
 <body class="notags locked">
@@ -832,6 +897,8 @@
 
   <!-- encore to the corridor: the five doors already visited, and a sixth at the end of the hall whose sign is dark.
        Tried, it won't open, and its sign lights up -->
+  <div class="prose bridge rv"><p>Those are the five doors. Each one leads somewhere: to someone who can act on what you share, or help you decide what to do next.</p><p>Not every way of speaking up is a door, though. Some only feel like one.</p></div>
+
   <div class="fx rv" id="fakeDoor">
     <span class="eyebrow-sm">One more door</span>
     <h3>Where does this one go?</h3>
@@ -896,10 +963,14 @@
     </div>
   </div>
 
+  <div class="prose after rv"><p>A post can feel faster than any of the doors, and it reaches more people. But reach isn’t the point. The five doors are where a concern actually goes somewhere.</p></div>
+
+  <div class="prose bridge rv"><p>Of the five, the hotline is the one you can use from anywhere you have a phone. You can leave an anonymous message describing your concern, or leave your contact information if you want someone to get back to you.</p><p>Its number is worth knowing by heart.</p></div>
+
   <div class="fx rv" id="kpPanel">
     <span class="eyebrow-sm">Try it</span>
     <h3>The number spells out what it’s for.</h3>
-    <div class="fx-text"><p>Tap the letters N-O-T-H-A-Z-E on the keypad and watch the number fill in.</p></div>
+    <div class="fx-text"><p><span class="nw">1-888-NOT-HAZE</span> is the number for the National Anti-Hazing Hotline. Tap the letters N-O-T-H-A-Z-E on the keypad and watch the number fill in.</p></div>
     <div class="kp-wrap">
       <div class="kp-disp">
         <div class="kp-letters" id="kpLetters" aria-hidden="true"></div>
@@ -910,9 +981,17 @@
     </div>
   </div>
 
+  <div class="prose after rv"><p>That morning, the roommate could have called it without putting a name on anything. That’s what the hotline is for: the moment you know something was wrong but aren’t ready to stand in front of anyone about it.</p></div>
+
+  <div class="prose bridge rv"><p>Knowing the doors is half of it. The other half is knowing which one comes first.</p><p>Rookie night had both kinds of moment. At 1:40 a.m., a freshman needed paramedics, not a hotline. By the next morning no one was in danger, and every one of the five doors was open.</p></div>
+
   <div class="fx rv triage-host"></div>
 
+  <div class="prose after rv"><p>The order only matters when someone is in danger. The rest of the time there’s no wrong door among the five. Pick the one that fits what you need: staying anonymous, talking it through, or understanding the formal options.</p></div>
+
   <!-- where the rules live: two places to look, each with a small picture of looking there -->
+  <div class="prose bridge rv"><p>One more thing before you move on.</p><p>It helps to know what your school and your team actually say about hazing. Those rules aren’t a mystery. They’re written down, in two places.</p></div>
+
   <div class="fx rv rules">
     <span class="eyebrow-sm">Know the rules</span>
     <h3>Where the rules live</h3>
@@ -989,9 +1068,15 @@
     <figure class="routeFig"></figure>
   </div>
 
+  <div class="prose bridge rv"><p>Knowing the doors is half of it. The other half is knowing which one comes first.</p><p>Rookie night had both kinds of moment. At 1:40 a.m., a freshman needed paramedics, not a hotline. By the next morning no one was in danger, and every one of the five doors was open.</p></div>
+
   <div class="fx rv triage-host"></div>
 
+  <div class="prose after rv"><p>The order only matters when someone is in danger. The rest of the time there’s no wrong door among the five. Pick the one that fits what you need: staying anonymous, talking it through, or understanding the formal options.</p></div>
+
   <!-- where the rules live: two places to look, each with a small picture of looking there -->
+  <div class="prose bridge rv"><p>One more thing before you move on.</p><p>It helps to know what your school and your team actually say about hazing. Those rules aren’t a mystery. They’re written down, in two places.</p></div>
+
   <div class="fx rv rules">
     <span class="eyebrow-sm">Know the rules</span>
     <h3>Where the rules live</h3>
@@ -1043,6 +1128,8 @@
     </div>
   </div></div>
 
+  <div class="prose bridge rv"><p>Hazing isn’t just a school conduct issue. In most states it’s a crime.</p><p>Which charge applies depends on two things: the state where it happened, and how badly someone was hurt.</p></div>
+
   <div class="fx rv" id="sevPanel">
     <span class="eyebrow-sm">Try it</span>
     <h3>Misdemeanor or felony?</h3>
@@ -1056,6 +1143,8 @@
       <div class="sev-out" id="sevOut" data-lvl="0" aria-live="polite"><div class="sev-meter"><i></i></div><b id="sevB">Misdemeanor</b><p id="sevP">In most states with antihazing laws.</p></div>
     </div>
   </div>
+
+  <div class="prose after rv"><p>Criminal charges are only one track. Civil suits and campus consequences are additional and separate, and campus consequences can land on a whole team, not just the people who were in the room.</p></div>
 
   <div class="pin-run" id="seasonRun" style="height:320vh"><div class="pin-in">
     <div class="fx fx-split">
@@ -1238,6 +1327,6 @@
 
 <script src="01-after-rookie-night-art.js?v=7"></script>
 <script src="01-after-rookie-night-frame.js?v=4"></script>
-<script src="01-after-rookie-night.js?v=17"></script>
+<script src="01-after-rookie-night.js?v=18"></script>
 </body>
 </html>
