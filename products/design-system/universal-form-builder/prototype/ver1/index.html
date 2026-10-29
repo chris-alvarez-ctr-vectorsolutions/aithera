@@ -305,6 +305,11 @@
     display: flex; flex-direction: column;
   }
   .fb-rowmenu-list.is-up { top: auto; bottom: calc(100% + 4px); }
+  .fb-rowmenu-list.is-portal { position: fixed; z-index: 1000; }
+  .fb-libcrumb { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 13px; color: var(--fb-ink-500); border-bottom: 1px solid var(--fb-line); }
+  .fb-libcrumb a { color: var(--fb-accent); cursor: pointer; text-decoration: underline; }
+  .fb-folder-cell { display: flex; align-items: center; gap: 10px; }
+  .fb-folder-cell i { color: var(--fb-ink-500); }
   .fb-rowmenu-opt {
     appearance: none; background: none; border: 0; text-align: left; padding: 8px 10px; font: inherit; font-size: 13px;
     cursor: pointer; color: var(--fb-ink-900); border-radius: var(--lumo-border-radius-s, .25em);
@@ -734,6 +739,7 @@
               <vaadin-button theme="primary" id="btnCreate"><i class="fa-solid fa-plus" aria-hidden="true" style="margin-right:7px"></i><span id="btnCreateLabel">New checklist</span></vaadin-button>
             </div>
           </div>
+          <div class="fb-libcrumb" id="libCrumb" style="display:none"></div>
           <vaadin-grid id="libGrid" class="fb-grid-clickable" all-rows-visible></vaadin-grid>
           <div class="fb-empty" id="libEmpty" style="display:none">
             <i class="fa-solid fa-folder-open" aria-hidden="true"></i>
@@ -962,6 +968,8 @@ const PROFILES = {
     presentation: { show: false },
     propagation: 'auto',
     lifecycle: ['draft', 'published', 'archived'],
+    /* The forms list is product-owned; these are the columns this product shows. */
+    list: ['name', 'filter', 'status', 'version', 'items', 'usedBy', 'modified'],
     presets: [
       { id: 'passfail',  mechanism: 'choice',  label: 'Pass / Fail', conf: 'design',
         desc: 'Binary choice. Fail means the step fails and a comment is required.',
@@ -1075,6 +1083,9 @@ const PROFILES = {
     presentation: { show: true },
     propagation: 'hold',
     lifecycle: ['draft', 'published', 'superseded', 'publishRestricted', 'archived'],
+    /* EV+'s own words and columns from its Forms list (screenshot, 2026-10-22). */
+    statusLabels: { draft: 'Unpublished', publishRestricted: 'Publish-restricted' },
+    list: ['name', 'filter', 'version', 'records', 'planUse', 'status'],
     presets: [
       { id: 'rating',    mechanism: 'scale',  label: 'Rating Scale', conf: 'code',
         desc: 'Up to 8 levels, each with a value, title, description and exclude-from-averages. Choose a named scale or build one.',
@@ -1443,7 +1454,7 @@ const BLOCKS_EV = [
 const FORMS_EV = [
   mkForm(EV, { id: 'classroom-observation', name: 'Classroom Observation (Danielson)', setup: { useFor: 'evaluation' }, status: 'published', version: 3, liveVersion: 2,
     initiator: 'evaluator', description: 'Formal observation against the Danielson framework, with a reflection and two signatures.',
-    folder: 'Teacher evaluation', signing: { lockMode: 'signer' }, timer: { on: true, max: 180, editable: true },
+    signing: { lockMode: 'signer' }, timer: { on: true, max: 180, editable: true },
     productSettings: { observation: true, allowPrivate: true, allowNameEdit: false, passAll: false, restrictSelfEval: true,
       sharingBehavior: 'author', completionRequireSharing: true, calfireJac: ['CF-101', 'CF-212'], calfireJacRequired: true, tsTags: ['ts-4411', 'ts-4420'] },
     meta: { createdBy: 'M. Chen', modified: '2026-10-18', usedBy: ['Plan: 2026–27 Probationary', 'Plan: 2026–27 Tenured', '212 instances'], origin: 'copy' },
@@ -1465,7 +1476,7 @@ const FORMS_EV = [
       ])
     ] }),
   mkForm(EV, { id: 'walkthrough-10', name: '10-Minute Walk-through', setup: { useFor: 'evaluation' }, status: 'published', version: 4, liveVersion: 4,
-    description: 'Short, unannounced visit. Observed / not observed on six look-fors.', folder: 'Teacher evaluation',
+    description: 'Short, unannounced visit. Observed / not observed on six look-fors.', folder: 'Observations',
     productSettings: { observation: true, allowPrivate: false, allowNameEdit: true, passAll: false, restrictSelfEval: true, sharingBehavior: 'any', completionRequireSharing: false, tsTags: ['ts-4411'] },
     meta: { createdBy: 'M. Chen', modified: '2026-09-02', usedBy: ['Plan: 2026–27 Tenured', '1,480 instances'], origin: 'copy' },
     sections: [
@@ -1478,7 +1489,7 @@ const FORMS_EV = [
       ])
     ] }),
   mkForm(EV, { id: 'self-assessment', name: 'Mid-year Self-Assessment', setup: { useFor: 'evaluation' }, status: 'published', version: 2, liveVersion: 2,
-    initiator: 'evaluee', description: 'Started by the teacher. Normal questions belong to the evaluee; the evaluator adds a response.', folder: 'Teacher evaluation',
+    initiator: 'evaluee', description: 'Started by the teacher. Normal questions belong to the evaluee; the evaluator adds a response.',
     productSettings: { observation: false, allowPrivate: false, allowNameEdit: false, passAll: false, restrictSelfEval: false, sharingBehavior: 'author', completionRequireSharing: true },
     meta: { createdBy: 'M. Chen', modified: '2026-10-01', usedBy: ['Plan: 2026–27 Probationary', '96 instances'], origin: 'scratch' },
     sections: [ mkSection('Self-assessment', [
@@ -1488,7 +1499,7 @@ const FORMS_EV = [
       mkQ(EV, 'attest', 'sigLock', 'Teacher signature', { who: 'initiator' })
     ]) ] }),
   mkForm(EV, { id: 'coaching-log', name: 'Coaching Conversation Log', setup: { useFor: 'coaching' }, status: 'draft', version: 1, liveVersion: null,
-    description: 'A scripted coaching conversation with a timed segment.', folder: 'Coaching',
+    description: 'A scripted coaching conversation with a timed segment.',
     productSettings: { observation: false, allowPrivate: true, sharingBehavior: 'author', completionRequireSharing: false },
     meta: { createdBy: 'A. Smith', modified: '2026-10-20', usedBy: [], origin: 'scratch' },
     sections: [ mkSection('Conversation', [
@@ -1500,12 +1511,12 @@ const FORMS_EV = [
     ]) ],
     review: { required: true, state: 'none', reviewer: 'J. Patel', note: '' } }),
   mkForm(EV, { id: 'summative-2025', name: 'End-of-Year Summative (2025–26)', setup: { useFor: 'evaluation' }, status: 'superseded', version: 6, liveVersion: null,
-    description: 'Replaced by the 2026–27 summative. Completed instances still render this version.', folder: 'Teacher evaluation',
+    description: 'Replaced by the 2026–27 summative. Completed instances still render this version.',
     productSettings: { observation: false, sharingBehavior: 'author', completionRequireSharing: true },
     meta: { createdBy: 'M. Chen', modified: '2026-06-30', usedBy: ['418 instances'], origin: 'copy' },
     sections: [ mkSection('Summary', [ mkQ(EV, 'scale', 'rating', 'Overall rating', { config: { scaleRef: 'danielson4', linked: false } }) ]) ] }),
   mkForm(EV, { id: 'probationary-obs', name: 'Probationary Observation', setup: { useFor: 'evaluation' }, status: 'publishRestricted', version: 1, liveVersion: 1,
-    description: 'Fillable only by users on the evaluator and evaluee access lists.', folder: 'Teacher evaluation',
+    description: 'Fillable only by users on the evaluator and evaluee access lists.', folder: 'Observations',
     productSettings: { observation: true, sharingBehavior: 'author', completionRequireSharing: true },
     meta: { createdBy: 'M. Chen', modified: '2026-08-20', usedBy: ['Plan: 2026–27 Probationary'], origin: 'copy' },
     sections: [ mkSection('Observation', [ mkBlockRef('d2', '', 'block'), mkBlockRef('d3', '', 'block') ]) ] })
@@ -1760,7 +1771,7 @@ const LIB_TABS = () => {
   if (P().mechanisms.includes('scale')) t.push({ id: 'scales', label: 'Scales', count: lib().scales.length });
   return t;
 };
-let libFilters = { q: '', status: '', setup: '' };
+let libFilters = { q: '', status: '', setup: '', folder: '' };
 let libTabsBound = false;
 
 function renderLibrary() {
@@ -1784,7 +1795,7 @@ function renderLibrary() {
     });
     document.getElementById('libSearch').addEventListener('value-changed', e => { libFilters.q = e.detail.value || ''; renderLibraryGrid(); });
     document.getElementById('libClear').addEventListener('click', () => {
-      libFilters = { q: '', status: '', setup: '' };
+      libFilters = { q: '', status: '', setup: '', folder: '' };
       document.getElementById('libSearch').value = ''; document.getElementById('libStatus').value = ''; document.getElementById('libSetup').value = '';
       renderLibraryGrid();
     });
@@ -1795,7 +1806,7 @@ function renderLibrary() {
 function renderLibraryPanel() {
   const p = P();
   const st = document.getElementById('libStatus');
-  st.items = [{ label: 'Any status', value: '' }].concat(p.lifecycle.map(s => ({ label: STATUS_META[s].label, value: s })));
+  st.items = [{ label: 'Any status', value: '' }].concat(p.lifecycle.map(s => ({ label: statusLabel(s), value: s })));
   st.value = libFilters.status;
   st.onchange = null;
   st.removeEventListener('value-changed', st._h); st._h = e => { if ((e.detail.value || '') === libFilters.status) return; libFilters.status = e.detail.value || ''; renderLibraryGrid(); }; st.addEventListener('value-changed', st._h);
@@ -1815,7 +1826,9 @@ function renderLibraryPanel() {
   document.getElementById('btnCreateLabel').textContent = lbl;
   renderLibraryGrid();
 }
-function statusBadge(s) { const m = STATUS_META[s] || STATUS_META.draft; return badge(m.theme, m.label); }
+/* Status words are product vocabulary: EV+ says Unpublished where Check It says Draft. */
+function statusLabel(s) { return ((P().statusLabels || {})[s]) || (STATUS_META[s] || STATUS_META.draft).label; }
+function statusBadge(s) { const m = STATUS_META[s] || STATUS_META.draft; return badge(m.theme, statusLabel(s)); }
 function countItems(form) {
   let n = 0;
   form.sections.forEach(s => s.items.forEach(it => { if (it.type === 'block') { const b = blockById(it.blockId); n += b ? b.items.length : 0; } else n += 1; }));
@@ -1829,17 +1842,44 @@ function renderLibraryGrid() {
   const q = libFilters.q.trim().toLowerCase();
   const textCol = (header, fn, width) => { const c = el('vaadin-grid-column', { header, 'auto-width': true, flex: width == null ? 1 : width }); c.renderer = (root, _c, m) => { root.innerHTML = ''; const v = fn(m.item); root.appendChild(typeof v === 'string' ? document.createTextNode(v) : v); }; return c; };
   if (state.libTab === 'forms') {
-    rows = lib().forms.filter(f => (!q || f.name.toLowerCase().includes(q) || (f.description || '').toLowerCase().includes(q)) && (!libFilters.status || f.status === libFilters.status) && (!libFilters.setup || (filterField(P()) && f.setup[filterField(P()).id] === libFilters.setup)));
-    cols = [
-      textCol('Name', f => el('div', {}, [ el('div', { class: 'fb-cell-main', text: f.name }), el('div', { class: 'fb-cell-sub', text: f.description || '' }) ]), 3),
-      filterField(P()) ? textCol(filterField(P()).label, f => filterLabel(f)) : null,
-      textCol('Status', f => { const w = el('div', { style: 'display:flex;gap:6px;align-items:center;flex-wrap:wrap' }, [statusBadge(f.status)]); if (f.status === 'published' && f.liveVersion && f.version > f.liveVersion) w.appendChild(el('span', { class: 'fb-cell-sub', text: 'draft v' + f.version })); return w; }),
-      textCol('Version', f => f.status === 'published' ? 'v' + (f.liveVersion || f.version) : 'v' + f.version, 0),
-      textCol(cap(V('questions')), f => String(countItems(f)), 0),
-      textCol('Used by', f => el('div', { class: 'fb-cell-sub', text: (f.meta.usedBy || []).length ? f.meta.usedBy.join(' · ') : '—' }), 2),
-      textCol('Modified', f => f.meta.modified, 0)
-    ];
+    /* The forms list is product-owned (P2): columns come from the profile, and
+       folders show as rows the way EV+'s list does. A search looks across all
+       folders. */
+    const p = P(); const ff = filterField(p);
+    const match = f => (!q || f.name.toLowerCase().includes(q) || (f.description || '').toLowerCase().includes(q)) && (!libFilters.status || f.status === libFilters.status) && (!libFilters.setup || (ff && f.setup[ff.id] === libFilters.setup));
+    const all = lib().forms.filter(match);
+    const flat = !!q;
+    const here = flat ? all : all.filter(f => (f.folder || '') === libFilters.folder);
+    const folders = flat || libFilters.folder ? [] : [...new Set(all.map(f => f.folder).filter(Boolean))].sort().map(name => ({ isFolder: true, id: 'folder:' + name, name, count: all.filter(f => f.folder === name).length }));
+    rows = folders.concat(here);
+    const crumb = document.getElementById('libCrumb'); crumb.innerHTML = '';
+    crumb.style.display = libFilters.folder && !flat ? '' : 'none';
+    if (libFilters.folder && !flat) crumb.append(el('a', { text: 'All ' + V('forms').toLowerCase(), onclick: () => { libFilters.folder = ''; renderLibraryGrid(); } }), el('span', { text: '›' }), el('b', { text: libFilters.folder }));
+    const num = (f, re) => { const hit = (f.meta.usedBy || []).map(u => (u.match(re) || [])[1]).find(Boolean); return hit ? hit : '0'; };
+    const COLS = {
+      name:     () => textCol('Name', f => f.isFolder ? el('div', { class: 'fb-folder-cell' }, [ icon('fa-folder'), el('span', { class: 'fb-cell-main', text: f.name }), el('span', { class: 'fb-cell-sub', text: f.count + ' ' + V('forms').toLowerCase() }) ])
+                                               : el('div', {}, [ el('div', { class: 'fb-cell-main', text: f.name }), el('div', { class: 'fb-cell-sub', text: f.description || '' }) ]), 3),
+      filter:   () => ff ? textCol(ff.label, f => f.isFolder ? '' : filterLabel(f)) : null,
+      status:   () => textCol('Status', f => { if (f.isFolder) return ''; const w = el('div', { style: 'display:flex;gap:6px;align-items:center;flex-wrap:wrap' }, [statusBadge(f.status)]); if (f.status === 'published' && f.liveVersion && f.version > f.liveVersion) w.appendChild(el('span', { class: 'fb-cell-sub', text: statusLabel('draft').toLowerCase() + ' v' + f.version })); return w; }),
+      version:  () => textCol(p.id === 'evaluations' ? 'Vers.' : 'Version', f => f.isFolder ? '' : f.status === 'published' ? 'v' + (f.liveVersion || f.version) : 'v' + f.version, 0),
+      items:    () => textCol(cap(V('questions')), f => f.isFolder ? '' : String(countItems(f)), 0),
+      records:  () => textCol('Form Rec', f => f.isFolder ? '' : num(f, /^([\d,]+) instances/), 0),
+      planUse:  () => textCol('Plan Use', f => f.isFolder ? '' : String((f.meta.usedBy || []).filter(u => /^Plan:/.test(u)).length), 0),
+      usedBy:   () => textCol('Used by', f => f.isFolder ? '' : el('div', { class: 'fb-cell-sub', text: (f.meta.usedBy || []).length ? f.meta.usedBy.join(' · ') : '—' }), 2),
+      modified: () => textCol('Modified', f => f.isFolder ? '' : f.meta.modified, 0)
+    };
+    cols = (p.list || ['name', 'filter', 'status', 'version']).map(id => COLS[id] && COLS[id]());
+    /* Row actions: Edit, Copy (starts the builder from a copy), Preview. */
+    const menuCol = el('vaadin-grid-column', { 'auto-width': true, flex: 0 });
+    menuCol.renderer = (root, _c, m) => { root.innerHTML = ''; const f = m.item; if (f.isFolder) return;
+      root.appendChild(rowMenu([
+        { label: 'Edit', icon: 'fa-pen', run: () => openForm(f.id) },
+        { label: 'Copy', icon: 'fa-copy', run: () => openSetupDialog({ start: 'copy', copyId: f.id, name: f.name + ' (copy)' }) },
+        { label: 'Preview', icon: 'fa-eye', run: () => { state.formId = f.id; openPreview(); } }
+      ], { portal: true })); };
+    cols.push(menuCol);
   } else if (state.libTab === 'blocks') {
+    document.getElementById('libCrumb').style.display = 'none';
     rows = lib().blocks.filter(b => !q || b.name.toLowerCase().includes(q));
     cols = [
       textCol('Name', b => el('div', {}, [ el('div', { class: 'fb-cell-main', text: b.name }), el('div', { class: 'fb-cell-sub', text: b.description || '' }) ]), 3),
@@ -1851,6 +1891,7 @@ function renderLibraryGrid() {
       textCol('Multi-use', b => b.multiUse ? 'Yes' : 'No', 0)
     ];
   } else {
+    document.getElementById('libCrumb').style.display = 'none';
     rows = lib().scales.filter(s => !q || s.name.toLowerCase().includes(q));
     cols = [
       textCol('Scale', s => el('div', { class: 'fb-cell-main', text: s.name }), 2),
@@ -1866,7 +1907,7 @@ function renderLibraryGrid() {
   grid._h = e => {
     const it = e.detail.value; if (!it) return;
     grid.activeItem = null;
-    if (state.libTab === 'forms') openForm(it.id);
+    if (state.libTab === 'forms') { if (it.isFolder) { libFilters.folder = it.name; renderLibraryGrid(); } else openForm(it.id); }
     else if (state.libTab === 'blocks') openBlock(it.id);
     else if (state.libTab === 'scales') openScaleDialog(it.id);
   };
@@ -1900,9 +1941,9 @@ function setupControl(s, value, onPick, opts) {
   }
   return vSelect({ label: s.label, items: s.options.map(x => ({ id: x.id, label: x.label })), value, helper: s.help, disabled: o.locked, onchange: onPick });
 }
-function openSetupDialog() {
-  const p = P();
-  const draft = { name: '', setup: setupDefaults(p), initiator: p.initiators[0].id, start: 'blank', copyId: null, blockIds: [], description: '', folder: '' };
+function openSetupDialog(prefill) {
+  const p = P(); const pre = prefill || {};
+  const draft = { name: pre.name || '', setup: setupDefaults(p), initiator: p.initiators[0].id, start: pre.start || 'blank', copyId: pre.copyId || null, taken: null, blockIds: [], description: '', folder: '' };
   const dlg = document.getElementById('dlgSetup');
   dlg.headerTitle = V('create');
   let nameField;
@@ -1924,11 +1965,12 @@ function openSetupDialog() {
     const setupHost = el('div', { class: 'fb-dialog-grid' });
     /* A copy carries its source's setup values and initiator; they stay
        editable because the copy is a new draft. */
-    const takeFromSource = () => { const src = lib().forms.find(f => f.id === draft.copyId); if (!src) return; draft.setup = Object.assign(setupDefaults(p), src.setup); draft.initiator = src.initiator; renderSetup(); };
+    const takeFromSource = () => { const src = lib().forms.find(f => f.id === draft.copyId); if (!src) return; draft.taken = src.id; draft.setup = Object.assign(setupDefaults(p), src.setup); draft.initiator = src.initiator; renderSetup(); };
     const renderSource = () => {
       sourceHost.innerHTML = '';
       if (draft.start === 'copy') {
-        if (!draft.copyId) { draft.copyId = lib().forms[0].id; takeFromSource(); }
+        if (!draft.copyId) draft.copyId = lib().forms[0].id;
+        if (draft.taken !== draft.copyId) takeFromSource();
         sourceHost.appendChild(vSelect({ label: 'Copy from', items: lib().forms.map(f => ({ id: f.id, label: f.name })), value: draft.copyId, onchange: v => { draft.copyId = v; takeFromSource(); },
           helper: 'Starts with the same ' + setupFields(p).map(s => s.label).join(' and ') + '.' }));
       }
@@ -2140,7 +2182,8 @@ function moveToSection(secId, i) {
 
 /* One "…" menu per row; actions differ by kind, the affordance does not.
    Move up / Move down are the keyboard path for reordering (WCAG 2.1.1). */
-function rowMenu(opts) {
+function rowMenu(opts, o2) {
+  const portal = !!(o2 && o2.portal);   // grid cells clip, so the list goes to <body>
   const wrap = el('div', { class: 'fb-rowmenu' });
   const btn = iconBtn('fa-ellipsis', 'More actions', e => { e.stopPropagation(); toggle(); });
   let list = null;
@@ -2155,8 +2198,15 @@ function rowMenu(opts) {
       b.addEventListener('click', e => { e.stopPropagation(); close(); o.run(); });
       list.appendChild(b);
     });
-    wrap.appendChild(list);
-    const r = list.getBoundingClientRect(); if (r.bottom > window.innerHeight - 12) list.classList.add('is-up');
+    if (portal) {
+      const br = btn.getBoundingClientRect();
+      list.classList.add('is-portal'); list.style.top = (br.bottom + 4) + 'px'; list.style.right = (window.innerWidth - br.right) + 'px';
+      document.body.appendChild(list);
+      const r = list.getBoundingClientRect(); if (r.bottom > window.innerHeight - 12) list.style.top = (br.top - r.height - 4) + 'px';
+    } else {
+      wrap.appendChild(list);
+      const r = list.getBoundingClientRect(); if (r.bottom > window.innerHeight - 12) list.classList.add('is-up');
+    }
     setTimeout(() => document.addEventListener('click', close), 0);
   };
   wrap.appendChild(btn);
@@ -3709,7 +3759,7 @@ function lockingSettings(f) {
    definition. Seeded here from usedBy and from parents that nest it. */
 function publishImpact(f) {
   const p = P();
-  if (f.isBlock) { const uses = usedByForms(f.block); return { items: uses.map(x => ({ label: x.name, sub: x.status === 'published' ? 'live v' + (x.liveVersion || x.version) : STATUS_META[x.status].label })), kind: V('form') + 's using this ' + V('block') }; }
+  if (f.isBlock) { const uses = usedByForms(f.block); return { items: uses.map(x => ({ label: x.name, sub: x.status === 'published' ? 'live v' + (x.liveVersion || x.version) : statusLabel(x.status) })), kind: V('form') + 's using this ' + V('block') }; }
   const items = (f.meta.usedBy || []).map(u => ({ label: u, sub: p.id === 'checkit' ? 'deployment' : u.startsWith('Plan') ? 'plan' : 'instances' }));
   lib().forms.forEach(o => { if (o.id === f.id) return; o.sections.forEach(sec => sec.items.forEach(it => { if (it.type !== 'block' && it.mechanism === 'nested' && it.config.targetId === f.id) items.push({ label: o.name, sub: 'nests this ' + V('form') }); })); });
   return { items, kind: p.id === 'checkit' ? 'deployments and parents' : 'plans, instances and parents' };
@@ -3903,6 +3953,9 @@ function openDefinitionJson(f) {
   function applyFlowState(id, opts) {
     opts = opts || {};
     document.querySelectorAll('vaadin-dialog').forEach(d => { d.opened = false; });
+    /* A jump from a preview scene, or with a list menu open, starts clean. */
+    if (preview.open) closePreview();
+    document.querySelectorAll('.fb-rowmenu-list.is-portal').forEach(l => l.remove());
     const firstOf = (sec, pred) => sec.items.find(pred);
     const go = (profile, fn) => { if (state.profile !== profile) { state.profile = profile; renderShell(); } if (!/^(blockeditor|repeat)-/.test(id)) state.editing = { type: 'form' }; fn(); };
     switch (id) {
@@ -3979,7 +4032,7 @@ function openDefinitionJson(f) {
         { id: 'identity-ci', flow: 'ci', x: 360, y: 20, step: '12', name: 'Reworded step: keep history?', state: 'identity-ci', desc: 'A material edit to a published step asks: keep history (same identity, two-year fail trend stays continuous) or start a new series (P4, PRD Q7).' },
         { id: 'publish-ci', flow: 'ci', x: 660, y: 20, step: '13', name: 'Publish: blast radius', state: 'publish-ci', desc: 'Quality gate, version note (completed records stay bound), the deployments and parents it reaches from Check It’s publish-impact extension, and the four capabilities (Q19).' },
         { id: 'json-ci', flow: 'ci', x: 960, y: 20, step: '14', name: 'The definition (schema v1)', state: 'json-ci', desc: 'What Check It consumes after Publish: the FormDefinition from 03 §8 with identity, rules, references and extensions. For the technical reviewers.' },
-        { id: 'library-ev', flow: 'ev', entry: true, x: 60,  y: 410, step: '1', name: 'Forms library', state: 'library-ev', desc: 'Same shell, Evaluations vocabulary: forms, form sections, scales. Statuses incl. Superseded and Publish-Restricted.' },
+        { id: 'library-ev', flow: 'ev', entry: true, x: 60,  y: 410, step: '1', name: 'Forms library', state: 'library-ev', desc: 'EV+’s own Forms list (product-owned): folder rows, Vers. / Form Rec / Plan Use, Unpublished and Publish-restricted. Edit, Copy and Preview on a row hand off to the builder.' },
         { id: 'setup-ev', flow: 'ev', x: 360, y: 410, step: '2', name: 'New form: setup', state: 'setup-ev', desc: 'Start from blank, a copy or blocks, then the product’s setup values (P2): Use for and Type, plus who can start it. Type locks after publish, said up front.' },
         { id: 'builder-ev', flow: 'ev', x: 660, y: 410, step: '3', name: 'Builder: Classroom Observation', state: 'builder-ev', desc: 'Danielson domains as linked blocks; form settings grouped, conditional, with lock warnings and extension chips.' },
         { id: 'question-ev', flow: 'ev', x: 960, y: 410, step: '4', name: 'Question inspector: who answers', state: 'question-ev', desc: 'Relationship-based who-answers with the per-mechanism allowed matrix (code-confirmed).' },
