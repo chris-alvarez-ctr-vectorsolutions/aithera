@@ -4001,6 +4001,23 @@
   }
 
   // ==========================================================================
+  //  PRE-CHECK INTRO — 2026-10-29, from the LXD: learners are asked questions
+  //  before any instruction, so one screen says why first. The two sentences
+  //  are the LXD's own wording. A function so the count follows BATTERY.
+  // ==========================================================================
+  function BATTERY_INTRO_CONTENT() {
+    var n = BATTERY.length;
+    return '<main class="ll-object">' +
+      '<div class="bi">' +
+        '<p class="bi-meta"><i class="fa-solid fa-list-check" aria-hidden="true"></i> ' +
+          n + ' questions · about 1 minute</p>' +
+        '<h2 class="bi-head">Let’s start with a few questions to see what you already know and how you feel about this topic.</h2>' +
+        '<p class="bi-sub">Your responses will help personalize your learning experience.</p>' +
+      '</div>' +
+    '</main>';
+  }
+
+  // ==========================================================================
   //  PRE-MODULE BATTERY — four items, and the composition is the point:
   //  gate-flagged Know and remediate-flagged Feel. NEVER a Do objective,
   //  because a question cannot credibly measure behavior.
@@ -4017,7 +4034,7 @@
         '<div class="bl-dots" id="blDots" role="presentation"></div>' +
         '<div class="bl-stage" id="blStage">' +
           '<div class="bl-ask sh-battery" id="blAsk">' +
-            '<p class="ll-eyebrow" id="blStep">Quick question: 1 of 5</p>' +
+            '<p class="ll-eyebrow" id="blStep">Question 1 of 5</p>' +
             // The situation, when there is one. The module's case screens already
             // separate the setup from the question it leads to; a stem carrying
             // both broke across two lines mid-sentence, which is what this fixes.
@@ -4125,7 +4142,7 @@
       var q = BATTERY[i];
       if (!q) { el.hidden = true; return; }
       el.hidden = false;
-      var html = '<p class="ll-eyebrow">Quick question: ' + (i + 1) + ' of ' + BATTERY.length + '</p>';
+      var html = '<p class="ll-eyebrow">Question ' + (i + 1) + ' of ' + BATTERY.length + '</p>';
       if (q.scene) html += '<p class="bl-scene">' + esc(q.scene) + '</p>';
       html += '<h2 class="bl-q">' + esc(q.stem) + '</h2>';
       if (q.hint) html += '<p class="bl-hint">' + esc(q.hint) + '</p>';
@@ -4185,7 +4202,7 @@
     function render(i) {
       var q = BATTERY[i];
       renderDots(i);
-      stepEl.textContent = 'Quick question: ' + (i + 1) + ' of ' + BATTERY.length;
+      stepEl.textContent = 'Question ' + (i + 1) + ' of ' + BATTERY.length;
       sceneEl.textContent = q.scene || '';
       sceneEl.hidden = !q.scene;
       qEl.textContent = q.stem;
@@ -4427,7 +4444,7 @@
       // K1 → case 1 test-up, K2 → case 2 test-up, each from its own item
       // (already set in renderDeckItem). F1/F3 are the baselines the same
       // statements are compared against after case 3 and the debrief.
-      stepEl.textContent = 'Quick questions: all ' + BATTERY.length + ' done';
+      stepEl.textContent = 'All ' + BATTERY.length + ' questions done';
       saveResult('battery', res);
       // 2026-09-25 (from Riff 07): the last card drops off the stack and the
       // module moves straight on to the path screen — the footer's Continue
@@ -8075,7 +8092,14 @@
       coach: { say: '' },
       content: INTRO_CONTENT, init: introInit },
 
-    { id: 'battery', icon: 'fa-list-check', mins: 1, stage: 'Entry', lesson: 'Progress assessment', mode: 'floating', gate: true,
+    // Interstitial: it explains the next section rather than being one, so
+    // it takes no "Section N of M" and no runtime of its own.
+    { id: 'batteryIntro', icon: 'fa-list-check', stage: 'Entry', lesson: 'Starting Point', mode: 'floating', interstitial: true,
+      noCoach: true,
+      caption: { title: 'ENTRY · Pre-check intro', note: 'Added 2026-10-29 from LXD feedback: the pre-check asks questions before any instruction, so this screen says why first. Wording is the LXD’s, not the deck’s (the deck has no intro here). The count line follows the number of questions.' },
+      content: BATTERY_INTRO_CONTENT },
+
+    { id: 'battery', icon: 'fa-list-check', mins: 1, stage: 'Entry', lesson: 'Starting Point', mode: 'floating', gate: true,
       // No CLARA on this screen: a rapid-
       // fire stack of four quick questions has no room for a reaction
       // between one and the next, so it runs as a plain one-click battery
