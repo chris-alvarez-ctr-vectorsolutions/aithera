@@ -16,7 +16,7 @@ Paths are relative to `products/Evaluations/`. Unless a file is named, line numb
 | **Feedback forms** | Admin (PD Tracking › Feedback) | Event attendees | Not mocked. Referenced as Required / Optional / Disabled per event, with per-slot templates |
 | **Evidence** submission | n/a | Attendee, reviewed by approver | Review side only (`manage-events/`) |
 
-The admin navigation (`admin-ui/ver1/dashboard.html:405-426`, the frozen production IA) shows the **authoring areas the builder would replace or absorb**:
+The admin navigation (`administration/landing-message/ver1/dashboard.html:405-426`, the frozen production IA) shows the **authoring areas the builder would replace or absorb**:
 
 - **Forms**, with Paragraph Banks, Computed Reports and Library under it
 - **Tags**
