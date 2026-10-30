@@ -62,6 +62,7 @@
     '<div class="tchip" aria-hidden="true"><span class="c0 night">Rookie night · 1:40 a.m.</span><span class="c1">The next morning</span></div>');
   $('#stageC').insertAdjacentHTML('afterbegin', svgWrap(A.corridor()) + capHTML);
   $('#stageC .plate > div').innerHTML = A.route();
+  $('#stageF').insertAdjacentHTML('afterbegin', svgWrap(A.corridor(true)) + capHTML);
   $('#stageT').insertAdjacentHTML('afterbegin', svgWrap(A.dorm('trio')) + capHTML);
   $('#stageR').insertAdjacentHTML('afterbegin', svgWrap(A.dorm('reprise')) + capHTML +
     '<div class="tchip" aria-hidden="true"><span class="c0 good">The morning after, again</span></div>');
@@ -230,10 +231,10 @@
      unfinished one (up to the end of <main>) gets .held, and that panel shows a bar with a Skip button.
      A deep link (#…) turns holds off so reviewers can land anywhere. */
   const holds = [];
-  const hold = (el, msg, { skip = true } = {}) => {
-    el.classList.add('station');
-    el.insertAdjacentHTML('beforeend', `<div class="hold-bar"><i class="fa-solid fa-lock" aria-hidden="true"></i><span>${msg}</span>${skip ? '<button class="btn sm" type="button">Skip</button>' : ''}</div>`);
-    if (skip) $('.hold-bar .btn', el).addEventListener('click', () => release(el));
+  const hold = (el, msg, { skip = true, station = true, barIn = el } = {}) => {
+    if (station) el.classList.add('station');
+    barIn.insertAdjacentHTML('beforeend', `<div class="hold-bar"><i class="fa-solid fa-lock" aria-hidden="true"></i><span>${msg}</span>${skip ? '<button class="btn sm" type="button">Skip</button>' : ''}</div>`);
+    if (skip) $('.hold-bar .btn', barIn).addEventListener('click', () => release(el));
     holds.push({ el, done: !!location.hash });
   };
   // a check that's taken again (retry) holds the article again until it's answered
@@ -245,7 +246,8 @@
     const here = $('.hold-here');
     if (!here) { holdSpacer.remove(); return; }
     if (here.nextElementSibling !== holdSpacer) here.after(holdSpacer);
-    holdSpacer.style.height = Math.max(0, (innerHeight - BAR - here.getBoundingClientRect().height) / 2 - 24) + 'px';
+    // a stop that pops out fills the screen itself, so it needs no room under it
+    holdSpacer.style.height = here.dataset.pop ? '0px' : Math.max(0, (innerHeight - BAR - here.getBoundingClientRect().height) / 2 - 24) + 'px';
   }
   function applyHolds() {
     $$('.held').forEach(e => e.classList.remove('held'));
@@ -284,7 +286,7 @@
     $$('button', kp).forEach(b => b.classList.remove('hint'));
     kpOut.innerHTML = kpPos >= WORD.length
       ? 'That’s the hotline: <b>1-888-668-4293</b>.'
-      : `Next letter: <b>${WORD[kpPos]}</b>. Which key has it?`;
+      : `Next letter: <b>${WORD[kpPos]}</b>. Which key has ${WORD[kpPos]}?`;
   };
   const kpPress = (d) => {
     if (kpPos >= WORD.length) return;
@@ -300,27 +302,41 @@
   $('#kpReset').addEventListener('click', () => { clearInterval(kpAuto); kpPos = 0; kpMiss = 0; kpPaint(); });
   $('#kpShow').addEventListener('click', () => { clearInterval(kpAuto); kpPos = 0; kpPaint(); kpAuto = setInterval(() => { if (kpPos >= WORD.length) { clearInterval(kpAuto); return; } kpPress(digitOf(WORD[kpPos])); }, reduced() ? 60 : 480); });
 
-  /* the sixth door: its sign is dark. Tried, the knob turns and the door rattles but stays shut;
-     then the sign flickers on: social media */
-  const fd = $('#fdBtn'), fdScene = $('#fdScene');
-  const tryDoor = () => {
-    if (fdScene.classList.contains('try')) return;
+  /* the sixth door: a second walk down the corridor. Between the first card and the last, the camera
+     slides with the scroll from the first door to the sixth, opening each door as it passes. On the last
+     card the sixth door is the activity: tried, the knob turns and the door rattles but stays shut, its
+     sign flickers on (social media), caution tape snaps across it, and the five real doors light up. */
+  const stageF = $('#stageF'), camF = $('#stageF .cam'), sixEl = $('#stageF .six'), sixBtn = $('#sixTry');
+  const doorsF = $$('#stageF .door'), stepsF = $$('#scF .step');
+  const camAt = (k) => `translate(${(170 - 368 * k).toFixed(1)}px,-60px) scale(1.15)`;
+  const panF = () => {
+    if (stageF.offsetParent === null) return;
+    // the first card stands at the first door; the walk runs from the second card's arrival to the last's
+    const top1 = stepsF[1].getBoundingClientRect().top, top2 = stepsF[2].getBoundingClientRect().top;
+    const k = stageF.classList.contains('try') ? 5 : clamp((innerHeight * .9 - top1) / Math.max(1, top2 - top1 + innerHeight * .4)) * 5;
+    camF.style.transform = camAt(k);
+    if (stageF.classList.contains('done')) return;
+    doorsF.forEach((d, n) => { d.classList.toggle('open', n <= k + .4); d.classList.toggle('focus', Math.abs(n - k) < .5); });
+  };
+  addEventListener('scroll', panF, { passive: true });
+  const trySix = () => {
+    if (stageF.classList.contains('try')) return;
     const t = reduced() ? 0 : 1;
-    fdScene.classList.add('try'); fd.setAttribute('aria-disabled', 'true');
-    setTimeout(() => fdScene.classList.add('lit'), 950 * t);
+    stageF.classList.add('try'); sixBtn.disabled = true; sixEl.setAttribute('aria-disabled', 'true'); panF();
+    setTimeout(() => stageF.classList.add('lit'), 950 * t);
     setTimeout(() => {
-      fd.blur();
-      fd.setAttribute('aria-label', 'The sixth door is marked Social media, and it doesn’t open. It isn’t a reporting channel.');
-      fdScene.classList.add('done');
-      $('.fd-hint').hidden = true; $('.fd-reveal').hidden = false;
-      // the explanation sits under the scene, often below the screen
-      const rv = $('.fd-reveal'); if (rv.getBoundingClientRect().bottom > innerHeight) rv.scrollIntoView({ behavior: smooth(), block: 'nearest' });
-      setTimeout(() => release($('#fakeDoor')), 1400 * t);
+      stageF.classList.add('done');
+      doorsF.forEach(d => d.classList.add('open', 'focus'));
+      sixEl.setAttribute('aria-label', 'The sixth door is marked Social media, and it doesn’t open. It isn’t a reporting channel.');
+      $('.six-do').hidden = true; $('.six-reveal').hidden = false;
+      layoutAll();
+      setTimeout(() => release($('#scF')), 1400 * t);
     }, 1700 * t);
   };
-  fd.addEventListener('click', tryDoor);
-  fd.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tryDoor(); } });
-  hold($('#fakeDoor'), 'Try the sixth door to continue the story.');
+  sixBtn.addEventListener('click', trySix);
+  sixEl.addEventListener('click', trySix);
+  sixEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trySix(); } });
+  hold($('#scF'), 'Try the sixth door to continue the story.', { station: false, barIn: $('.six-card') });
 
   hold($('#kpPanel'), 'Spell the number to continue the story.');
   new MutationObserver(() => { if (kpPos >= WORD.length) setTimeout(() => release($('#kpPanel')), reduced() ? 0 : 900); }).observe(kpOut, { childList: true });
@@ -339,13 +355,10 @@
     { s: 'The captains are planning a rookie initiation for next Friday.', em: false,
       why: 'No one is in danger yet. This is the time to report it, through whichever channel fits.' }];
   $$('.triage-host').forEach((host) => {
-    host.innerHTML = `<span class="eyebrow-sm" style="color:var(--red)">When someone is in danger</span>
-      <h3>When someone is in danger, 911 jumps the line.</h3>
-      <div class="fx-text"><p>The hotline, anonymous reporting, counseling, and the dean of students office are for non-emergency or after-the-fact reporting. Sort each situation: does it call for 911, or another channel?</p></div>
+    host.innerHTML = `
       <div class="tri">
         <div class="tri-left">
-          <div class="tri-dots" aria-hidden="true">${SIT.map(() => '<i></i>').join('')}</div>
-          <p class="tri-n"></p>
+          <div class="tri-meta k"><div class="tri-dots" aria-hidden="true">${SIT.map(() => '<i></i>').join('')}</div><p class="tri-n"></p></div>
           <p class="tri-q"></p>
           <div class="tri-choose" role="group" aria-label="Where does this go?">
             <button type="button" class="btn tri-b em" data-em="1"><i class="fa-solid fa-truck-medical" aria-hidden="true"></i>Call 911 now</button>
@@ -397,6 +410,7 @@
     next.addEventListener('click', () => {
       if (cur < SIT.length - 1) { show(cur + 1); return; }
       nav.hidden = true; dots.forEach(d => d.classList.remove('cur'));
+      host.dataset.done = '1';
       note.innerHTML = '<b>That’s the rule.</b> Signs of significant distress mean 911 first. Otherwise, any of the four other channels is the right place to report.';
       release(host);
     });
@@ -432,7 +446,7 @@
     sel = b.dataset.k; $$('.need', mt).forEach(x => x.setAttribute('aria-pressed', String(x === b)));
     mtFb.innerHTML = `Now choose where <b>${NEEDS.find(n => n.k === sel).who.replace(/^The /, 'the ')}</b> should go.`;
   }));
-  hold(mt.closest('.fx'), 'Match all three needs to continue the story.');
+  hold(mt.closest('.fig'), 'Match all three needs to continue the story.');
   $$('.dtok', mt).forEach(b => b.addEventListener('click', () => {
     if (!sel) { mtFb.textContent = 'Choose a person first.'; return; }
     const n = NEEDS.find(x => x.k === sel), ch = b.dataset.ch, ok = n.ok.includes(ch);
@@ -442,7 +456,7 @@
       const all = Object.keys(matched).length === NEEDS.length;
       mtFb.innerHTML = `<b class="ok">Good fit.</b> ${yes}${all ? ' All three needs have somewhere to go.' : ''}`;
       drawLines();
-      if (all) setTimeout(() => release(mt.closest('.fx')), reduced() ? 0 : 1600);
+      if (all) setTimeout(() => release(mt.closest('.fig')), reduced() ? 0 : 1600);
     } else mtFb.innerHTML = `<b class="no">Not the best fit.</b> ${n.no[ch]}`;
   }));
 
@@ -464,6 +478,61 @@
     `<div class="srow"><span>${r}</span><div class="sgrid">${DATES.map(([d, h]) => `<i><b>${d}</b>${h}</i>`).join('')}</div>${ri ? '<div class="sband">Suspended</div>' : ''}</div>`).join('');
   const seasCells = $$('#seas .srow:first-child i'), seasEl = $('#seas'), seasCap = $('#seasCap');
 
+  /* focus: when a stop is all but fully on screen with its middle near the middle of the screen, it pops
+     out of the article: the article falls back, the stop's band grows to fill the screen (CSS:
+     .fig.focus) and the keypad spreads across both rails. It lets go once less than half of it is on
+     screen, and pops out again every time the reader comes back to it, done or not. */
+  const focusables = [];
+  const focusable = (el) => { el.dataset.pop = '1'; focusables.push({ el, on: false }); };
+  const setPageW = () => document.documentElement.style.setProperty('--pagew', document.documentElement.clientWidth + 'px');
+  // the page eases so a popped-out band settles just under the bar. Any input from the reader (wheel,
+  // touch, keys) stops the easing at once, so it never fights their own scrolling
+  let aligning = 0;
+  const stopAlign = () => { aligning = 0; };
+  ['wheel', 'touchstart', 'keydown'].forEach(t => addEventListener(t, stopAlign, { passive: true }));
+  const alignTo = (el) => {
+    const tok = aligning = performance.now();
+    const step = (now) => {
+      if (aligning !== tok) return;
+      const gap = el.getBoundingClientRect().top - BAR;
+      // the band is still growing for the first .8s, which is when the page below it is short and a
+      // scroll would clamp; keep easing until it really is flush, or give up after 1.6s
+      if (Math.abs(gap) > .5) scrollBy(0, reduced() ? gap : gap * .2);
+      if (!reduced() && (Math.abs(gap) > .5 || now - tok < 850) && now - tok < 1600) requestAnimationFrame(step);
+      else { aligning = 0; layoutAll(); }
+    };
+    requestAnimationFrame(step);
+  };
+  const setFocus = (f, on) => {
+    if (on === f.on) return;
+    f.on = on;
+    if (on) { // how far the left rail reaches, so a stop can open out across it
+      const tx = $(':scope > .tx', f.el.parentElement);
+      f.el.style.setProperty('--railw', (tx ? tx.getBoundingClientRect().left - f.el.getBoundingClientRect().left : 0) + 'px');
+    }
+    f.el.classList.toggle('focus', on);
+    if (on) alignTo(f.el); else { aligning = 0; requestAnimationFrame(layoutAll); }
+  };
+  const focusCheck = () => {
+    if (aligning) return; // the page is moving itself; judge where things are once it settles
+    const room = innerHeight - BAR;
+    focusables.forEach((f) => {
+      if (f.el.offsetParent === null) { if (f.on) setFocus(f, false); return; }
+      const r = f.el.getBoundingClientRect();
+      const seen = Math.max(0, Math.min(r.bottom, innerHeight) - Math.max(r.top, BAR)) / Math.min(r.height, room);
+      const mid = ((r.top + r.bottom) / 2 - BAR) / room;
+      // at the very end of the page (the article stopped here) a stop can't reach the middle, so it pops out there
+      const atEnd = scrollY + innerHeight >= document.documentElement.scrollHeight - 2;
+      if (!f.on) { if (seen > .9 && ((mid > .44 && mid < .56) || atEnd) && !focusables.some(o => o.on)) setFocus(f, true); }
+      else if (seen < .5) setFocus(f, false);
+    });
+  };
+  focusable($('#kpPanel'));
+  $$('.triage-host').forEach(h => focusable(h));
+  setPageW();
+  addEventListener('resize', setPageW);
+  addEventListener('scroll', focusCheck, { passive: true });
+
   /* ======================================================================
      6 · THE THREE CHECKS. One renderer: 'check' (scored, locks, retry from the
      remedial), 'self' (low-stakes, reveals as you go), 'scale' (agreement 1–5).
@@ -474,7 +543,7 @@
     const render = () => {
       answers = cfg.items.map(() => null); cur = 0;
       host.classList.add('one'); host.classList.remove('all');
-      host.innerHTML = `<p class="pr-tag"><i></i>${cfg.tag}</p>${attempt > 1 ? '<span class="rev">Retry · attempt 2 of 2</span>' : ''}
+      host.innerHTML = `${attempt > 1 ? '<span class="rev">Retry · attempt 2 of 2</span>' : ''}
         <h2>${attempt > 1 ? cfg.retryTitle || cfg.title : cfg.title}</h2><p class="qz-sub">${cfg.sub}</p>
         ${cfg.items.map((it, qi) => `<div class="qz-q" data-q="${qi}"><p class="qz-n">${cfg.mode === 'scale' ? 'Statement' : 'Question'} ${qi + 1} of ${cfg.items.length}</p><p class="qz-stem">${it.stem}</p>
           ${cfg.mode === 'scale'
@@ -532,7 +601,7 @@
   const s1r = $('#s1r');
   let k1;
   if (K1 === 'full') k1 = quiz($('#qzK1'), {
-    mode: 'check', tag: 'Quick check', title: 'Where can it go?', retryTitle: 'Where can it go? One more try', sub: 'Two questions, one at a time.',
+    mode: 'check', title: 'Quick check: where to report hazing', retryTitle: 'Quick check: where to report hazing, once more', sub: 'Two questions, one at a time.',
     onFinish: () => release($('#k1')), onRetry: () => rehold($('#k1')),
     items: [
       { stem: 'What is the phone number for the National Anti-Hazing Hotline?', yes: '<span class="nw">1-888-NOT-HAZE</span> spells out <span class="nw">1-888-668-4293</span>.',
@@ -559,7 +628,7 @@
   const FEL = 'In states that distinguish the two, hazing becomes a felony when there is significant injury or death.';
   const INST = 'Colleges can forfeit games, suspend the organization for years, or eliminate it entirely.';
   quiz($('#qzK2'), {
-    mode: 'self', tag: 'Check yourself', title: 'What’s at stake?', sub: 'Four questions, one at a time, for your own benefit.',
+    mode: 'self', title: 'Check yourself: the consequences of hazing', sub: 'Four questions, one at a time, for your own benefit.',
     onFinish: () => release($('#k2')),
     items: [
       { stem: 'A student planned a fraternity hazing event but was not present when a pledge was seriously injured. Can the student face criminal charges?', yes: PLAN, no: PLAN,
@@ -575,7 +644,7 @@
   /* 5.3 · attitude check: agreement 1–5, healthy = agree. One round of remediation, never a gate. */
   let f1Rem = F1 === 'low';   // on a low pre-check 03R has already played, so there's no second round
   const f1 = quiz($('#qzF1'), {
-    mode: 'scale', tag: 'Where you stand', title: 'Two statements', retryTitle: 'Two statements, once more', sub: 'How much do you agree with each? There are no right or wrong scores here.',
+    mode: 'scale', title: 'Where you stand on reporting hazing', retryTitle: 'Where you stand on reporting hazing, once more', sub: 'How much do you agree with each? There are no right or wrong scores here.',
     onFinish: () => release($('#f1')), onRetry: () => rehold($('#f1')),
     items: [
       { stem: '“Reporting hazing through available channels — including anonymously — is the responsible thing to do, not a betrayal of my peers.”' },
@@ -671,13 +740,16 @@
   paintGate(); showDec(0);
 
   /* ======================================================================
-     8 · SCROLL-DRIVEN PANELS: seams drift and fade; the tracks draw; the season
+     8 · SCROLL-DRIVEN FIGURES: seams drift and fade; the tracks draw; the season
      gets forfeited, suspended and finally eliminated
      ====================================================================== */
   const tkPaths = $$('#tracksFig .tk'), tkLbls = $$('#tracksFig .tl');
-  const paintRuns = () => $$('.seam, .pin-run').forEach(s => {
+  // seams run on their own tall scroll; the tracks and seasons are ordinary figures in the article that
+  // play out as they rise from the bottom of the screen (top at 85%) to near the top (top at 10%)
+  const paintRuns = () => $$('.seam, #tracksRun, #seasonRun').forEach(s => {
     if (s.offsetParent === null) return;
-    const r = s.getBoundingClientRect(), run = r.height - innerHeight, p = run > 0 ? clamp(-r.top / run) : .5;
+    const r = s.getBoundingClientRect(), run = r.height - innerHeight;
+    const p = s.classList.contains('fig') ? clamp((innerHeight * .85 - r.top) / (innerHeight * .75)) : run > 0 ? clamp(-r.top / run) : .5;
     s.style.setProperty('--sp', p.toFixed(3));
     if (s.id === 'tracksRun') {
       tkPaths.forEach((t, k) => { t.style.strokeDashoffset = (k === 0 ? 1 - clamp((p - .04) / .16) : 1 - clamp((p - .2 - (k - 1) * .05) / .2)).toFixed(3); });
@@ -692,7 +764,7 @@
   });
   addEventListener('scroll', paintRuns, { passive: true });
 
-  function layoutAll() { centreCards(); pinLayout(); paintRuns(); drawLines(); dockHold(); }
+  function layoutAll() { centreCards(); pinLayout(); paintRuns(); drawLines(); dockHold(); panF(); }
   addEventListener('resize', layoutAll);
   if (document.fonts) document.fonts.ready.then(layoutAll);
   $('#startBtn').addEventListener('click', (e) => { const first = $$('#s1, #s1b, #s3').find(el => el.offsetParent !== null); if (first) { e.preventDefault(); first.scrollIntoView({ behavior: smooth(), block: 'start' }); } });

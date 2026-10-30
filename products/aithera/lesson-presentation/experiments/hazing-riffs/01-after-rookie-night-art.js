@@ -141,12 +141,31 @@
       ${d.k === 'em' ? `<circle class="beacon" cx="${d.x}" cy="98" r="7" fill="#ff5d6c"/>` : ''}
     </g>`;
   };
-  const corridor = () => `<g class="cam">
+  /* the sixth door (the encore after the corridor): the same hall, one door further on. Its sign is dark
+     and it stays shut. Tried, it rattles, its sign flickers on (social media) and caution tape snaps
+     across it. The whole door is the button; the card beside it has one too. */
+  const SIX = 1800;
+  const sixthDoor = () => {
+    const x = SIX, L = x - 63;
+    return `<g class="six" role="button" tabindex="0" aria-label="Try the sixth door. Its sign is dark.">
+      <rect class="six-focus" x="${x - 86}" y="102" width="172" height="312" rx="12" fill="none" stroke="#2ee6cf" stroke-width="3"/>
+      <g class="six-sign"><rect x="${x - 100}" y="112" width="200" height="44" rx="9" fill="#0b1124" stroke="#56689a" stroke-opacity=".7" stroke-width="2"/>
+        <rect class="six-lit" x="${x - 100}" y="112" width="200" height="44" rx="9" fill="#ff8fd1" fill-opacity=".16" stroke="#ff8fd1" stroke-width="2.5"/>
+        <g class="six-words">${T(x, 131, 'SOCIAL MEDIA', { size: 13, w: 800, fill: '#ff8fd1', ls: 1.4 })}${T(x, 148, 'Post it for everyone', { size: 11, w: 600, fill: '#cfd8ea' })}</g></g>
+      <g class="six-body"><rect x="${x - 73}" y="162" width="146" height="240" rx="4" fill="#4a5a86"/><rect x="${L}" y="172" width="126" height="228" fill="#0b1124"/>
+        <g class="six-leaf"><rect x="${L}" y="172" width="126" height="228" rx="2" fill="#3b4b78"/><rect x="${x - 50}" y="186" width="100" height="86" rx="3" fill="none" stroke="#56689a" stroke-width="3"/><rect x="${x - 50}" y="284" width="100" height="100" rx="3" fill="none" stroke="#56689a" stroke-width="3"/>
+          <g class="six-knob"><circle cx="${x + 48}" cy="292" r="5.5" fill="#cfd8ea"/><circle cx="${x + 46.5}" cy="290.5" r="1.8" fill="#fff"/></g></g></g>
+      <defs><pattern id="sixTape" width="22" height="22" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="22" height="22" fill="#ffd23f"/><rect width="11" height="22" fill="#1b1b22"/></pattern></defs>
+      <g transform="translate(${x} 290)"><g transform="rotate(-27)"><rect class="t1" x="-122" y="-12" width="244" height="24" fill="url(#sixTape)"/></g>
+        <g transform="rotate(24)"><g class="t2"><rect x="-128" y="-14" width="256" height="28" fill="#ffd23f"/>${T(0, 5, 'NOT A REPORTING CHANNEL', { size: 12, w: 800, fill: '#1b1b22', ls: 1.4 })}</g></g></g>
+    </g>`;
+  };
+  const corridor = (six = false) => `<g class="cam">
       <rect x="-3000" y="-1400" width="7600" height="1802" fill="url(#hzWall)"/>
       <path d="${Array.from({ length: 62 }, (_, i) => `M${-2920 + i * 120} -1400V384`).join('')}" stroke="#fff" stroke-opacity=".03" stroke-width="2"/>
-      ${[360, 680, 1000, 1320].map(x => `<rect x="${x - 24}" y="30" width="48" height="10" rx="5" fill="#cfe0ff" opacity=".35"/><polygon points="${x - 22},40 ${x + 22},40 ${x + 70},400 ${x - 70},400" fill="#cfe0ff" opacity=".035"/>`).join('')}
+      ${[360, 680, 1000, 1320].concat(six ? [1640] : []).map(x => `<rect x="${x - 24}" y="30" width="48" height="10" rx="5" fill="#cfe0ff" opacity=".35"/><polygon points="${x - 22},40 ${x + 22},40 ${x + 70},400 ${x - 70},400" fill="#cfe0ff" opacity=".035"/>`).join('')}
       <rect x="-3000" y="384" width="7600" height="16" fill="#151d36"/><rect x="-3000" y="400" width="7600" height="700" fill="url(#hzFloor)"/>
-      ${DOORS.map(door).join('')}
+      ${DOORS.map(door).join('')}${six ? sixthDoor() : ''}
     </g>`;
 
   /* ---- the hotline route: your message → the hotline (law-firm monitor) → the right organization,
@@ -219,5 +238,5 @@
       <g transform="translate(560 100)"><rect x="-26" y="-50" width="52" height="96" rx="9" fill="#0d1428" stroke="#ff5d6c" stroke-width="2"/>${T(0, 0, '911', { size: 20, w: 800, fill: '#fff' })}${FA('f095', 0, 26, 14, '#2ee6cf')}</g></svg>`;
   };
 
-  window.HZART = { defsHTML, person, dorm, pool, corridor, DOORS, route, timeline, tracks, decVis, FA, T };
+  window.HZART = { defsHTML, person, dorm, pool, corridor, DOORS, SIX, route, timeline, tracks, decVis, FA, T };
 })();
