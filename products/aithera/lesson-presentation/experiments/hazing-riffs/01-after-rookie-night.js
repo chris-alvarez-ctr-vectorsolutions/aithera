@@ -336,7 +336,8 @@
   sixBtn.addEventListener('click', trySix);
   sixEl.addEventListener('click', trySix);
   sixEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trySix(); } });
-  hold($('#scF'), 'Try the sixth door to continue the story.', { station: false, barIn: $('.six-card') });
+  // the hold line sits up in the scene's corner, not in the card, so the card keeps its height when it goes
+  hold($('#scF'), 'Try the sixth door to continue the story.', { station: false, barIn: $('#scF .stage') });
 
   hold($('#kpPanel'), 'Spell the number to continue the story.');
   new MutationObserver(() => { if (kpPos >= WORD.length) setTimeout(() => release($('#kpPanel')), reduced() ? 0 : 900); }).observe(kpOut, { childList: true });
