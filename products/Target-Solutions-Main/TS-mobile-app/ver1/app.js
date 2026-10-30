@@ -276,6 +276,17 @@
     // confirmation: "Self Assign" after a self-assign, "Record Completions" after a group).
     var screenEl = $('#screen-' + id);
     var title = (screenEl && screenEl.dataset.title) || meta.title || '';
+    // The landing screen is the one screen that carries the department name.
+    // Home and Record draw the brand bar for it; when Scan is the landing
+    // screen (no Home, no Record) it gets the very same block (see
+    // .scanner__brand in index.html) and the pinned app bar is dropped, so the
+    // header matches Home exactly. Users who have Home or Record see the
+    // plain "Scan" app bar, as before.
+    if (id === 'scan' && landing() === 'scan') {
+      $('#screen-scan .scanner__brand .home-brand__dept').textContent = USER.department;
+      header.innerHTML = '';
+      return;
+    }
     // `back` navigates to a screen; `backFn` lets a screen own its back
     // behavior (the File Center returns to whichever screen opened it).
     var backAttr = meta.backFn ? 'data-back-fn="' + id + '"' : meta.back ? 'data-goto="' + meta.back + '"' : '';
@@ -399,7 +410,9 @@
     // except when there is no Home tab: Record is then the landing screen and
     // the only way to the other tabs, so the bar stays.
     app.classList.toggle('app--task', !!SCREENS[id].task && hasHome());
-    header.classList.toggle('is-none', !!SCREENS[id].noHeader);
+    var scanLanding = id === 'scan' && landing() === 'scan';
+    header.classList.toggle('is-none', !!SCREENS[id].noHeader || scanLanding);
+    $('#screen-scan').classList.toggle('scanner--landing', scanLanding);
     renderHeader(id);
 
     var active = $('#screen-' + id);
