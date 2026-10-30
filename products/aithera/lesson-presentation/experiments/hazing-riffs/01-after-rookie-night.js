@@ -529,6 +529,7 @@
   };
   focusable($('#kpPanel'));
   $$('.triage-host').forEach(h => focusable(h));
+  $$('.qz-host').forEach(h => focusable(h));
   setPageW();
   addEventListener('resize', setPageW);
   addEventListener('scroll', focusCheck, { passive: true });
@@ -539,19 +540,23 @@
      ====================================================================== */
   const LET = ['A', 'B', 'C', 'D'];
   function quiz(host, cfg) {
-    let attempt = 1, answers = [], cur = 0;
+    let attempt = 1, answers = [], picks = [], cur = 0;
+    const SCALE = ['Strongly disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly agree'];
     const render = () => {
-      answers = cfg.items.map(() => null); cur = 0;
+      answers = cfg.items.map(() => null); picks = cfg.items.map(() => null); cur = 0;
       host.classList.add('one'); host.classList.remove('all');
       host.innerHTML = `${attempt > 1 ? '<span class="rev">Retry · attempt 2 of 2</span>' : ''}
-        <h2>${attempt > 1 ? cfg.retryTitle || cfg.title : cfg.title}</h2><p class="qz-sub">${cfg.sub}</p>
+        <div class="qz-dots" aria-hidden="true">${cfg.items.map(() => '<i></i>').join('')}</div>
+        <h2>${attempt > 1 ? cfg.retryTitle || cfg.title : cfg.title}<span class="qz-at"></span></h2><p class="qz-sub">${cfg.sub}</p>
         ${cfg.items.map((it, qi) => `<div class="qz-q" data-q="${qi}"><p class="qz-n">${cfg.mode === 'scale' ? 'Statement' : 'Question'} ${qi + 1} of ${cfg.items.length}</p><p class="qz-stem">${it.stem}</p>
           ${cfg.mode === 'scale'
             ? `<div class="scale" role="radiogroup" aria-label="Statement ${qi + 1}">${['Strongly disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly agree'].map((l, v) => `<button type="button" role="radio" aria-checked="false" data-v="${v + 1}"><b>${v + 1}</b><span>${l}</span></button>`).join('')}</div>`
             : `<div class="opts" role="radiogroup" aria-label="Question ${qi + 1}">${it.opts.map((o, oi) => `<button type="button" class="opt ${o[1] ? 'ok' : 'no'}" role="radio" aria-checked="false" data-i="${oi}"><i>${LET[oi]}</i><span>${o[0]}</span></button>`).join('')}</div><div class="fb" hidden></div>`}
           <div class="qz-nav" hidden><button class="btn pri sm qz-next" type="button">${qi < cfg.items.length - 1 ? `Next ${cfg.mode === 'scale' ? 'statement' : 'question'}` : 'Finish'} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button></div>
         </div>`).join('')}
+        <div class="qz-res" hidden></div>
         <div class="qz-foot" hidden aria-live="polite"></div>`;
+      paintAt();
       $$('.qz-q', host).forEach(q => {
         const qi = +q.dataset.q, it = cfg.items[qi];
         q.classList.toggle('cur', qi === 0);
@@ -564,7 +569,7 @@
           return;
         }
         $$('.opt', q).forEach(b => b.addEventListener('click', () => {
-          const oi = +b.dataset.i, o = it.opts[oi];
+          const oi = +b.dataset.i, o = it.opts[oi]; picks[qi] = oi;
           $$('.opt', q).forEach(x => x.setAttribute('aria-checked', String(x === b)));
           if (cfg.mode === 'check') $$('.opt', q).forEach(x => { x.disabled = true; });   // scored: the first answer counts
           q.classList.add('done'); if (cfg.mode === 'self' || o[1]) q.classList.add('reveal');
@@ -574,18 +579,34 @@
         }));
       });
     };
+    // the dots and the "· 1 of 2" after the title follow the question on screen
+    const paintAt = () => {
+      $$('.qz-dots i', host).forEach((d, n) => { d.classList.toggle('cur', n === cur); d.classList.toggle('done', answers[n] !== null && n !== cur); });
+      const at = $('.qz-at', host); if (at) at.textContent = ` · ${cur + 1} of ${cfg.items.length}`;
+    };
     // Next shows the following question; Finish lays every answer out for review and reports
     const next = (qi) => {
       if (answers[qi] === null) return;
       const qs = $$('.qz-q', host);
       if (qi < qs.length - 1) {
-        cur = qi + 1; qs.forEach((q, n) => q.classList.toggle('cur', n === cur));
+        cur = qi + 1; qs.forEach((q, n) => q.classList.toggle('cur', n === cur)); paintAt();
         if (host.getBoundingClientRect().top < 0) host.scrollIntoView({ behavior: smooth(), block: 'start' });
         const first = $('.opt, .scale button', qs[cur]); if (first) first.focus({ preventScroll: true });
         requestAnimationFrame(layoutAll);
         return;
       }
+      // Finish: the questions step aside and only the result shows: the score, then one line per
+      // question (what you answered, and the right answer where it wasn't)
       host.classList.remove('one'); host.classList.add('all');
+      const at = $('.qz-at', host); if (at) at.textContent = '';
+      const res = $('.qz-res', host), plain = (h) => h.replace(/<[^>]+>/g, '');
+      const lines = cfg.items.map((it, n) => {
+        if (cfg.mode === 'scale') return `<li><span class="mk sc">${answers[n]}</span><div><b>${it.stem}</b><span>You answered ${SCALE[answers[n] - 1].toLowerCase()}.</span></div></li>`;
+        const ok = answers[n], mine = it.opts[picks[n]][0], right = it.opts.find(o => o[1])[0];
+        return `<li class="${ok ? 'ok' : 'no'}"><i class="mk fa-solid ${ok ? 'fa-check' : 'fa-xmark'}" aria-label="${ok ? 'Correct' : 'Incorrect'}"></i><div><b>${it.stem}</b><span>${ok ? `You answered ${plain(mine)}.` : `You answered ${plain(mine)}. The answer is ${plain(right)}.`}</span></div></li>`;
+      }).join('');
+      const score = cfg.mode === 'scale' ? '' : `<p class="qz-score"><b>${answers.filter(Boolean).length}</b> of ${answers.length} correct</p>`;
+      res.innerHTML = `${score}<ul class="qz-sum">${lines}</ul>`; res.hidden = false;
       $$('.qz-nav', host).forEach(n => { n.hidden = true; });
       if (cfg.mode === 'scale') $$('.scale button', host).forEach(b => { b.disabled = true; });
       const foot = $('.qz-foot', host); foot.hidden = false;
@@ -610,16 +631,16 @@
         opts: [['Posting about it on social media', true], ['National Anti-Hazing Hotline at <span class="nw">1-888-NOT-HAZE</span>', false], ['Institution’s anonymous online reporting system', false], ['Dean of students office', false]] }],
     done({ answers, attempt, foot, reveal }) {
       const right = answers.filter(Boolean).length;
-      if (right === answers.length) { foot.className = 'qz-foot'; foot.innerHTML = `<p>${attempt > 1 ? 'Both correct this time.' : 'Both correct.'}</p>`; return; }
+      if (right === answers.length) { foot.className = 'qz-foot'; foot.innerHTML = ''; return; }
       if (attempt === 1) {
         foot.className = 'qz-foot miss';
-        foot.innerHTML = `<p>${right} of ${answers.length} correct. Here’s one more look at where hazing can be reported, then you can try again.</p><button class="btn pri sm" type="button">Go over it <i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button>`;
+        foot.innerHTML = `<p>Here’s one more look at where hazing can be reported, then you can try the check again.</p><button class="btn pri sm" type="button">Go over it <i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button>`;
         s1r.hidden = false; watchRv(); requestAnimationFrame(layoutAll);
         hold($('#retryK1').closest('section'), 'Try the check again to continue the story.', { skip: false });
         $('button', foot).addEventListener('click', () => s1r.scrollIntoView({ behavior: smooth(), block: 'start' }));
         return;
       }
-      reveal(); foot.className = 'qz-foot miss'; foot.innerHTML = `<p>${right} of ${answers.length} correct. The right answers are marked above.</p>`;
+      reveal(); foot.className = 'qz-foot miss'; foot.innerHTML = '';
     } });
   $('#retryK1').addEventListener('click', () => { if (!k1) return; $('#retryK1').parentElement.hidden = true; release($('#retryK1').closest('section')); k1.retry(); $('#k1').scrollIntoView({ behavior: smooth(), block: 'start' }); });
 
@@ -639,7 +660,7 @@
         opts: [['Only a written warning to the group’s advisor', false], ['Forfeiting games, suspending the organization for years, or eliminating the organization entirely', true], ['Institutional consequences are limited to academic probation for members.', false], ['Only mandatory hazing-prevention training for all members', false]] },
       { stem: 'Depending on the state’s laws, it is possible to be charged with hazing even if you are not actively involved in the act.', yes: PLAN, no: PLAN,
         opts: [['True', true], ['False', false]] }],
-    done({ answers, foot }) { foot.className = 'qz-foot'; foot.innerHTML = `<p>${answers.filter(Boolean).length} of ${answers.length} correct.</p>`; } });
+    done({ foot }) { foot.className = 'qz-foot'; foot.innerHTML = ''; } });
 
   /* 5.3 · attitude check: agreement 1–5, healthy = agree. One round of remediation, never a gate. */
   let f1Rem = F1 === 'low';   // on a low pre-check 03R has already played, so there's no second round
