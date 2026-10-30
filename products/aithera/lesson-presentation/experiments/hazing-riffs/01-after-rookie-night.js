@@ -167,11 +167,17 @@
     steps.forEach(s => io.observe(s));
   });
 
-  /* wide layout: centre each pinned card on the scene's horizontal midline */
+  /* wide layout: centre each pinned card on the scene's horizontal midline. Narrow layout: cards sit under
+     the scene (CSS), except one too tall to fit there, which rises just enough to clear the screen's bottom */
   const centreCards = () => {
     const narrow = matchMedia('(max-width:1100px)').matches;
     $$('.step .card:not(.quote-card)').forEach(c => {
-      if (narrow) { c.style.top = ''; c.style.removeProperty('--lt'); return; }
+      if (narrow) {
+        c.style.removeProperty('--lt');
+        const fit = innerHeight - 16 - c.offsetHeight;
+        c.style.top = !c.classList.contains('lead-card') && BAR + innerHeight * .62 - 12 > fit ? Math.max(BAR + 12, fit) + 'px' : '';
+        return;
+      }
       const top = Math.max(BAR + 12, BAR + (innerHeight - BAR - c.offsetHeight) / 2);
       if (c.classList.contains('lead-card')) c.style.setProperty('--lt', top + 'px'); else c.style.top = top + 'px';
     });
