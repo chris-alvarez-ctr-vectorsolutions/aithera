@@ -366,9 +366,12 @@
     const card = (k, sub) => `<span class="tcard" data-ch="${k}"><span class="ic"><i class="fa-solid ${CH[k].ic}"></i></span><span class="tc-t"><b>${k === 'em' ? '911 or campus emergency services' : CH[k].name}</b><span>${sub || CH[k].sub}</span></span></span>`;
     host.innerHTML = `
       <div class="tri">
-        <div class="tri-left">
+        <header class="tri-head">
+          <p class="k">Activity · ${SIT.length} situations</p>
           <h3 class="tri-title">911, or another channel?</h3>
-          <p class="tri-how">Read each situation, then choose where it goes.</p>
+          <p class="tri-how">For each situation, choose where the report goes: 911, or any of the other four channels.</p>
+        </header>
+        <div class="tri-left">
           <div class="tri-meta k"><div class="tri-dots" aria-hidden="true">${SIT.map(() => '<i></i>').join('')}</div><p class="tri-n"></p></div>
           <p class="tri-q"></p>
           <p class="tri-note" aria-live="polite"></p>
