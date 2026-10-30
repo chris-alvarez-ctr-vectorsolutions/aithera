@@ -349,9 +349,10 @@
   new MutationObserver(() => { if (kpPos >= WORD.length) setTimeout(() => release($('#kpPanel')), reduced() ? 0 : 900); }).observe(kpOut, { childList: true });
   kpPaint();
 
-  /* triage: "emergency or not?" Four situations, one at a time. Each answer re-sorts the channel stack to
-     the right path: an emergency sends 911 to the front and the rest behind it; no danger leaves 911
-     aside and lights the other four as equal choices. The signs of distress are the extract's. */
+  /* triage: "emergency or not?" Four situations, one at a time. The channel list is the choice: it comes in
+     two groups, "someone is in danger" (911) and "no one is in danger" (the other four), and the reader
+     answers by choosing a group, so what they pick and where the report goes are the same thing. The
+     signs of distress are the extract's. */
   const SIT = [
     { s: 'After a drinking game, a pledge is slumped on the couch and won’t wake up.', em: true,
       why: 'Unconsciousness is a sign of significant distress. Call 911 or campus emergency services immediately.' },
@@ -362,60 +363,55 @@
     { s: 'The captains are planning a rookie initiation for next Friday.', em: false,
       why: 'No one is in danger yet. This is the time to report it, through whichever channel fits.' }];
   $$('.triage-host').forEach((host) => {
+    const card = (k, sub) => `<span class="tcard" data-ch="${k}"><span class="ic"><i class="fa-solid ${CH[k].ic}"></i></span><span class="tc-t"><b>${k === 'em' ? '911 or campus emergency services' : CH[k].name}</b><span>${sub || CH[k].sub}</span></span></span>`;
     host.innerHTML = `
       <div class="tri">
         <div class="tri-left">
+          <h3 class="tri-title">911, or another channel?</h3>
+          <p class="tri-how">Read each situation, then choose where it goes.</p>
           <div class="tri-meta k"><div class="tri-dots" aria-hidden="true">${SIT.map(() => '<i></i>').join('')}</div><p class="tri-n"></p></div>
           <p class="tri-q"></p>
-          <div class="tri-choose" role="group" aria-label="Where does this go?">
-            <button type="button" class="btn tri-b em" data-em="1"><i class="fa-solid fa-truck-medical" aria-hidden="true"></i>Call 911 now</button>
-            <button type="button" class="btn tri-b" data-em="0"><i class="fa-solid fa-signs-post" aria-hidden="true"></i>Use another channel</button>
-          </div>
           <p class="tri-note" aria-live="polite"></p>
           <div class="tri-nav" hidden><button type="button" class="btn pri sm tri-next"></button></div>
         </div>
-        <div class="tri-stack" data-em="">
-          <div class="tcard em" data-ch="em"><span class="ic"><i class="fa-solid ${CH.em.ic}"></i></span><div><b>911 or campus emergency services</b><span class="emsub"></span></div></div>
-          <p class="tri-later">After the immediate danger is addressed</p>
-          <p class="tri-any">No one in danger: choose whichever fits</p>
-          ${['hot', 'web', 'care', 'dean'].map(k => `<div class="tcard" data-ch="${k}"><span class="ic"><i class="fa-solid ${CH[k].ic}"></i></span><div><b>${CH[k].name}</b><span>${CH[k].sub}</span></div></div>`).join('')}
+        <div class="tri-stack" role="group" aria-label="Where does it go?">
+          <button type="button" class="tri-opt" data-em="1" aria-label="Someone is in danger: call 911 or campus emergency services">
+            <span class="tri-opt-h"><span class="dot" aria-hidden="true"></span><b>Someone is in danger</b><small>Call 911 now</small></span>
+            ${card('em', 'Comes first if anyone shows signs of significant distress')}
+          </button>
+          <button type="button" class="tri-opt" data-em="0" aria-label="No one is in danger: use the hotline, anonymous online reporting, counseling, or the dean of students office">
+            <span class="tri-opt-h"><span class="dot" aria-hidden="true"></span><b>No one is in danger</b><small>Any of these four</small></span>
+            ${['hot', 'web', 'care', 'dean'].map(k => card(k)).join('')}
+          </button>
         </div>
       </div>`;
-    const stack = $('.tri-stack', host), note = $('.tri-note', host), emsub = $('.emsub', host);
-    const kids = [...stack.children], btns = $$('.tri-b', host), nav = $('.tri-nav', host), next = $('.tri-next', host);
+    const note = $('.tri-note', host), opts = $$('.tri-opt', host), nav = $('.tri-nav', host), next = $('.tri-next', host);
     const dots = $$('.tri-dots i', host);
-    // em: '' (nothing sorted yet), '1' (emergency) or '0' (no danger). Cards move with a FLIP so the re-sort reads
-    const paint = (em, animate) => {
-      const before = animate && !reduced() ? kids.map(k => k.getBoundingClientRect().top) : null;
-      stack.dataset.em = em;
-      kids.forEach((k, n) => {
-        const isEm = k.classList.contains('em'), later = k.classList.contains('tri-later'), any = k.classList.contains('tri-any');
-        k.style.order = em === '1' ? (any ? 20 : n) : (isEm ? 9 : later ? 10 : any ? 1 : n + 1);
-      });
-      emsub.textContent = em === '1' ? 'Call immediately' : em === '0' ? 'Not needed right now' : 'Comes first if anyone shows signs of significant distress';
-      if (before) kids.forEach((k, n) => { const dy = before[n] - k.getBoundingClientRect().top; if (Math.abs(dy) > 1) k.animate([{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0)' }], { duration: 650, easing: 'cubic-bezier(.2,.7,.2,1)' }); });
-    };
     let cur = 0;
     const show = (k) => {
       cur = k; const it = SIT[k];
       $('.tri-n', host).textContent = `Situation ${k + 1} of ${SIT.length}`;
       $('.tri-q', host).textContent = it.s;
-      btns.forEach(b => { b.disabled = false; b.classList.remove('picked', 'ok', 'no'); });
+      opts.forEach(o => { o.disabled = false; o.classList.remove('picked', 'ok', 'no', 'dim'); });
       dots.forEach((d, n) => d.classList.toggle('cur', n === k));
-      note.innerHTML = ''; nav.hidden = true; paint('', true);
+      note.innerHTML = ''; nav.hidden = true;
       const q = $('.tri-q', host); q.classList.remove('tri-in'); void q.offsetWidth; q.classList.add('tri-in');
     };
-    btns.forEach(b => b.addEventListener('click', () => {
-      const it = SIT[cur], saidEm = b.dataset.em === '1', right = saidEm === it.em;
-      btns.forEach(x => { x.disabled = true; }); b.classList.add('picked', right ? 'ok' : 'no');
+    opts.forEach(o => o.addEventListener('click', () => {
+      const it = SIT[cur], saidEm = o.dataset.em === '1', right = saidEm === it.em;
+      // the right group lights teal; a wrong pick is marked amber; whatever isn't the answer falls back
+      opts.forEach(x => { x.disabled = true; const isAns = (x.dataset.em === '1') === it.em; x.classList.toggle('ok', isAns); x.classList.toggle('dim', !isAns && x !== o); });
+      o.classList.add('picked'); if (!right) o.classList.add('no');
       dots[cur].classList.add(right ? 'ok' : 'no');
-      paint(it.em ? '1' : '0', true);
       note.innerHTML = `<b class="${right ? 'ok' : 'no'}">${right ? 'Right.' : (it.em ? 'This one is an emergency.' : 'This one isn’t an emergency.')}</b> ${it.why}`;
       next.innerHTML = cur < SIT.length - 1 ? 'Next situation <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>' : 'Done <i class="fa-solid fa-check" aria-hidden="true"></i>';
       nav.hidden = false;
+      next.focus({ preventScroll: true });
+      // stacked on a phone the feedback sits under the choices; bring it up if the tap left it off screen
+      if (nav.getBoundingClientRect().bottom > innerHeight) nav.scrollIntoView({ behavior: smooth(), block: 'nearest' });
     }));
     next.addEventListener('click', () => {
-      if (cur < SIT.length - 1) { show(cur + 1); return; }
+      if (cur < SIT.length - 1) { show(cur + 1); opts[0].focus({ preventScroll: true }); return; }
       nav.hidden = true; dots.forEach(d => d.classList.remove('cur'));
       host.dataset.done = '1';
       note.innerHTML = '<b>That’s the rule.</b> Signs of significant distress mean 911 first. Otherwise, any of the four other channels is the right place to report.';
@@ -520,7 +516,10 @@
       f.el.style.setProperty('--railw', (tx ? tx.getBoundingClientRect().left - f.el.getBoundingClientRect().left : 0) + 'px');
     }
     f.el.classList.toggle('focus', on);
-    if (on) alignTo(f.el); else { aligning = 0; requestAnimationFrame(layoutAll); }
+    // a stop taller than the screen isn't lined up under the bar: its bottom would be off screen anyway,
+    // and the easing would fight the reader's own scrolling through it
+    if (on && f.el.offsetHeight <= innerHeight - BAR + 2) alignTo(f.el);
+    else if (!on) { aligning = 0; requestAnimationFrame(layoutAll); }
   };
   let idle = 0;
   const focusCheck = (settled) => {
