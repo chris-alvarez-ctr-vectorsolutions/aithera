@@ -478,27 +478,28 @@
     `<div class="srow"><span>${r}</span><div class="sgrid">${DATES.map(([d, h]) => `<i><b>${d}</b>${h}</i>`).join('')}</div>${ri ? '<div class="sband">Suspended</div>' : ''}</div>`).join('');
   const seasCells = $$('#seas .srow:first-child i'), seasEl = $('#seas'), seasCap = $('#seasCap');
 
-  /* focus: when a stop is all but fully on screen with its middle near the middle of the screen, it pops
-     out of the article: the article falls back, the stop's band grows to fill the screen (CSS:
-     .fig.focus) and the keypad spreads across both rails. It lets go once less than half of it is on
-     screen, and pops out again every time the reader comes back to it, done or not. */
+  /* focus: when the reader stops scrolling with a stop all but fully on screen and its middle near the
+     middle of the screen, it pops out of the article: the article falls back and the keypad spreads
+     across both rails. A stop already fills the screen (CSS: [data-pop]), so popping out moves nothing
+     around it. It lets go once less than half of it is on screen. It pops out on the first arrival, and
+     again on a return only while the article is still stopped there. */
   const focusables = [];
-  const focusable = (el) => { el.dataset.pop = '1'; focusables.push({ el, on: false }); };
+  const focusable = (el) => { el.dataset.pop = '1'; focusables.push({ el, on: false, seen: false }); };
   const setPageW = () => document.documentElement.style.setProperty('--pagew', document.documentElement.clientWidth + 'px');
-  // the page eases so a popped-out band settles just under the bar. Any input from the reader (wheel,
-  // touch, keys) stops the easing at once, so it never fights their own scrolling
+  // the page eases a popped-out stop the last few pixels to sit just under the bar. Any input from the
+  // reader (wheel, touch, keys, a grab of the scrollbar) stops the easing at once, so it never fights them
   let aligning = 0;
   const stopAlign = () => { aligning = 0; };
-  ['wheel', 'touchstart', 'keydown'].forEach(t => addEventListener(t, stopAlign, { passive: true }));
+  ['wheel', 'touchstart', 'keydown', 'pointerdown'].forEach(t => addEventListener(t, stopAlign, { passive: true }));
   const alignTo = (el) => {
     const tok = aligning = performance.now();
     const step = (now) => {
       if (aligning !== tok) return;
       const gap = el.getBoundingClientRect().top - BAR;
-      // the band is still growing for the first .8s, which is when the page below it is short and a
-      // scroll would clamp; keep easing until it really is flush, or give up after 1.6s
-      if (Math.abs(gap) > .5) scrollBy(0, reduced() ? gap : gap * .2);
-      if (!reduced() && (Math.abs(gap) > .5 || now - tok < 850) && now - tok < 1600) requestAnimationFrame(step);
+      // each frame jumps (not smooth-scrolls: the page's scroll-behavior would restart a smooth scroll
+      // every frame and stall it) a fifth of the way, which reads as one ease-out
+      if (Math.abs(gap) > .5) scrollTo({ top: scrollY + (reduced() || Math.abs(gap) < 2 ? gap : gap * .2), behavior: 'instant' });
+      if (!reduced() && Math.abs(gap) > .5 && now - tok < 1200) requestAnimationFrame(step);
       else { aligning = 0; layoutAll(); }
     };
     requestAnimationFrame(step);
@@ -507,13 +508,15 @@
     if (on === f.on) return;
     f.on = on;
     if (on) { // how far the left rail reaches, so a stop can open out across it
+      f.seen = true;
       const tx = $(':scope > .tx', f.el.parentElement);
       f.el.style.setProperty('--railw', (tx ? tx.getBoundingClientRect().left - f.el.getBoundingClientRect().left : 0) + 'px');
     }
     f.el.classList.toggle('focus', on);
     if (on) alignTo(f.el); else { aligning = 0; requestAnimationFrame(layoutAll); }
   };
-  const focusCheck = () => {
+  let idle = 0;
+  const focusCheck = (settled) => {
     if (aligning) return; // the page is moving itself; judge where things are once it settles
     const room = innerHeight - BAR;
     focusables.forEach((f) => {
@@ -523,16 +526,19 @@
       const mid = ((r.top + r.bottom) / 2 - BAR) / room;
       // at the very end of the page (the article stopped here) a stop can't reach the middle, so it pops out there
       const atEnd = scrollY + innerHeight >= document.documentElement.scrollHeight - 2;
-      if (!f.on) { if (seen > .9 && ((mid > .44 && mid < .56) || atEnd) && !focusables.some(o => o.on)) setFocus(f, true); }
+      const wanted = !f.seen || f.el.classList.contains('hold-here');
+      if (!f.on) { if (settled && wanted && seen > .9 && ((mid > .4 && mid < .6) || atEnd) && !focusables.some(o => o.on)) setFocus(f, true); }
       else if (seen < .5) setFocus(f, false);
     });
   };
+  // letting go is judged on every scroll; popping out waits until the reader has paused for a moment
+  const onScrollFocus = () => { focusCheck(false); clearTimeout(idle); idle = setTimeout(() => focusCheck(true), 260); };
   focusable($('#kpPanel'));
   $$('.triage-host').forEach(h => focusable(h));
   $$('.qz-host').forEach(h => focusable(h));
   setPageW();
   addEventListener('resize', setPageW);
-  addEventListener('scroll', focusCheck, { passive: true });
+  addEventListener('scroll', onScrollFocus, { passive: true });
 
   /* ======================================================================
      6 · THE THREE CHECKS. One renderer: 'check' (scored, locks, retry from the
@@ -737,7 +743,12 @@
     const rest = $('#afterGate'); rest.hidden = false; rest.classList.add('opening');
     $('#gate').hidden = true; document.body.classList.remove('locked');
     pinLayout(true); watchRv(); layoutAll();
-    if (scroll) setTimeout(() => $('#s6').scrollIntoView({ behavior: smooth(), block: 'start' }), 450);
+    // land on the reprise's chapter break with its line showing, rather than flying past it to #s6
+    if (scroll) setTimeout(() => {
+      const seam = $('.seam', rest);
+      if (reduced()) { seam.scrollIntoView({ block: 'start' }); return; }
+      scrollTo({ top: seam.getBoundingClientRect().top + scrollY + (seam.offsetHeight - innerHeight) * .35, behavior: 'smooth' });
+    }, 450);
   };
   const LOCK = $('#gateIc').innerHTML;
   function paintGate() {
